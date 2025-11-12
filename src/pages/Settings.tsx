@@ -10,6 +10,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSound } from '@/hooks/useSound';
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -42,8 +43,9 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto p-6 space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
@@ -162,13 +164,14 @@ const Settings = () => {
             <Button className="w-full gradient-primary">
               Remove Ads - $2.99
             </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               One-time purchase, no subscription
             </p>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };
 

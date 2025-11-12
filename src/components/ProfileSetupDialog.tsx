@@ -47,7 +47,11 @@ const ProfileSetupDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(newOpen) => {
+      // Prevent closing if no profile exists
+      if (!profile && !newOpen) return;
+      setOpen(newOpen);
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Welcome to BlockRise!</DialogTitle>

@@ -21,6 +21,8 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    
     if (!username.trim() || !city.trim() || !country.trim()) {
       toast.error('Please fill in all fields');
       return;

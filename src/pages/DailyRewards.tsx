@@ -4,25 +4,35 @@ import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from 'react';
 
 const DailyRewards = () => {
   const navigate = useNavigate();
   const { progress, claimDailyReward } = useGameProgress();
+  const [isClaiming, setIsClaiming] = useState(false);
 
   const handleClaimReward = async () => {
-    const reward = await claimDailyReward();
-    if (reward > 0) {
-      toast.success(`Claimed ${reward} coins! Keep your streak going!`);
-    } else {
-      toast.info('Already claimed today. Come back tomorrow!');
+    if (isClaiming) return;
+    setIsClaiming(true);
+    try {
+      const reward = await claimDailyReward();
+      if (reward > 0) {
+        toast.success(`Claimed ${reward} coins! Keep your streak going!`);
+      } else {
+        toast.info('Already claimed today. Come back tomorrow!');
+      }
+    } finally {
+      setIsClaiming(false);
     }
   };
 
   const streakRewards = [50, 60, 70, 80, 90, 100, 120];
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto p-6 space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
@@ -49,7 +59,7 @@ const DailyRewards = () => {
         {/* Claim Button */}
         <Button
           onClick={handleClaimReward}
-          disabled={progress.hasClaimedDailyReward}
+          disabled={progress.hasClaimedDailyReward || isClaiming}
           className="w-full h-16 text-lg gradient-primary"
         >
           <Gift className="mr-2 h-5 w-5" />
@@ -112,6 +122,7 @@ const DailyRewards = () => {
         </div>
       </div>
     </div>
+    </ScrollArea>
   );
 };
 

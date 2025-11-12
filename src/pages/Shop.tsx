@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from 'react';
 
 const Shop = () => {
   const navigate = useNavigate();
@@ -30,17 +32,28 @@ const Shop = () => {
     { id: 'premium', name: 'Premium Pass', description: '2x coins, exclusive skins, ad-free', icon: <Star className="h-6 w-6" />, priceKey: 'premium' as const, popular: false },
   ];
 
+  const [isPurchasing, setIsPurchasing] = useState(false);
+
   const handlePurchasePowerUp = async (powerUp: typeof powerUps[0]) => {
+    if (isPurchasing) return;
     if (progress.totalCoins < powerUp.price) {
       toast.error('Not enough coins!');
       return;
     }
-    await addCoins(-powerUp.price);
-    toast.success(`${powerUp.name} purchased! (Coming soon in gameplay)`);
+    setIsPurchasing(true);
+    try {
+      await addCoins(-powerUp.price);
+      toast.success(`${powerUp.name} purchased! (Coming soon in gameplay)`);
+    } finally {
+      setIsPurchasing(false);
+    }
   };
 
   const handlePurchaseIAP = (item: string) => {
+    if (isPurchasing) return;
+    setIsPurchasing(true);
     toast.info('Opening payment... (Demo mode)');
+    setTimeout(() => setIsPurchasing(false), 1000);
   };
 
   if (currencyLoading) {
@@ -50,8 +63,9 @@ const Shop = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
@@ -146,12 +160,12 @@ const Shop = () => {
                   <h3 className="font-semibold">{powerUp.name}</h3>
                   <p className="text-xs text-muted-foreground">{powerUp.description}</p>
                 </div>
-                <Button
-                  onClick={() => handlePurchasePowerUp(powerUp)}
-                  className="w-full"
-                  variant="outline"
-                  disabled={progress.totalCoins < powerUp.price}
-                >
+                    <Button
+                      onClick={() => handlePurchasePowerUp(powerUp)}
+                      className="w-full"
+                      variant="outline"
+                      disabled={progress.totalCoins < powerUp.price || isPurchasing}
+                    >
                   <Coins className="h-4 w-4 mr-1" />
                   {powerUp.price}
                 </Button>
@@ -161,6 +175,7 @@ const Shop = () => {
         </section>
       </div>
     </div>
+    </ScrollArea>
   );
 };
 

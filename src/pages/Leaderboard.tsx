@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
@@ -38,8 +39,9 @@ const Leaderboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
@@ -118,8 +120,9 @@ const Leaderboard = () => {
             </p>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };
 
