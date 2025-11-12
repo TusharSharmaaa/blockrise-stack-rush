@@ -70,6 +70,7 @@ export const useUserProfile = () => {
   };
 
   const createProfile = async (name: string, country: string) => {
+    console.log('[useUserProfile] Creating profile:', { name, country });
     try {
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
       
@@ -87,7 +88,12 @@ export const useUserProfile = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useUserProfile] Insert error:', error);
+        throw error;
+      }
+      
+      console.log('[useUserProfile] Profile created in DB:', data.id);
 
       const newProfile: UserProfile = {
         id: data.id,
@@ -103,10 +109,11 @@ export const useUserProfile = () => {
       };
 
       localStorage.setItem('profileId', data.id);
+      console.log('[useUserProfile] Profile saved to localStorage');
       setProfile(newProfile);
       return newProfile;
     } catch (error) {
-      console.error('Error creating profile:', error);
+      console.error('[useUserProfile] Error creating profile:', error);
       throw error;
     }
   };
@@ -151,6 +158,7 @@ export const useUserProfile = () => {
   };
 
   const checkNameUnique = async (name: string, currentUserId?: string): Promise<boolean> => {
+    console.log('[useUserProfile] Checking name uniqueness:', { name, currentUserId });
     try {
       let query = supabase
         .from('profiles')
@@ -159,16 +167,22 @@ export const useUserProfile = () => {
 
       const { data, error } = await query.maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useUserProfile] Error checking name:', error);
+        throw error;
+      }
       
       // If editing own profile and name matches current, it's available
       if (data && currentUserId && data.user_id === currentUserId) {
+        console.log('[useUserProfile] Name matches current user profile');
         return true;
       }
       
-      return !data; // If no data, name is available
+      const isAvailable = !data;
+      console.log('[useUserProfile] Name availability:', isAvailable);
+      return isAvailable; // If no data, name is available
     } catch (error) {
-      console.error('Error checking name uniqueness:', error);
+      console.error('[useUserProfile] Error checking name uniqueness:', error);
       return false; // Assume not unique on error to be safe
     }
   };

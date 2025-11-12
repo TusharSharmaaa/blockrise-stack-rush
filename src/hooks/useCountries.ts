@@ -15,6 +15,7 @@ export const useCountries = () => {
   }, []);
 
   const loadCountries = async () => {
+    console.log('[useCountries] Loading countries...');
     try {
       const { data, error } = await supabase
         .from('countries')
@@ -23,9 +24,11 @@ export const useCountries = () => {
 
       if (error) throw error;
       
+      console.log('[useCountries] Loaded countries:', data?.length);
       setCountries(data || []);
     } catch (error) {
-      console.error('Error loading countries:', error);
+      console.error('[useCountries] Error loading countries:', error);
+      console.log('[useCountries] Using fallback country list');
       // Fallback to basic list if server fails
       setCountries([
         { code: 'US', name: 'United States' },

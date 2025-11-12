@@ -33,22 +33,31 @@ const ProfileSetupDialog = () => {
     setIsSubmitting(true);
     setErrors({});
     
+    console.log('[ProfileSetup] Starting submission:', { name, country });
+    
     try {
       // Validate and sanitize inputs
       const validatedData = validateProfileData({
         name,
         country,
       });
+      
+      console.log('[ProfileSetup] Validation passed');
 
       // Check name uniqueness
+      console.log('[ProfileSetup] Checking name uniqueness...');
       const isUnique = await checkNameUnique(validatedData.name);
+      console.log('[ProfileSetup] Uniqueness check result:', isUnique);
+      
       if (!isUnique) {
         setErrors({ name: 'Name already taken — please choose a different name.' });
         setIsSubmitting(false);
         return;
       }
 
+      console.log('[ProfileSetup] Creating profile...');
       await createProfile(validatedData.name, validatedData.country);
+      console.log('[ProfileSetup] Profile created successfully');
       
       // Store locally to prevent re-prompting
       localStorage.setItem('blockrise_profile_complete', 'true');
@@ -56,6 +65,7 @@ const ProfileSetupDialog = () => {
       toast.success('Profile created! Welcome to BlockRise! 🎉');
       setOpen(false);
     } catch (error: any) {
+      console.error('[ProfileSetup] Error during submission:', error);
       const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
       setErrors({ name: errorMessage });
     } finally {
