@@ -14,7 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leaderboard: {
+        Row: {
+          achieved_at: string | null
+          id: string
+          level: number
+          profile_id: string | null
+          score: number
+        }
+        Insert: {
+          achieved_at?: string | null
+          id?: string
+          level?: number
+          profile_id?: string | null
+          score?: number
+        }
+        Update: {
+          achieved_at?: string | null
+          id?: string
+          level?: number
+          profile_id?: string | null
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leaderboard_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_color: string
+          city: string
+          country: string
+          created_at: string | null
+          current_level: number | null
+          highest_score: number | null
+          id: string
+          total_coins: number | null
+          updated_at: string | null
+          user_id: string | null
+          username: string
+        }
+        Insert: {
+          avatar_color: string
+          city: string
+          country: string
+          created_at?: string | null
+          current_level?: number | null
+          highest_score?: number | null
+          id?: string
+          total_coins?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          username: string
+        }
+        Update: {
+          avatar_color?: string
+          city?: string
+          country?: string
+          created_at?: string | null
+          current_level?: number | null
+          highest_score?: number | null
+          id?: string
+          total_coins?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
