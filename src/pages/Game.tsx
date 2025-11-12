@@ -235,13 +235,15 @@ const Game = () => {
           disabled={gameState.gameOver || gameState.paused}
         />
         
-        <GameControls
-          onRotate={rotate}
-          onMoveLeft={moveLeft}
-          onMoveRight={moveRight}
-          onMoveDown={moveDown}
-          disabled={gameState.gameOver || gameState.paused}
-        />
+        <div style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 16px)' }}>
+          <GameControls
+            onRotate={rotate}
+            onMoveLeft={moveLeft}
+            onMoveRight={moveRight}
+            onMoveDown={moveDown}
+            disabled={gameState.gameOver || gameState.paused}
+          />
+        </div>
       </div>
 
       {/* Pause Dialog */}

@@ -75,8 +75,8 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
                 </Badge>
               )}
               {!hasItem && (
-                <div className="absolute inset-0 bg-background/80 rounded-md flex items-center justify-center">
-                  <span className="text-xs text-muted-foreground">0</span>
+                <div className="absolute -bottom-1 -right-1 bg-muted/50 rounded-full h-4 w-4 flex items-center justify-center">
+                  <span className="text-[8px] text-muted-foreground/60">0</span>
                 </div>
               )}
             </div>
