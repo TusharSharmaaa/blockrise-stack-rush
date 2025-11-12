@@ -3,10 +3,12 @@ import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Shield } from 'l
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useSound } from '@/hooks/useSound';
 import { toast } from 'sonner';
 
 const Settings = () => {
@@ -14,8 +16,7 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
   const { formatPrice } = useCurrency();
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [musicEnabled, setMusicEnabled] = useState(true);
+  const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   useEffect(() => {
@@ -82,29 +83,46 @@ const Settings = () => {
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                {settings.soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
                 <div>
                   <div className="font-medium">Sound Effects</div>
                   <div className="text-sm text-muted-foreground">Game sounds and effects</div>
                 </div>
               </div>
               <Switch
-                checked={soundEnabled}
-                onCheckedChange={setSoundEnabled}
+                checked={settings.soundEnabled}
+                onCheckedChange={(checked) => {
+                  toggleSound(checked);
+                  if (checked) playSound('coin');
+                }}
               />
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {musicEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                {settings.musicEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
                 <div>
                   <div className="font-medium">Music</div>
                   <div className="text-sm text-muted-foreground">Background music</div>
                 </div>
               </div>
               <Switch
-                checked={musicEnabled}
-                onCheckedChange={setMusicEnabled}
+                checked={settings.musicEnabled}
+                onCheckedChange={toggleMusic}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">Volume</div>
+                <span className="text-sm text-muted-foreground">{Math.round(settings.volume * 100)}%</span>
+              </div>
+              <Slider
+                value={[settings.volume * 100]}
+                onValueChange={(value) => setVolume(value[0] / 100)}
+                max={100}
+                step={1}
+                className="w-full"
               />
             </div>
 

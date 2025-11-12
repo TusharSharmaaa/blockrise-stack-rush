@@ -2,13 +2,19 @@ import { useEffect, useState } from 'react';
 import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
+import PowerUpBar from '@/components/game/PowerUpBar';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useAdMob } from '@/hooks/useAdMob';
+import { useSound } from '@/hooks/useSound';
+import { usePowerUps } from '@/hooks/usePowerUps';
+import { useAchievements } from '@/hooks/useAchievements';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { hapticNotification } from '@/utils/haptics';
+import { NotificationType } from '@capacitor/haptics';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +28,11 @@ const Game = () => {
   const navigate = useNavigate();
   const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement } = useGameProgress();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
+  const { playSound, playMusic, stopMusic } = useSound();
+  const { usePowerUp, loadInventory } = usePowerUps();
+  const { checkAndUnlock } = useAchievements();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
+  const [previousScore, setPreviousScore] = useState(0);
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
@@ -33,6 +43,68 @@ const Game = () => {
     togglePause,
     resetGame
   } = useGameLoop();
+
+  // Load power-up inventory on mount
+  useEffect(() => {
+    loadInventory();
+    playMusic();
+    return () => stopMusic();
+  }, []);
+
+  // Track score changes for achievements
+  useEffect(() => {
+    if (gameState.score > previousScore) {
+      playSound('coin');
+      
+      // Check score-based achievements
+      if (gameState.score >= 1000 && previousScore < 1000) {
+        checkAndUnlock('first_1000', gameState.score);
+      }
+      if (gameState.score >= 5000 && previousScore < 5000) {
+        checkAndUnlock('score_5000', gameState.score);
+      }
+      if (gameState.score >= 10000 && previousScore < 10000) {
+        checkAndUnlock('score_10000', gameState.score);
+      }
+    }
+    setPreviousScore(gameState.score);
+  }, [gameState.score]);
+
+  // Track level achievements
+  useEffect(() => {
+    if (gameState.level >= 10) {
+      checkAndUnlock('reach_level_10', gameState.level);
+    }
+    if (gameState.level >= 25) {
+      checkAndUnlock('reach_level_25', gameState.level);
+    }
+  }, [gameState.level]);
+
+  const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
+    const success = await usePowerUp(type, 30000);
+    if (!success) {
+      toast.error('Power-up not available');
+      return;
+    }
+
+    playSound('powerup');
+    await hapticNotification(NotificationType.Success);
+
+    switch (type) {
+      case 'clearLine':
+        toast.success('Line cleared! (Coming soon)');
+        break;
+      case 'bomb':
+        toast.success('Bomb activated! (Coming soon)');
+        break;
+      case 'shuffle':
+        toast.success('Next blocks shuffled!');
+        break;
+      case 'slowTime':
+        toast.success('Time slowed for 30s!');
+        break;
+    }
+  };
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -73,6 +145,15 @@ const Game = () => {
     if (gameState.gameOver && !hasShownGameOverAd) {
       setHasShownGameOverAd(true);
       updateGameStats(gameState.score, progress.currentLevel);
+      playSound('gameOver');
+      stopMusic();
+      
+      // Check achievements on game over
+      checkAndUnlock('play_10_games', progress.totalGamesPlayed);
+      if (gameState.score > progress.highestScore) {
+        checkAndUnlock('new_high_score', gameState.score);
+      }
+      
       // Show interstitial ad after game over
       setTimeout(() => {
         showInterstitial();
@@ -83,11 +164,12 @@ const Game = () => {
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();
     if (result.success) {
-      // Give the player a second chance
       toast.success('Continue playing! You got 50 bonus coins!');
       await addCoins(50);
+      playSound('coin');
       resetGame();
       setHasShownGameOverAd(false);
+      playMusic();
     } else {
       toast.error('Ad was not completed');
     }
@@ -96,6 +178,7 @@ const Game = () => {
   const handlePlayAgain = () => {
     resetGame();
     setHasShownGameOverAd(false);
+    playMusic();
   };
 
   return (
@@ -127,6 +210,11 @@ const Game = () => {
         <GameBoard
           grid={gameState.grid}
           currentBlock={gameState.currentBlock}
+        />
+
+        <PowerUpBar
+          onUsePowerUp={handleUsePowerUp}
+          disabled={gameState.gameOver || gameState.paused}
         />
         
         <GameControls
