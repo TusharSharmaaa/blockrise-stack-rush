@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react';
-import { Preferences } from '@capacitor/preferences';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface UserProfile {
+  id?: string;
   username: string;
   city: string;
   country: string;
   avatarColor: string;
   joinedDate: string;
+  highestScore?: number;
+  currentLevel?: number;
+  totalCoins?: number;
 }
 
-const AVATAR_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--accent))',
+export const AVATAR_COLORS = [
+  'hsl(340, 82%, 52%)',
+  'hsl(291, 64%, 42%)',
+  'hsl(262, 52%, 47%)',
+  'hsl(231, 48%, 48%)',
+  'hsl(207, 90%, 54%)',
   '#FF6B6B',
   '#4ECDC4',
   '#45B7D1',
   '#FFA07A',
-  '#98D8C8',
-  '#F7DC6F',
-  '#BB8FCE',
-  '#85C1E2'
+  '#98D8C8'
 ];
 
 export const useUserProfile = () => {
@@ -32,67 +36,118 @@ export const useUserProfile = () => {
 
   const loadProfile = async () => {
     try {
-      const { value } = await Preferences.get({ key: 'userProfile' });
-      if (value) {
-        setProfile(JSON.parse(value));
+      // First check localStorage for profile ID
+      const localId = localStorage.getItem('profileId');
+      
+      if (localId) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', localId)
+          .single();
+
+        if (data && !error) {
+          setProfile({
+            id: data.id,
+            username: data.username,
+            city: data.city,
+            country: data.country,
+            avatarColor: data.avatar_color,
+            joinedDate: data.created_at,
+            highestScore: data.highest_score,
+            currentLevel: data.current_level,
+            totalCoins: data.total_coins
+          });
+        }
       }
     } catch (error) {
-      console.error('Failed to load profile:', error);
+      console.error('Error loading profile:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const createProfile = async (username: string, city: string, country: string) => {
-    const newProfile: UserProfile = {
-      username,
-      city,
-      country,
-      avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-      joinedDate: new Date().toISOString()
-    };
-
     try {
-      await Preferences.set({
-        key: 'userProfile',
-        value: JSON.stringify(newProfile)
-      });
+      const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert({
+          username,
+          city,
+          country,
+          avatar_color: avatarColor,
+          highest_score: 0,
+          current_level: 1,
+          total_coins: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newProfile: UserProfile = {
+        id: data.id,
+        username: data.username,
+        city: data.city,
+        country: data.country,
+        avatarColor: data.avatar_color,
+        joinedDate: data.created_at,
+        highestScore: 0,
+        currentLevel: 1,
+        totalCoins: 0
+      };
+
+      localStorage.setItem('profileId', data.id);
       setProfile(newProfile);
-      return { success: true };
+      return newProfile;
     } catch (error) {
-      console.error('Failed to create profile:', error);
-      return { success: false, error: 'Failed to create profile' };
+      console.error('Error creating profile:', error);
+      throw error;
     }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!profile) return { success: false, error: 'No profile exists' };
+    if (!profile?.id) return;
 
-    const updatedProfile = { ...profile, ...updates };
     try {
-      await Preferences.set({
-        key: 'userProfile',
-        value: JSON.stringify(updatedProfile)
-      });
-      setProfile(updatedProfile);
-      return { success: true };
+      const dbUpdates: any = {};
+      if (updates.username) dbUpdates.username = updates.username;
+      if (updates.city) dbUpdates.city = updates.city;
+      if (updates.country) dbUpdates.country = updates.country;
+      if (updates.avatarColor) dbUpdates.avatar_color = updates.avatarColor;
+      if (updates.highestScore !== undefined) dbUpdates.highest_score = updates.highestScore;
+      if (updates.currentLevel !== undefined) dbUpdates.current_level = updates.currentLevel;
+      if (updates.totalCoins !== undefined) dbUpdates.total_coins = updates.totalCoins;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(dbUpdates)
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, ...updates });
     } catch (error) {
-      console.error('Failed to update profile:', error);
-      return { success: false, error: 'Failed to update profile' };
+      console.error('Error updating profile:', error);
+      throw error;
     }
   };
 
   const checkUsernameUnique = async (username: string): Promise<boolean> => {
-    // In a real app, this would check against a database
-    // For now, we'll just check locally stored usernames
-    return true;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      return !data && !error;
+    } catch {
+      return true;
+    }
   };
 
-  return {
-    profile,
-    isLoading,
-    createProfile,
-    updateProfile,
-    checkUsernameUnique
-  };
+  return { profile, isLoading, createProfile, updateProfile, checkUsernameUnique };
 };
