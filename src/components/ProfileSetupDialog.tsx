@@ -15,6 +15,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 import Fuse from 'fuse.js';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ProfileSetupDialog = () => {
   const { profile, createProfile, checkNameUnique } = useUserProfile();
@@ -298,6 +299,22 @@ const ProfileSetupDialog = () => {
                 Username available!
               </p>
             )}
+            
+            {/* Loading skeleton while checking */}
+            {!errors.name && name.length >= 3 && isCheckingUsername && (
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-40" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-7 w-24" />
+                    <Skeleton className="h-7 w-28" />
+                    <Skeleton className="h-7 w-20" />
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {!errors.name && name.length >= 3 && !isCheckingUsername && usernameAvailable === false && (
               <div className="space-y-2">
                 <p className="text-sm text-destructive flex items-center gap-1">
@@ -317,7 +334,7 @@ const ProfileSetupDialog = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className="text-xs h-7 hover:bg-primary hover:text-primary-foreground"
+                          className="text-xs h-7 hover:bg-primary hover:text-primary-foreground transition-colors"
                         >
                           {suggestion}
                         </Button>
