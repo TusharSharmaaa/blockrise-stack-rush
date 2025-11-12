@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Shield, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Shield, Mail, Lock, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
@@ -96,6 +96,18 @@ const Settings = () => {
       }
     } finally {
       setIsUpgrading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast.success('Signed out successfully');
+      navigate('/auth');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sign out');
     }
   };
 
@@ -281,6 +293,21 @@ const Settings = () => {
               One-time purchase, no subscription
             </p>
           </div>
+
+          {/* Sign Out for Permanent Accounts */}
+          {!isAnonymous && (
+            <div className="bg-card rounded-lg p-6 card-elevated">
+              <h2 className="text-xl font-semibold mb-4">Account</h2>
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={handleSignOut}
+              >
+                <LogIn className="h-4 w-4 mr-2 rotate-180" />
+                Sign Out
+              </Button>
+            </div>
+          )}
         </div>
         </div>
       </div>

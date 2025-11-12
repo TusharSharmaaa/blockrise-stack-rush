@@ -12,6 +12,7 @@ import LevelSelect from "./pages/LevelSelect";
 import DailyRewards from "./pages/DailyRewards";
 import Profile from "./pages/Profile";
 import Shop from "./pages/Shop";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/game" element={<Game />} />
           <Route path="/level-select" element={<LevelSelect />} />
           <Route path="/daily-rewards" element={<DailyRewards />} />

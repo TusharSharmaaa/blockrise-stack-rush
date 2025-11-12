@@ -1,17 +1,36 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, ShoppingBag, User, Award } from "lucide-react";
+import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, ShoppingBag, User, Award, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { useAchievements } from "@/hooks/useAchievements";
 import { Badge } from "@/components/ui/badge";
 import ProfileSetupDialog from "@/components/ProfileSetupDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { progress, isLoading } = useGameProgress();
   const { getUnlockedCount, achievements } = useAchievements();
+  const [isAnonymous, setIsAnonymous] = useState(false);
+
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAnonymous(user?.is_anonymous ?? false);
+    };
+    
+    checkAuthStatus();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAnonymous(session?.user?.is_anonymous ?? false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   if (isLoading) {
     return (
@@ -128,6 +147,28 @@ const Index = () => {
             <Badge variant="outline">Configure</Badge>
           </div>
         </Card>
+
+        {/* Sign In Prompt for Anonymous Users */}
+        {isAnonymous && (
+          <Card className="p-4 sm:p-6 card-elevated bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/30">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <LogIn className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-lg">Save Your Progress</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Sign in to sync your game across devices and never lose your progress.
+              </p>
+              <Button 
+                className="w-full gradient-primary" 
+                onClick={() => navigate('/auth')}
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In or Create Account
+              </Button>
+            </div>
+          </Card>
+        )}
           </div>
         </div>
       </ScrollArea>
