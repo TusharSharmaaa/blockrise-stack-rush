@@ -20,9 +20,10 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins } = useGameProgress();
+  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement } = useGameProgress();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
+  const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
     moveLeft,
@@ -71,7 +72,7 @@ const Game = () => {
   useEffect(() => {
     if (gameState.gameOver && !hasShownGameOverAd) {
       setHasShownGameOverAd(true);
-      updateGameStats(gameState.score);
+      updateGameStats(gameState.score, progress.currentLevel);
       // Show interstitial ad after game over
       setTimeout(() => {
         showInterstitial();
@@ -105,6 +106,22 @@ const Game = () => {
         nextBlock={gameState.nextBlock}
         onPause={togglePause}
       />
+      
+      {/* Score Progress Bar */}
+      <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
+        <div className="max-w-md mx-auto">
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
+            <span className="font-semibold">{gameState.score}/{scoreRequirement}</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+              style={{ width: `${Math.min(100, (gameState.score / scoreRequirement) * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
       
       <div className="flex-1 flex flex-col justify-center">
         <GameBoard
@@ -149,17 +166,42 @@ const Game = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trophy className="h-6 w-6 text-primary" />
-              Game Over!
+              {hasCompletedLevel(progress.currentLevel, gameState.score) ? 'Level Complete! 🎉' : 'Game Over!'}
             </DialogTitle>
             <DialogDescription>
               You scored {gameState.score} points and reached level {gameState.level}!
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 text-center space-y-2">
-            <div className="text-4xl font-bold text-primary mb-2">{gameState.score}</div>
-            <div className="text-sm text-muted-foreground">Final Score</div>
+          <div className="py-4 space-y-4">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-primary mb-2">{gameState.score}</div>
+              <div className="text-sm text-muted-foreground">Final Score</div>
+            </div>
+            
+            {hasCompletedLevel(progress.currentLevel, gameState.score) ? (
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
+                <div className="text-lg font-semibold text-primary mb-1">
+                  ✨ Level {progress.currentLevel} Completed!
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Target: {scoreRequirement} | Your Score: {gameState.score}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-muted/50 rounded-lg p-4 text-center">
+                <div className="text-sm font-semibold mb-1">
+                  Keep trying!
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Target: {scoreRequirement} | Your Score: {gameState.score}
+                </div>
+              </div>
+            )}
+
             {gameState.score > progress.highestScore && (
-              <div className="text-sm font-semibold text-primary">🎉 New High Score!</div>
+              <div className="text-center text-sm font-semibold text-primary">
+                🎉 New Personal Best!
+              </div>
             )}
           </div>
           <DialogFooter className="flex flex-col gap-2">

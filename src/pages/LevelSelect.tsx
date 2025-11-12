@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Lock, Play, Star, Video } from 'lucide-react';
+import { ArrowLeft, Lock, Star, Video, Target, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useAdMob } from '@/hooks/useAdMob';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 
 const LevelSelect = () => {
   const navigate = useNavigate();
-  const { progress, watchAdForLevel, selectLevel, isLoading } = useGameProgress();
+  const { progress, watchAdForLevel, selectLevel, isLoading, canWatchAdToday, getScoreRequirement, getLevelBestScore } = useGameProgress();
   const { showRewardedAd, isRewardedLoading } = useAdMob();
 
   const handleLevelSelect = async (level: number) => {
@@ -20,18 +20,37 @@ const LevelSelect = () => {
   };
 
   const handleWatchAdToUnlock = async () => {
-    const result = await showRewardedAd();
-    if (result.success) {
-      await watchAdForLevel();
-      toast.success(`Progress saved! ${progress.adsRequiredPerLevel - progress.adsWatchedForNextLevel - 1} more ads to unlock next level`);
+    if (!canWatchAdToday()) {
+      toast.error('Daily ad limit reached! Come back tomorrow to unlock more levels.');
+      return;
+    }
+
+    const adResult = await showRewardedAd();
+    if (adResult.success) {
+      const result = await watchAdForLevel();
+      if (result.success) {
+        if (result.levelUnlocked) {
+          toast.success(`🎉 Level ${result.level} unlocked! +50 coins!`);
+        } else {
+          const remaining = progress.adsRequiredPerLevel - progress.adsWatchedForNextLevel - 1;
+          toast.success(`Progress saved! ${remaining} more ads to unlock next level. +10 coins!`);
+        }
+      } else {
+        toast.error(result.message || 'Cannot unlock level');
+      }
     } else {
       toast.error('Ad was not completed. Please try again.');
     }
   };
 
   const getStarsForLevel = (level: number) => {
-    // Mock star system based on score achievements
-    return Math.min(3, Math.floor(level / 3));
+    const bestScore = getLevelBestScore(level);
+    const requirement = getScoreRequirement(level);
+    if (bestScore === 0) return 0;
+    if (bestScore >= requirement * 2) return 3;
+    if (bestScore >= requirement * 1.5) return 2;
+    if (bestScore >= requirement) return 1;
+    return 0;
   };
 
   const nextLevelToUnlock = Math.max(...progress.unlockedLevels) + 1;
@@ -62,75 +81,112 @@ const LevelSelect = () => {
           </Badge>
         </div>
 
-        {/* Next Level Unlock Card */}
-        <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Unlock Level {nextLevelToUnlock}</h2>
-            <Badge variant="outline">
-              {progress.adsWatchedForNextLevel}/{progress.adsRequiredPerLevel} Ads
-            </Badge>
+        {/* Daily Limit Info */}
+        {!canWatchAdToday() && (
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 text-center">
+            <p className="font-semibold text-destructive">Daily Ad Limit Reached</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              You've watched {progress.adsWatchedToday}/{progress.maxAdsPerDay} ads today. Come back tomorrow!
+            </p>
           </div>
-          <Progress value={unlockProgress} className="h-3" />
-          <Button 
-            onClick={handleWatchAdToUnlock}
-            disabled={isRewardedLoading}
-            className="w-full gradient-primary"
-          >
-            <Video className="mr-2 h-4 w-4" />
-            {isRewardedLoading ? 'Loading Ad...' : `Watch Ad to Unlock (${progress.adsRequiredPerLevel - progress.adsWatchedForNextLevel} remaining)`}
-          </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Earn 10 coins per ad + 50 bonus coins on unlock!
-          </p>
-        </div>
+        )}
+
+        {/* Next Level Unlock Card */}
+        {nextLevelToUnlock <= 50 && (
+          <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Unlock Level {nextLevelToUnlock}</h2>
+              <Badge variant="outline">
+                {progress.adsWatchedForNextLevel}/{progress.adsRequiredPerLevel} Ads
+              </Badge>
+            </div>
+            <Progress value={unlockProgress} className="h-3" />
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Ads watched today:</span>
+              <Badge variant="secondary">{progress.adsWatchedToday}/{progress.maxAdsPerDay}</Badge>
+            </div>
+            <Button 
+              onClick={handleWatchAdToUnlock}
+              disabled={isRewardedLoading || !canWatchAdToday()}
+              className="w-full gradient-primary"
+            >
+              <Video className="mr-2 h-4 w-4" />
+              {isRewardedLoading ? 'Loading Ad...' : 
+               !canWatchAdToday() ? 'Daily Limit Reached' :
+               `Watch Ad to Unlock (${progress.adsRequiredPerLevel - progress.adsWatchedForNextLevel} remaining)`}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Earn 10 coins per ad + 50 bonus coins on unlock!
+            </p>
+          </div>
+        )}
 
         {/* Level Grid */}
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
-          {Array.from({ length: 20 }, (_, i) => i + 1).map((level) => {
+        <div className="grid grid-cols-4 md:grid-cols-5 gap-3">
+          {Array.from({ length: 50 }, (_, i) => i + 1).map((level) => {
             const isUnlocked = progress.unlockedLevels.includes(level);
             const isCurrent = progress.currentLevel === level;
             const stars = getStarsForLevel(level);
+            const scoreReq = getScoreRequirement(level);
+            const bestScore = getLevelBestScore(level);
 
             return (
-              <Button
-                key={level}
-                variant={isCurrent ? "default" : isUnlocked ? "outline" : "ghost"}
-                className={`h-24 flex flex-col gap-2 relative ${
-                  isCurrent ? 'gradient-primary' : ''
-                } ${!isUnlocked ? 'opacity-50' : ''}`}
-                onClick={() => handleLevelSelect(level)}
-                disabled={!isUnlocked}
-              >
-                {!isUnlocked && (
-                  <Lock className="absolute top-2 right-2 h-4 w-4" />
-                )}
-                <span className="text-2xl font-bold">{level}</span>
-                {isUnlocked && (
-                  <div className="flex gap-1">
-                    {Array.from({ length: 3 }, (_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-3 w-3 ${
-                          i < stars ? 'fill-yellow-500 text-yellow-500' : 'text-muted'
-                        }`}
-                      />
-                    ))}
+              <div key={level} className="relative">
+                <Button
+                  variant={isCurrent ? "default" : isUnlocked ? "outline" : "ghost"}
+                  className={`w-full h-20 flex flex-col gap-1 relative ${
+                    isCurrent ? 'gradient-primary border-2' : ''
+                  } ${!isUnlocked ? 'opacity-40' : ''}`}
+                  onClick={() => handleLevelSelect(level)}
+                  disabled={!isUnlocked}
+                >
+                  {!isUnlocked && (
+                    <Lock className="absolute top-1 right-1 h-3 w-3" />
+                  )}
+                  {isCurrent && (
+                    <Trophy className="absolute top-1 right-1 h-3 w-3" />
+                  )}
+                  <span className="text-xl font-bold">{level}</span>
+                  {isUnlocked && stars > 0 && (
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: 3 }, (_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-2.5 w-2.5 ${
+                            i < stars ? 'fill-yellow-500 text-yellow-500' : 'text-muted'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {isUnlocked && (
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <Target className="h-2 w-2" />
+                      {scoreReq}
+                    </div>
+                  )}
+                </Button>
+                {isUnlocked && bestScore > 0 && (
+                  <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground text-[9px] px-1 rounded-full whitespace-nowrap">
+                    {bestScore}
                   </div>
                 )}
-              </Button>
+              </div>
             );
           })}
         </div>
 
         {/* Info Card */}
-        <div className="bg-card rounded-lg p-6 card-elevated">
+        <div className="bg-card rounded-lg p-6 card-elevated space-y-3">
           <h3 className="font-semibold mb-2">💡 Level System</h3>
           <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• First 3 levels are free to play</li>
+            <li>• First 5 levels are free to play</li>
             <li>• Watch {progress.adsRequiredPerLevel} ads to unlock each new level</li>
-            <li>• Higher levels have faster speed and more challenge</li>
-            <li>• Earn bonus coins for unlocking new levels</li>
-            <li>• Collect stars based on your performance</li>
+            <li>• Maximum {progress.maxAdsPerDay} ads per day - resets daily</li>
+            <li>• Reach target score to complete levels</li>
+            <li>• Difficulty increases progressively (8% faster per level)</li>
+            <li>• Earn stars: 1★ = reach target, 2★ = 1.5x target, 3★ = 2x target</li>
+            <li>• Total {progress.totalAdsWatched} ads watched 📺</li>
           </ul>
         </div>
       </div>

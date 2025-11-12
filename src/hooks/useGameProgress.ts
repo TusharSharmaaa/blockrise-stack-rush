@@ -12,11 +12,16 @@ export interface LevelProgress {
   hasClaimedDailyReward: boolean;
   totalGamesPlayed: number;
   highestScore: number;
+  lastAdWatchDate: string;
+  adsWatchedToday: number;
+  maxAdsPerDay: number;
+  levelScores: { [level: number]: number };
+  totalAdsWatched: number;
 }
 
 const INITIAL_PROGRESS: LevelProgress = {
   currentLevel: 1,
-  unlockedLevels: [1, 2, 3], // First 3 levels free
+  unlockedLevels: [1, 2, 3, 4, 5], // First 5 levels free
   adsWatchedForNextLevel: 0,
   adsRequiredPerLevel: 3,
   totalCoins: 100, // Starting bonus
@@ -24,7 +29,36 @@ const INITIAL_PROGRESS: LevelProgress = {
   lastPlayedDate: new Date().toDateString(),
   hasClaimedDailyReward: false,
   totalGamesPlayed: 0,
-  highestScore: 0
+  highestScore: 0,
+  lastAdWatchDate: new Date().toDateString(),
+  adsWatchedToday: 0,
+  maxAdsPerDay: 10,
+  levelScores: {},
+  totalAdsWatched: 0
+};
+
+// Level progression system - score required to complete each level
+export const LEVEL_REQUIREMENTS = {
+  1: 500,
+  2: 800,
+  3: 1200,
+  4: 1800,
+  5: 2500,
+  10: 5000,
+  15: 8000,
+  20: 12000,
+  25: 18000,
+  30: 25000,
+  40: 40000,
+  50: 60000,
+};
+
+export const getScoreRequirement = (level: number): number => {
+  if (LEVEL_REQUIREMENTS[level as keyof typeof LEVEL_REQUIREMENTS]) {
+    return LEVEL_REQUIREMENTS[level as keyof typeof LEVEL_REQUIREMENTS];
+  }
+  // Dynamic calculation for levels not in the map
+  return Math.floor(500 + (level * level * 50));
 };
 
 export const useGameProgress = () => {
@@ -79,9 +113,29 @@ export const useGameProgress = () => {
     savedProgress.lastPlayedDate = today;
   };
 
+  const canWatchAdToday = () => {
+    const today = new Date().toDateString();
+    if (progress.lastAdWatchDate !== today) {
+      return true; // New day, can watch ads
+    }
+    return progress.adsWatchedToday < progress.maxAdsPerDay;
+  };
+
   const watchAdForLevel = async () => {
+    const today = new Date().toDateString();
+    
+    // Reset daily counter if new day
+    if (progress.lastAdWatchDate !== today) {
+      progress.adsWatchedToday = 0;
+      progress.lastAdWatchDate = today;
+    }
+
+    if (progress.adsWatchedToday >= progress.maxAdsPerDay) {
+      return { success: false, message: 'Daily ad limit reached. Come back tomorrow!' };
+    }
+
     const newAdsWatched = progress.adsWatchedForNextLevel + 1;
-    const nextLevel = progress.currentLevel + 1;
+    const nextLevel = Math.max(...progress.unlockedLevels) + 1;
 
     if (newAdsWatched >= progress.adsRequiredPerLevel) {
       // Unlock next level
@@ -89,16 +143,24 @@ export const useGameProgress = () => {
         ...progress,
         unlockedLevels: [...progress.unlockedLevels, nextLevel],
         adsWatchedForNextLevel: 0,
-        totalCoins: progress.totalCoins + 50 // Bonus coins for unlocking
+        totalCoins: progress.totalCoins + 50,
+        adsWatchedToday: progress.adsWatchedToday + 1,
+        lastAdWatchDate: today,
+        totalAdsWatched: progress.totalAdsWatched + 1
       };
       await saveProgress(newProgress);
+      return { success: true, levelUnlocked: true, level: nextLevel };
     } else {
       const newProgress = {
         ...progress,
         adsWatchedForNextLevel: newAdsWatched,
-        totalCoins: progress.totalCoins + 10 // Small reward per ad
+        totalCoins: progress.totalCoins + 10,
+        adsWatchedToday: progress.adsWatchedToday + 1,
+        lastAdWatchDate: today,
+        totalAdsWatched: progress.totalAdsWatched + 1
       };
       await saveProgress(newProgress);
+      return { success: true, levelUnlocked: false };
     }
   };
 
@@ -128,13 +190,29 @@ export const useGameProgress = () => {
     return 0;
   };
 
-  const updateGameStats = async (score: number) => {
+  const updateGameStats = async (score: number, level: number) => {
+    const currentLevelBest = progress.levelScores[level] || 0;
+    const newLevelScores = {
+      ...progress.levelScores,
+      [level]: Math.max(currentLevelBest, score)
+    };
+
     const newProgress = {
       ...progress,
       totalGamesPlayed: progress.totalGamesPlayed + 1,
-      highestScore: Math.max(progress.highestScore, score)
+      highestScore: Math.max(progress.highestScore, score),
+      levelScores: newLevelScores
     };
     await saveProgress(newProgress);
+  };
+
+  const hasCompletedLevel = (level: number, score: number): boolean => {
+    const requirement = getScoreRequirement(level);
+    return score >= requirement;
+  };
+
+  const getLevelBestScore = (level: number): number => {
+    return progress.levelScores[level] || 0;
   };
 
   const resetProgress = async () => {
@@ -149,6 +227,10 @@ export const useGameProgress = () => {
     addCoins,
     claimDailyReward,
     updateGameStats,
-    resetProgress
+    resetProgress,
+    canWatchAdToday,
+    hasCompletedLevel,
+    getLevelBestScore,
+    getScoreRequirement
   };
 };

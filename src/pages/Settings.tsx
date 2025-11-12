@@ -1,16 +1,44 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
-import { useState } from 'react';
-import { useTheme } from 'next-themes';
+import { Card } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { useTheme } from '@/components/ThemeProvider';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useCurrency } from '@/hooks/useCurrency';
+import { toast } from 'sonner';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
+  const { formatPrice } = useCurrency();
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!permissionGranted && notificationsEnabled) {
+      requestPermissions();
+    }
+  }, []);
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    if (enabled && !permissionGranted) {
+      const granted = await requestPermissions();
+      if (!granted) {
+        toast.error('Notification permission denied');
+        return;
+      }
+    }
+    await toggleNotifications(enabled);
+    toast.success(enabled ? 'Notifications enabled' : 'Notifications disabled');
+  };
+
+  const handleRemoveAds = () => {
+    toast.info('Opening payment...');
+  };
 
   return (
     <div className="min-h-screen bg-background">
