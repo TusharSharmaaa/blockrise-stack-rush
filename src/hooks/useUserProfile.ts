@@ -128,7 +128,19 @@ export const useUserProfile = () => {
 
       if (error) throw error;
 
-      setProfile({ ...profile, ...updates });
+      const updatedProfile = { ...profile, ...updates };
+      setProfile(updatedProfile);
+      
+      // Also submit score to leaderboard if highest score was updated
+      if (updates.highestScore !== undefined && updates.highestScore > (profile.highestScore || 0)) {
+        await supabase
+          .from('leaderboard')
+          .insert({
+            profile_id: profile.id,
+            score: updates.highestScore,
+            level: updates.currentLevel || profile.currentLevel || 1
+          });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
