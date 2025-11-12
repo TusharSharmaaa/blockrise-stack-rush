@@ -6,6 +6,7 @@ import { useAdMob } from '@/hooks/useAdMob';
 import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const LevelSelect = () => {
   const navigate = useNavigate();
@@ -63,8 +64,9 @@ const LevelSelect = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button
@@ -189,8 +191,9 @@ const LevelSelect = () => {
             <li>• Total {progress.totalAdsWatched} ads watched 📺</li>
           </ul>
         </div>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };
 

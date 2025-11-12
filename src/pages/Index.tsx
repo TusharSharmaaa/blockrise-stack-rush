@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { useAchievements } from "@/hooks/useAchievements";
 import { Badge } from "@/components/ui/badge";
+import ProfileSetupDialog from "@/components/ProfileSetupDialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -20,8 +22,11 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+    <>
+      <ProfileSetupDialog />
+      <ScrollArea className="h-screen">
+        <div className="min-h-screen bg-background p-4 sm:p-6 pb-20">
+          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 mb-6 sm:mb-8">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -123,8 +128,10 @@ const Index = () => {
             <Badge variant="outline">Configure</Badge>
           </div>
         </Card>
-      </div>
-    </div>
+          </div>
+        </div>
+      </ScrollArea>
+    </>
   );
 };
 

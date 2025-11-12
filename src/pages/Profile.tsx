@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -48,8 +49,9 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto p-6 space-y-6">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
@@ -147,8 +149,9 @@ const Profile = () => {
         <div className="text-center text-sm text-muted-foreground">
           <p>Your profile will be visible on the global leaderboard</p>
         </div>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 };
 
