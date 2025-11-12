@@ -31,17 +31,20 @@ const Profile = () => {
     }
 
     setIsSubmitting(true);
-    const result = profile 
-      ? await updateProfile({ username, city, country })
-      : await createProfile(username, city, country);
-
-    if (result.success) {
-      toast.success(profile ? 'Profile updated!' : 'Profile created!');
+    try {
+      if (profile) {
+        await updateProfile({ username, city, country });
+        toast.success('Profile updated!');
+      } else {
+        await createProfile(username, city, country);
+        toast.success('Profile created!');
+      }
       navigate('/leaderboard');
-    } else {
-      toast.error(result.error || 'Failed to save profile');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save profile');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
