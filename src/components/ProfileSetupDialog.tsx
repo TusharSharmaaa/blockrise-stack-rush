@@ -32,6 +32,8 @@ const ProfileSetupDialog = () => {
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   // Configure Fuse.js for fuzzy search
   const fuse = new Fuse(countries, {
@@ -80,7 +82,36 @@ const ProfileSetupDialog = () => {
     // Debounce the actual check by 500ms
     debounceTimerRef.current = setTimeout(async () => {
       try {
+        const trimmedName = name.trim().toLowerCase();
+        
+        // Check cache first
+        const cached = usernameCheckCacheRef.current.get(trimmedName);
+        const now = Date.now();
+        
+        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+          // Use cached result
+          console.log('[ProfileSetup] Using cached result for:', trimmedName);
+          setUsernameAvailable(cached.available);
+          
+          // If username is taken, generate suggestions
+          if (!cached.available) {
+            await generateUsernameSuggestions(name.trim());
+          } else {
+            setUsernameSuggestions([]);
+          }
+          setIsCheckingUsername(false);
+          return;
+        }
+        
+        // Make API call if not cached or expired
         const isUnique = await checkNameUnique(name.trim());
+        
+        // Cache the result
+        usernameCheckCacheRef.current.set(trimmedName, {
+          available: isUnique,
+          timestamp: now
+        });
+        
         setUsernameAvailable(isUnique);
         
         // If username is taken, generate suggestions
@@ -130,7 +161,28 @@ const ProfileSetupDialog = () => {
       if (suggestions.length >= 3) break; // Limit to 3 suggestions
       
       try {
-        const isAvailable = await checkNameUnique(candidate);
+        const candidateLower = candidate.toLowerCase();
+        
+        // Check cache first
+        const cached = usernameCheckCacheRef.current.get(candidateLower);
+        const now = Date.now();
+        
+        let isAvailable: boolean;
+        
+        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+          // Use cached result
+          isAvailable = cached.available;
+        } else {
+          // Make API call
+          isAvailable = await checkNameUnique(candidate);
+          
+          // Cache the result
+          usernameCheckCacheRef.current.set(candidateLower, {
+            available: isAvailable,
+            timestamp: now
+          });
+        }
+        
         if (isAvailable) {
           suggestions.push(candidate);
         }
@@ -147,6 +199,13 @@ const ProfileSetupDialog = () => {
     setUsernameAvailable(true);
     setUsernameSuggestions([]);
     setErrors(prev => ({ ...prev, name: undefined }));
+    
+    // Update cache for the selected suggestion
+    const suggestionLower = suggestion.toLowerCase();
+    usernameCheckCacheRef.current.set(suggestionLower, {
+      available: true,
+      timestamp: Date.now()
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
