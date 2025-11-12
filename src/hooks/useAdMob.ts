@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
 import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, InterstitialAdPluginEvents, RewardAdPluginEvents, AdMobRewardItem } from '@capacitor-community/admob';
+import { useState } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { ADMOB_CONFIG } from '@/config/admob';
 
 const isNative = Capacitor.isNativePlatform();
 
-// Test Ad Unit IDs for Android
+// Use test IDs from config (automatically switches based on environment)
 const AD_UNITS = {
-  banner: 'ca-app-pub-3940256099942544/6300978111',
-  interstitial: 'ca-app-pub-3940256099942544/1033173712',
-  rewarded: 'ca-app-pub-3940256099942544/5224354917'
+  banner: ADMOB_CONFIG.BANNER_ID,
+  interstitial: ADMOB_CONFIG.INTERSTITIAL_ID,
+  rewarded: ADMOB_CONFIG.REWARDED_ID
 };
 
 export const useAdMob = () => {

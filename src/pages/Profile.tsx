@@ -13,31 +13,32 @@ import { validateProfileData } from '@/utils/validation';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, createProfile, updateProfile, checkUsernameUnique } = useUserProfile();
+  const { profile, updateProfile, checkNameUnique } = useUserProfile();
   const { progress } = useGameProgress();
-  const [username, setUsername] = useState(profile?.username || '');
-  const [city, setCity] = useState(profile?.city || '');
+  const [name, setName] = useState(profile?.username || '');
   const [country, setCountry] = useState(profile?.country || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
     setIsSubmitting(true);
+    setError(undefined);
+    
     try {
       // Validate and sanitize inputs
       const validatedData = validateProfileData({
-        username,
-        city,
+        name,
         country,
       });
 
-      // Check username uniqueness only if username changed
-      if (validatedData.username !== profile?.username) {
-        const isUnique = await checkUsernameUnique(validatedData.username);
+      // Check name uniqueness only if name changed
+      if (validatedData.name !== profile?.username) {
+        const isUnique = await checkNameUnique(validatedData.name, profile?.user_id);
         if (!isUnique) {
-          toast.error('Username is already taken. Please choose another.');
+          setError('Name already taken — please choose a different name.');
           setIsSubmitting(false);
           return;
         }
@@ -45,19 +46,16 @@ const Profile = () => {
 
       if (profile) {
         await updateProfile({ 
-          username: validatedData.username, 
-          city: validatedData.city, 
+          username: validatedData.name,
+          city: '',
           country: validatedData.country 
         });
         toast.success('Profile updated!');
-      } else {
-        await createProfile(validatedData.username, validatedData.city, validatedData.country);
-        toast.success('Profile created!');
       }
       navigate('/leaderboard');
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to save profile';
-      toast.error(errorMessage);
+      const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -100,39 +98,32 @@ const Profile = () => {
         {/* Profile Form */}
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive rounded-md">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Label htmlFor="username" className="flex items-center gap-2">
+              <Label htmlFor="name" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Username (visible to all)
+                Name
               </Label>
               <Input
-                id="username"
+                id="name"
                 type="text"
-                placeholder="Enter unique username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                maxLength={20}
+                placeholder="Enter your name"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError(undefined);
+                }}
+                maxLength={30}
                 required
               />
               <p className="text-xs text-muted-foreground">
                 This will be shown on the leaderboard
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="city" className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                City
-              </Label>
-              <Input
-                id="city"
-                type="text"
-                placeholder="Your city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                maxLength={30}
-                required
-              />
             </div>
 
             <div className="space-y-2">
@@ -145,8 +136,11 @@ const Profile = () => {
                 type="text"
                 placeholder="Your country"
                 value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                maxLength={30}
+                onChange={(e) => {
+                  setCountry(e.target.value);
+                  setError(undefined);
+                }}
+                maxLength={50}
                 required
               />
             </div>
@@ -156,7 +150,7 @@ const Profile = () => {
               className="w-full gradient-primary"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Saving...' : profile ? 'Update Profile' : 'Create Profile'}
+              {isSubmitting ? 'Saving...' : 'Update Profile'}
             </Button>
           </form>
         </Card>

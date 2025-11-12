@@ -1,30 +1,20 @@
 import { z } from 'zod';
 
 // Profile validation schemas
-export const usernameSchema = z
+export const nameSchema = z
   .string()
   .trim()
-  .min(3, { message: "Username must be at least 3 characters" })
-  .max(20, { message: "Username must be less than 20 characters" })
-  .regex(/^[a-zA-Z0-9_-]+$/, { message: "Username can only contain letters, numbers, underscores, and hyphens" });
-
-export const citySchema = z
-  .string()
-  .trim()
-  .min(2, { message: "City must be at least 2 characters" })
-  .max(50, { message: "City must be less than 50 characters" })
-  .regex(/^[a-zA-Z\s-]+$/, { message: "City can only contain letters, spaces, and hyphens" });
+  .min(2, { message: "Please enter your name." })
+  .max(30, { message: "Name must be less than 30 characters" })
+  .regex(/^[a-zA-Z0-9\s_-]+$/, { message: "Name can only contain letters, numbers, spaces, underscores, and hyphens" });
 
 export const countrySchema = z
   .string()
   .trim()
-  .min(2, { message: "Country must be at least 2 characters" })
-  .max(50, { message: "Country must be less than 50 characters" })
-  .regex(/^[a-zA-Z\s-]+$/, { message: "Country can only contain letters, spaces, and hyphens" });
+  .min(2, { message: "Please select your country." });
 
 export const profileSchema = z.object({
-  username: usernameSchema,
-  city: citySchema,
+  name: nameSchema,
   country: countrySchema,
 });
 
@@ -38,11 +28,10 @@ export const sanitizeInput = (input: string): string => {
 };
 
 // Validate and sanitize profile data
-export const validateProfileData = (data: { username: string; city: string; country: string }) => {
+export const validateProfileData = (data: { name: string; country: string }) => {
   try {
     const sanitized = {
-      username: sanitizeInput(data.username),
-      city: sanitizeInput(data.city),
+      name: sanitizeInput(data.name),
       country: sanitizeInput(data.country),
     };
     

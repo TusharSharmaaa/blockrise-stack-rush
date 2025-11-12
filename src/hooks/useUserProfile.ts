@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface UserProfile {
   id?: string;
+  user_id?: string;
   username: string;
   city: string;
   country: string;
@@ -49,6 +50,7 @@ export const useUserProfile = () => {
         if (data && !error) {
           setProfile({
             id: data.id,
+            user_id: data.user_id,
             username: data.username,
             city: data.city,
             country: data.country,
@@ -67,16 +69,16 @@ export const useUserProfile = () => {
     }
   };
 
-  const createProfile = async (username: string, city: string, country: string) => {
+  const createProfile = async (name: string, country: string) => {
     try {
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
       
       const { data, error } = await supabase
         .from('profiles')
         .insert({
-          username,
-          city,
-          country,
+          username: name,
+          city: '',
+          country: country,
           avatar_color: avatarColor,
           highest_score: 0,
           current_level: 1,
@@ -89,6 +91,7 @@ export const useUserProfile = () => {
 
       const newProfile: UserProfile = {
         id: data.id,
+        user_id: data.user_id,
         username: data.username,
         city: data.city,
         country: data.country,
@@ -147,19 +150,28 @@ export const useUserProfile = () => {
     }
   };
 
-  const checkUsernameUnique = async (username: string): Promise<boolean> => {
+  const checkNameUnique = async (name: string, currentUserId?: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .single();
+        .select('id, user_id')
+        .ilike('username', name);
 
-      return !data && !error;
-    } catch {
-      return true;
+      const { data, error } = await query.maybeSingle();
+
+      if (error) throw error;
+      
+      // If editing own profile and name matches current, it's available
+      if (data && currentUserId && data.user_id === currentUserId) {
+        return true;
+      }
+      
+      return !data; // If no data, name is available
+    } catch (error) {
+      console.error('Error checking name uniqueness:', error);
+      return false; // Assume not unique on error to be safe
     }
   };
 
-  return { profile, isLoading, createProfile, updateProfile, checkUsernameUnique };
+  return { profile, isLoading, createProfile, updateProfile, checkNameUnique };
 };

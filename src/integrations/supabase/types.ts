@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      countries: {
+        Row: {
+          code: string
+          name: string
+        }
+        Insert: {
+          code: string
+          name: string
+        }
+        Update: {
+          code?: string
+          name?: string
+        }
+        Relationships: []
+      }
       leaderboard: {
         Row: {
           achieved_at: string | null
@@ -49,7 +64,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_color: string
-          city: string
+          city: string | null
           country: string
           created_at: string | null
           current_level: number | null
@@ -63,7 +78,7 @@ export type Database = {
         }
         Insert: {
           avatar_color: string
-          city: string
+          city?: string | null
           country: string
           created_at?: string | null
           current_level?: number | null
@@ -77,7 +92,7 @@ export type Database = {
         }
         Update: {
           avatar_color?: string
-          city?: string
+          city?: string | null
           country?: string
           created_at?: string | null
           current_level?: number | null

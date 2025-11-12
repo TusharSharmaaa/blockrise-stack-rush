@@ -3,18 +3,21 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, MapPin, Globe } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { User, Globe } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useCountries } from '@/hooks/useCountries';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 
 const ProfileSetupDialog = () => {
-  const { profile, createProfile, checkUsernameUnique } = useUserProfile();
+  const { profile, createProfile, checkNameUnique } = useUserProfile();
+  const { countries, isLoading: countriesLoading } = useCountries();
   const [open, setOpen] = useState(false);
-  const [username, setUsername] = useState('');
-  const [city, setCity] = useState('');
+  const [name, setName] = useState('');
   const [country, setCountry] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; country?: string }>({});
 
   useEffect(() => {
     // Show dialog if profile doesn't exist
@@ -28,80 +31,77 @@ const ProfileSetupDialog = () => {
     if (isSubmitting) return;
 
     setIsSubmitting(true);
+    setErrors({});
+    
     try {
       // Validate and sanitize inputs
       const validatedData = validateProfileData({
-        username,
-        city,
+        name,
         country,
       });
 
-      // Check username uniqueness
-      const isUnique = await checkUsernameUnique(validatedData.username);
+      // Check name uniqueness
+      const isUnique = await checkNameUnique(validatedData.name);
       if (!isUnique) {
-        toast.error('Username is already taken. Please choose another.');
+        setErrors({ name: 'Name already taken — please choose a different name.' });
         setIsSubmitting(false);
         return;
       }
 
-      await createProfile(validatedData.username, validatedData.city, validatedData.country);
+      await createProfile(validatedData.name, validatedData.country);
+      
+      // Store locally to prevent re-prompting
+      localStorage.setItem('blockrise_profile_complete', 'true');
+      
       toast.success('Profile created! Welcome to BlockRise! 🎉');
       setOpen(false);
     } catch (error: any) {
-      const errorMessage = error?.message || 'Failed to create profile';
-      toast.error(errorMessage);
+      const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
+      setErrors({ name: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(newOpen) => {
-      // Prevent closing if no profile exists
-      if (!profile && !newOpen) return;
-      setOpen(newOpen);
+    <Dialog open={open} onOpenChange={() => {
+      // Prevent closing - modal is mandatory
+      return;
     }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent 
+        className="sm:max-w-md" 
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Welcome to BlockRise!</DialogTitle>
           <DialogDescription>
-            Set up your profile to appear on the global leaderboard
+            Complete your profile to get started
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="setup-username" className="flex items-center gap-2">
+            <Label htmlFor="setup-name" className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Username
+              Name
             </Label>
             <Input
-              id="setup-username"
+              id="setup-name"
               type="text"
-              placeholder="Enter unique username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              maxLength={20}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Visible on leaderboard
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="setup-city" className="flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              City
-            </Label>
-            <Input
-              id="setup-city"
-              type="text"
-              placeholder="Your city"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setErrors(prev => ({ ...prev, name: undefined }));
+              }}
               maxLength={30}
               required
+              disabled={isSubmitting}
             />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -109,23 +109,36 @@ const ProfileSetupDialog = () => {
               <Globe className="h-4 w-4" />
               Country
             </Label>
-            <Input
-              id="setup-country"
-              type="text"
-              placeholder="Your country"
+            <Select
               value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              maxLength={30}
-              required
-            />
+              onValueChange={(value) => {
+                setCountry(value);
+                setErrors(prev => ({ ...prev, country: undefined }));
+              }}
+              disabled={isSubmitting || countriesLoading}
+            >
+              <SelectTrigger id="setup-country">
+                <SelectValue placeholder="Select your country" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[200px]">
+                {countries.map((c) => (
+                  <SelectItem key={c.code} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.country && (
+              <p className="text-sm text-destructive">{errors.country}</p>
+            )}
           </div>
 
           <Button
             type="submit"
             className="w-full gradient-primary"
-            disabled={isSubmitting}
+            disabled={isSubmitting || countriesLoading || !name || !country}
           >
-            {isSubmitting ? 'Creating...' : 'Create Profile'}
+            {isSubmitting ? 'Saving...' : 'Save & Continue'}
           </Button>
         </form>
       </DialogContent>
