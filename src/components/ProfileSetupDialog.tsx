@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { User, MapPin, Globe } from 'lucide-react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { toast } from 'sonner';
+import { validateProfileData } from '@/utils/validation';
 
 const ProfileSetupDialog = () => {
-  const { profile, createProfile } = useUserProfile();
+  const { profile, createProfile, checkUsernameUnique } = useUserProfile();
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
@@ -24,23 +25,31 @@ const ProfileSetupDialog = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !city.trim() || !country.trim()) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (username.length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return;
-    }
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      await createProfile(username, city, country);
+      // Validate and sanitize inputs
+      const validatedData = validateProfileData({
+        username,
+        city,
+        country,
+      });
+
+      // Check username uniqueness
+      const isUnique = await checkUsernameUnique(validatedData.username);
+      if (!isUnique) {
+        toast.error('Username is already taken. Please choose another.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      await createProfile(validatedData.username, validatedData.city, validatedData.country);
       toast.success('Profile created! Welcome to BlockRise! 🎉');
       setOpen(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create profile');
+      const errorMessage = error?.message || 'Failed to create profile';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

@@ -15,14 +15,15 @@ export interface Achievement {
 
 const ACHIEVEMENTS: Achievement[] = [
   { id: 'first_game', title: 'First Steps', description: 'Complete your first game', icon: '🎮', coinReward: 50, unlocked: false, progress: 0, maxProgress: 1 },
-  { id: 'score_1000', title: 'Rising Star', description: 'Score 1,000 points in a single game', icon: '⭐', coinReward: 100, unlocked: false, progress: 0, maxProgress: 1000 },
+  { id: 'first_1000', title: 'Rising Star', description: 'Score 1,000 points in a single game', icon: '⭐', coinReward: 100, unlocked: false, progress: 0, maxProgress: 1000 },
   { id: 'score_5000', title: 'Block Master', description: 'Score 5,000 points in a single game', icon: '🏆', coinReward: 250, unlocked: false, progress: 0, maxProgress: 5000 },
-  { id: 'level_10', title: 'Climbing High', description: 'Reach level 10', icon: '🧗', coinReward: 150, unlocked: false, progress: 0, maxProgress: 10 },
-  { id: 'level_25', title: 'Halfway There', description: 'Reach level 25', icon: '🎯', coinReward: 300, unlocked: false, progress: 0, maxProgress: 25 },
+  { id: 'score_10000', title: 'Legend', description: 'Score 10,000 points in a single game', icon: '💎', coinReward: 500, unlocked: false, progress: 0, maxProgress: 10000 },
+  { id: 'reach_level_10', title: 'Climbing High', description: 'Reach level 10', icon: '🧗', coinReward: 150, unlocked: false, progress: 0, maxProgress: 10 },
+  { id: 'reach_level_25', title: 'Halfway There', description: 'Reach level 25', icon: '🎯', coinReward: 300, unlocked: false, progress: 0, maxProgress: 25 },
   { id: 'level_50', title: 'Ultimate Champion', description: 'Reach level 50', icon: '👑', coinReward: 500, unlocked: false, progress: 0, maxProgress: 50 },
+  { id: 'play_10_games', title: 'Getting Started', description: 'Play 10 games', icon: '🎲', coinReward: 100, unlocked: false, progress: 0, maxProgress: 10 },
+  { id: 'new_high_score', title: 'Personal Best', description: 'Beat your high score', icon: '🏅', coinReward: 75, unlocked: false, progress: 0, maxProgress: 1 },
   { id: 'streak_7', title: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '🔥', coinReward: 200, unlocked: false, progress: 0, maxProgress: 7 },
-  { id: 'games_50', title: 'Dedicated Player', description: 'Play 50 games', icon: '🎲', coinReward: 300, unlocked: false, progress: 0, maxProgress: 50 },
-  { id: 'ads_watched_20', title: 'Supporter', description: 'Watch 20 ads', icon: '📺', coinReward: 150, unlocked: false, progress: 0, maxProgress: 20 },
 ];
 
 export const useAchievements = () => {

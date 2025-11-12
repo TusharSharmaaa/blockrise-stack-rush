@@ -9,9 +9,10 @@ import {
 } from '@/utils/blockShapes';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Preferences } from '@capacitor/preferences';
+import { GAME_CONSTANTS } from '@/utils/gameConstants';
 
-const BASE_SPEED = 1000;
-const SPEED_INCREASE_PER_LEVEL = 100;
+const BASE_SPEED = GAME_CONSTANTS.BASE_SPEED;
+const SPEED_INCREASE_PER_LEVEL = GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL;
 
 export const useGameLoop = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -84,6 +85,67 @@ export const useGameLoop = () => {
     );
   }, []);
 
+  const clearLine = useCallback((state: GameState, lineIndex: number): GameState => {
+    const newGrid = state.grid.map(row => [...row]);
+    newGrid.splice(lineIndex, 1);
+    newGrid.unshift(Array(GRID_WIDTH).fill(null));
+    
+    const newScore = state.score + (GAME_CONSTANTS.POINTS_PER_LINE * state.level);
+    const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
+    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    
+    return {
+      ...state,
+      grid: newGrid,
+      score: newScore,
+      level: newLevel,
+      speed: newSpeed,
+      linesCleared: state.linesCleared + 1
+    };
+  }, []);
+
+  const clearArea = useCallback((state: GameState, centerX: number, centerY: number, radius: number): GameState => {
+    const newGrid = state.grid.map(row => [...row]);
+    let cellsCleared = 0;
+    
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const y = centerY + dy;
+        const x = centerX + dx;
+        if (y >= 0 && y < GRID_HEIGHT && x >= 0 && x < GRID_WIDTH && newGrid[y][x]) {
+          newGrid[y][x] = null;
+          cellsCleared++;
+        }
+      }
+    }
+    
+    // Move down blocks above cleared areas
+    for (let col = 0; col < GRID_WIDTH; col++) {
+      const column = [];
+      for (let row = GRID_HEIGHT - 1; row >= 0; row--) {
+        if (newGrid[row][col]) {
+          column.push(newGrid[row][col]);
+        }
+      }
+      for (let row = GRID_HEIGHT - 1; row >= 0; row--) {
+        newGrid[row][col] = column[GRID_HEIGHT - 1 - row] || null;
+      }
+    }
+    
+    const bonusScore = cellsCleared * 10 * state.level;
+    const newScore = state.score + bonusScore;
+    const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
+    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    
+    return {
+      ...state,
+      grid: newGrid,
+      score: newScore,
+      level: newLevel,
+      speed: newSpeed
+    };
+  }, []);
+
   const placeBlock = useCallback((state: GameState): GameState => {
     const newGrid = state.grid.map(row => [...row]);
     state.currentBlock?.shape.forEach((row, rowIndex) => {
@@ -113,10 +175,9 @@ export const useGameLoop = () => {
       clearedGrid.unshift(Array(GRID_WIDTH).fill(null));
     }
 
-    const pointsPerLine = 100;
-    const newScore = state.score + (linesCleared * pointsPerLine * state.level);
-    const newLevel = Math.floor(newScore / 1000) + 1;
-    const newSpeed = Math.max(100, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newScore = state.score + (linesCleared * GAME_CONSTANTS.POINTS_PER_LINE * state.level);
+    const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
+    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
 
     // Haptic feedback on line clear
     if (linesCleared > 0) {
@@ -284,11 +345,14 @@ export const useGameLoop = () => {
 
   return {
     gameState,
+    setGameState,
     moveLeft,
     moveRight,
     moveDown,
     rotate,
     togglePause,
-    resetGame
+    resetGame,
+    clearLine,
+    clearArea
   };
 };

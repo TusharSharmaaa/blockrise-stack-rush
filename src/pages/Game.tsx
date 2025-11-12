@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getRandomBlock } from '@/utils/blockShapes';
 import { hapticNotification } from '@/utils/haptics';
 import { NotificationType } from '@capacitor/haptics';
 import {
@@ -39,12 +40,15 @@ const Game = () => {
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
+    setGameState,
     moveLeft,
     moveRight,
     moveDown,
     rotate,
     togglePause,
-    resetGame
+    resetGame,
+    clearLine,
+    clearArea
   } = useGameLoop();
 
   // Load power-up inventory on mount
@@ -95,15 +99,62 @@ const Game = () => {
 
     switch (type) {
       case 'clearLine':
-        toast.success('Line cleared! (Coming soon)');
+        // Find the lowest full or nearly-full line and clear it
+        setGameState(prevState => {
+          let targetLine = -1;
+          let maxFilled = 0;
+          
+          for (let i = prevState.grid.length - 1; i >= 0; i--) {
+            const filled = prevState.grid[i].filter(cell => cell !== null).length;
+            if (filled > maxFilled && filled >= 7) { // Clear if 70% full
+              targetLine = i;
+              maxFilled = filled;
+            }
+          }
+          
+          if (targetLine >= 0) {
+            return clearLine(prevState, targetLine);
+          }
+          return prevState;
+        });
+        toast.success('Line cleared!');
         break;
       case 'bomb':
-        toast.success('Bomb activated! (Coming soon)');
+        // Clear a 3x3 area around the current block
+        setGameState(prevState => {
+          if (!prevState.currentBlock) return prevState;
+          const centerX = prevState.currentBlock.x + Math.floor(prevState.currentBlock.shape[0].length / 2);
+          const centerY = prevState.currentBlock.y + Math.floor(prevState.currentBlock.shape.length / 2);
+          return clearArea(prevState, centerX, centerY, 1);
+        });
+        toast.success('Bomb exploded! Area cleared!');
         break;
       case 'shuffle':
+        // Shuffle next blocks
+        setGameState(prevState => ({
+          ...prevState,
+          nextBlock: {
+            ...getRandomBlock(),
+            x: 0,
+            y: 0,
+            id: Math.random().toString()
+          }
+        }));
         toast.success('Next blocks shuffled!');
         break;
       case 'slowTime':
+        // Slow down game speed
+        setGameState(prevState => ({
+          ...prevState,
+          speed: prevState.speed * 2
+        }));
+        // Reset speed after duration
+        setTimeout(() => {
+          setGameState(prevState => ({
+            ...prevState,
+            speed: Math.max(100, 1000 - (prevState.level - 1) * 100)
+          }));
+        }, 30000);
         toast.success('Time slowed for 30s!');
         break;
     }

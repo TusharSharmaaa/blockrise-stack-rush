@@ -9,10 +9,11 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { validateProfileData } from '@/utils/validation';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, createProfile, updateProfile } = useUserProfile();
+  const { profile, createProfile, updateProfile, checkUsernameUnique } = useUserProfile();
   const { progress } = useGameProgress();
   const [username, setUsername] = useState(profile?.username || '');
   const [city, setCity] = useState(profile?.city || '');
@@ -22,29 +23,41 @@ const Profile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
-    
-    if (!username.trim() || !city.trim() || !country.trim()) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    if (username.length < 3) {
-      toast.error('Username must be at least 3 characters');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
+      // Validate and sanitize inputs
+      const validatedData = validateProfileData({
+        username,
+        city,
+        country,
+      });
+
+      // Check username uniqueness only if username changed
+      if (validatedData.username !== profile?.username) {
+        const isUnique = await checkUsernameUnique(validatedData.username);
+        if (!isUnique) {
+          toast.error('Username is already taken. Please choose another.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       if (profile) {
-        await updateProfile({ username, city, country });
+        await updateProfile({ 
+          username: validatedData.username, 
+          city: validatedData.city, 
+          country: validatedData.country 
+        });
         toast.success('Profile updated!');
       } else {
-        await createProfile(username, city, country);
+        await createProfile(validatedData.username, validatedData.city, validatedData.country);
         toast.success('Profile created!');
       }
       navigate('/leaderboard');
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save profile');
+      const errorMessage = error?.message || 'Failed to save profile';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
