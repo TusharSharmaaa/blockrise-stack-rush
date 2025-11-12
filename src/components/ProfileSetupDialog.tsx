@@ -31,7 +31,9 @@ const ProfileSetupDialog = () => {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const [showSkipValidation, setShowSkipValidation] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const skipButtonTimerRef = useRef<NodeJS.Timeout | null>(null);
   const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
@@ -81,6 +83,15 @@ const ProfileSetupDialog = () => {
     setIsCheckingUsername(true);
     setUsernameAvailable(null);
     setUsernameSuggestions([]);
+    setShowSkipValidation(false);
+
+    // Show skip button after 5 seconds
+    skipButtonTimerRef.current = setTimeout(() => {
+      if (isCheckingUsername) {
+        setShowSkipValidation(true);
+        console.log('[ProfileSetup] Showing skip validation button');
+      }
+    }, 5000);
 
     // Set a timeout to prevent infinite loading (10 seconds max)
     const timeoutId = setTimeout(() => {
@@ -102,17 +113,19 @@ const ProfileSetupDialog = () => {
         if (cached && (now - cached.timestamp) < CACHE_DURATION) {
           // Use cached result
           console.log('[ProfileSetup] Using cached result for:', trimmedName);
-          clearTimeout(timeoutId);
-          setUsernameAvailable(cached.available);
-          
-          // If username is taken, generate suggestions
-          if (!cached.available) {
-            await generateUsernameSuggestions(name.trim());
-          } else {
-            setUsernameSuggestions([]);
-          }
-          setIsCheckingUsername(false);
-          return;
+        clearTimeout(timeoutId);
+        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
+        setShowSkipValidation(false);
+        setUsernameAvailable(cached.available);
+        
+        // If username is taken, generate suggestions
+        if (!cached.available) {
+          await generateUsernameSuggestions(name.trim());
+        } else {
+          setUsernameSuggestions([]);
+        }
+        setIsCheckingUsername(false);
+        return;
         }
         
         // Make API call if not cached or expired
@@ -127,6 +140,8 @@ const ProfileSetupDialog = () => {
         });
         
         clearTimeout(timeoutId);
+        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
+        setShowSkipValidation(false);
         setUsernameAvailable(isUnique);
         
         // If username is taken, generate suggestions
@@ -138,8 +153,10 @@ const ProfileSetupDialog = () => {
       } catch (error) {
         console.error('[ProfileSetup] Error checking username:', error);
         clearTimeout(timeoutId);
+        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
         setUsernameAvailable(null);
         setUsernameSuggestions([]);
+        setShowSkipValidation(true);
         toast.error('Failed to check username. Please try again.');
       } finally {
         setIsCheckingUsername(false);
@@ -150,6 +167,9 @@ const ProfileSetupDialog = () => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+      }
+      if (skipButtonTimerRef.current) {
+        clearTimeout(skipButtonTimerRef.current);
       }
       clearTimeout(timeoutId);
     };
@@ -216,6 +236,7 @@ const ProfileSetupDialog = () => {
     setName(suggestion);
     setUsernameAvailable(true);
     setUsernameSuggestions([]);
+    setShowSkipValidation(false);
     setErrors(prev => ({ ...prev, name: undefined }));
     
     // Update cache for the selected suggestion
@@ -224,6 +245,15 @@ const ProfileSetupDialog = () => {
       available: true,
       timestamp: Date.now()
     });
+  };
+
+  const handleSkipValidation = () => {
+    console.log('[ProfileSetup] User skipped validation');
+    setIsCheckingUsername(false);
+    setUsernameAvailable(true); // Assume available to allow proceeding
+    setShowSkipValidation(false);
+    setUsernameSuggestions([]);
+    toast.info('Validation skipped. Proceeding with username.');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -380,7 +410,20 @@ const ProfileSetupDialog = () => {
             {/* Loading skeleton while checking */}
             {!errors.name && name.length >= 3 && isCheckingUsername && (
               <div className="space-y-2">
-                <Skeleton className="h-4 w-48" />
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-48" />
+                  {showSkipValidation && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSkipValidation}
+                      className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                    >
+                      Skip validation →
+                    </Button>
+                  )}
+                </div>
                 <div className="space-y-1.5">
                   <Skeleton className="h-3 w-40" />
                   <div className="flex gap-2">
