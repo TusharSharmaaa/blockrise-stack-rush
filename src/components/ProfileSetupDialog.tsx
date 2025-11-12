@@ -65,6 +65,7 @@ const ProfileSetupDialog = () => {
     if (!name || name.trim().length < 3) {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
+      setUsernameSuggestions([]);
       return;
     }
 
@@ -72,12 +73,22 @@ const ProfileSetupDialog = () => {
     if (!isOnline) {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
+      setUsernameSuggestions([]);
       return;
     }
 
     // Start checking state
     setIsCheckingUsername(true);
     setUsernameAvailable(null);
+    setUsernameSuggestions([]);
+
+    // Set a timeout to prevent infinite loading (10 seconds max)
+    const timeoutId = setTimeout(() => {
+      console.error('[ProfileSetup] Username check timeout');
+      setIsCheckingUsername(false);
+      setUsernameAvailable(null);
+      toast.error('Connection timeout. Please try again.');
+    }, 10000);
 
     // Debounce the actual check by 500ms
     debounceTimerRef.current = setTimeout(async () => {
@@ -91,6 +102,7 @@ const ProfileSetupDialog = () => {
         if (cached && (now - cached.timestamp) < CACHE_DURATION) {
           // Use cached result
           console.log('[ProfileSetup] Using cached result for:', trimmedName);
+          clearTimeout(timeoutId);
           setUsernameAvailable(cached.available);
           
           // If username is taken, generate suggestions
@@ -104,7 +116,9 @@ const ProfileSetupDialog = () => {
         }
         
         // Make API call if not cached or expired
+        console.log('[ProfileSetup] Checking username availability for:', name.trim());
         const isUnique = await checkNameUnique(name.trim());
+        console.log('[ProfileSetup] Uniqueness result:', isUnique);
         
         // Cache the result
         usernameCheckCacheRef.current.set(trimmedName, {
@@ -112,6 +126,7 @@ const ProfileSetupDialog = () => {
           timestamp: now
         });
         
+        clearTimeout(timeoutId);
         setUsernameAvailable(isUnique);
         
         // If username is taken, generate suggestions
@@ -121,9 +136,11 @@ const ProfileSetupDialog = () => {
           setUsernameSuggestions([]);
         }
       } catch (error) {
-        console.error('Error checking username:', error);
+        console.error('[ProfileSetup] Error checking username:', error);
+        clearTimeout(timeoutId);
         setUsernameAvailable(null);
         setUsernameSuggestions([]);
+        toast.error('Failed to check username. Please try again.');
       } finally {
         setIsCheckingUsername(false);
       }
@@ -134,6 +151,7 @@ const ProfileSetupDialog = () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      clearTimeout(timeoutId);
     };
   }, [name, checkNameUnique, isOnline]);
 
