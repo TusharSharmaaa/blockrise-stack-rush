@@ -29,6 +29,7 @@ const ProfileSetupDialog = () => {
   const [errors, setErrors] = useState<{ name?: string; country?: string }>({});
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Configure Fuse.js for fuzzy search
@@ -80,9 +81,17 @@ const ProfileSetupDialog = () => {
       try {
         const isUnique = await checkNameUnique(name.trim());
         setUsernameAvailable(isUnique);
+        
+        // If username is taken, generate suggestions
+        if (!isUnique) {
+          await generateUsernameSuggestions(name.trim());
+        } else {
+          setUsernameSuggestions([]);
+        }
       } catch (error) {
         console.error('Error checking username:', error);
         setUsernameAvailable(null);
+        setUsernameSuggestions([]);
       } finally {
         setIsCheckingUsername(false);
       }
@@ -95,6 +104,49 @@ const ProfileSetupDialog = () => {
       }
     };
   }, [name, checkNameUnique, isOnline]);
+
+  const generateUsernameSuggestions = async (baseName: string) => {
+    const suggestions: string[] = [];
+    
+    // Get country code if available
+    const selectedCountry = countries.find(c => c.name === country);
+    const countryCode = selectedCountry?.code?.slice(0, 2).toUpperCase() || '';
+    const countryName = country.toLowerCase().replace(/\s+/g, '');
+    
+    // Generate different types of suggestions
+    const candidates = [
+      `${baseName}_${countryCode}`,           // username_IN
+      `${baseName}_${countryName}`,           // username_india
+      `${baseName}${countryCode}`,            // usernameIN
+      `${baseName}2`,                         // username2
+      `${baseName}_2`,                        // username_2
+      `${baseName}3`,                         // username3
+      `${baseName}_${Math.floor(Math.random() * 100)}`, // username_42
+    ];
+    
+    // Check availability of each suggestion
+    for (const candidate of candidates) {
+      if (suggestions.length >= 3) break; // Limit to 3 suggestions
+      
+      try {
+        const isAvailable = await checkNameUnique(candidate);
+        if (isAvailable) {
+          suggestions.push(candidate);
+        }
+      } catch (error) {
+        console.error('Error checking suggestion:', candidate, error);
+      }
+    }
+    
+    setUsernameSuggestions(suggestions);
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setName(suggestion);
+    setUsernameAvailable(true);
+    setUsernameSuggestions([]);
+    setErrors(prev => ({ ...prev, name: undefined }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,10 +299,33 @@ const ProfileSetupDialog = () => {
               </p>
             )}
             {!errors.name && name.length >= 3 && !isCheckingUsername && usernameAvailable === false && (
-              <p className="text-sm text-destructive flex items-center gap-1">
-                <XCircle className="h-3 w-3" />
-                Username already taken
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <XCircle className="h-3 w-3" />
+                  Username already taken
+                </p>
+                
+                {/* Username suggestions */}
+                {usernameSuggestions.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Try these available usernames:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {usernameSuggestions.map((suggestion) => (
+                        <Button
+                          key={suggestion}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="text-xs h-7 hover:bg-primary hover:text-primary-foreground"
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name}</p>
