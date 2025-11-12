@@ -2,22 +2,16 @@ import { useEffect, useState } from 'react';
 import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
-import PowerUpBar from '@/components/game/PowerUpBar';
-import SyncIndicator from '@/components/game/SyncIndicator';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
-import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getRandomBlock } from '@/utils/blockShapes';
-import { hapticNotification } from '@/utils/haptics';
-import { NotificationType } from '@capacitor/haptics';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +27,6 @@ const Game = () => {
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
-  const { usePowerUp, loadInventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
@@ -46,16 +39,28 @@ const Game = () => {
     moveDown,
     rotate,
     togglePause,
-    resetGame,
-    clearLine,
-    clearArea
+    resetGame
   } = useGameLoop();
 
-  // Load power-up inventory on mount
+  // Play music on mount and prevent body scrolling
   useEffect(() => {
-    loadInventory();
     playMusic();
-    return () => stopMusic();
+    // Prevent body scrolling when game is active and remove body padding for edge-to-edge
+    const originalBodyOverflow = window.getComputedStyle(document.body).overflow;
+    const originalHtmlOverflow = window.getComputedStyle(document.documentElement).overflow;
+    const originalBodyPadding = window.getComputedStyle(document.body).padding;
+    
+    document.body.style.overflow = 'hidden';
+    document.body.style.padding = '0';
+    document.documentElement.style.overflow = 'hidden';
+    
+    return () => {
+      stopMusic();
+      // Restore original styles
+      document.body.style.overflow = originalBodyOverflow;
+      document.body.style.padding = originalBodyPadding;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+    };
   }, []);
 
   // Track score changes for achievements
@@ -87,78 +92,6 @@ const Game = () => {
     }
   }, [gameState.level]);
 
-  const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
-    const success = await usePowerUp(type, 30000);
-    if (!success) {
-      toast.error('Power-up not available');
-      return;
-    }
-
-    playSound('powerup');
-    await hapticNotification(NotificationType.Success);
-
-    switch (type) {
-      case 'clearLine':
-        // Find the lowest full or nearly-full line and clear it
-        setGameState(prevState => {
-          let targetLine = -1;
-          let maxFilled = 0;
-          
-          for (let i = prevState.grid.length - 1; i >= 0; i--) {
-            const filled = prevState.grid[i].filter(cell => cell !== null).length;
-            if (filled > maxFilled && filled >= 7) { // Clear if 70% full
-              targetLine = i;
-              maxFilled = filled;
-            }
-          }
-          
-          if (targetLine >= 0) {
-            return clearLine(prevState, targetLine);
-          }
-          return prevState;
-        });
-        toast.success('Line cleared!');
-        break;
-      case 'bomb':
-        // Clear a 3x3 area around the current block
-        setGameState(prevState => {
-          if (!prevState.currentBlock) return prevState;
-          const centerX = prevState.currentBlock.x + Math.floor(prevState.currentBlock.shape[0].length / 2);
-          const centerY = prevState.currentBlock.y + Math.floor(prevState.currentBlock.shape.length / 2);
-          return clearArea(prevState, centerX, centerY, 1);
-        });
-        toast.success('Bomb exploded! Area cleared!');
-        break;
-      case 'shuffle':
-        // Shuffle next blocks
-        setGameState(prevState => ({
-          ...prevState,
-          nextBlock: {
-            ...getRandomBlock(),
-            x: 0,
-            y: 0,
-            id: Math.random().toString()
-          }
-        }));
-        toast.success('Next blocks shuffled!');
-        break;
-      case 'slowTime':
-        // Slow down game speed
-        setGameState(prevState => ({
-          ...prevState,
-          speed: prevState.speed * 2
-        }));
-        // Reset speed after duration
-        setTimeout(() => {
-          setGameState(prevState => ({
-            ...prevState,
-            speed: Math.max(100, 1000 - (prevState.level - 1) * 100)
-          }));
-        }, 30000);
-        toast.success('Time slowed for 30s!');
-        break;
-    }
-  };
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -290,55 +223,100 @@ const Game = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Sync Indicator */}
-      <div className="absolute top-2 right-2 z-50">
-        <SyncIndicator profileId={profile?.id} />
-      </div>
-      
-      <GameHUD
-        score={gameState.score}
-        level={gameState.level}
-        nextBlock={gameState.nextBlock}
-        onPause={togglePause}
-      />
-      
-      {/* Score Progress Bar */}
-      <div className="px-4 py-2 bg-card/50 backdrop-blur-sm">
-        <div className="max-w-md mx-auto">
-          <div className="flex justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
-            <span className="font-semibold">{gameState.score}/{scoreRequirement}</span>
-          </div>
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-              style={{ width: `${Math.min(100, (gameState.score / scoreRequirement) * 100)}%` }}
-            />
+    <div 
+      className="bg-background flex flex-col relative"
+      style={{ 
+        height: '100dvh',
+        maxHeight: '100dvh',
+        width: '100vw',
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        margin: 0,
+        padding: 0
+      }}
+    >
+      {/* Fixed Header - HUD and Progress Bar - With status bar safe area */}
+      <div 
+        className="flex-shrink-0 bg-background/95 backdrop-blur-sm border-b border-border/30 w-full"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 24px)',
+          margin: 0,
+          position: 'relative',
+          zIndex: 10
+        }}
+      >
+        <GameHUD
+          score={gameState.score}
+          level={gameState.level}
+          nextBlock={gameState.nextBlock}
+          onPause={togglePause}
+        />
+        
+        {/* Score Progress Bar - Compact but readable */}
+        <div 
+          className="py-1.5 bg-card/30 backdrop-blur-sm" 
+          style={{ 
+            minHeight: '24px',
+            paddingLeft: 'max(12px, env(safe-area-inset-left, 12px))',
+            paddingRight: 'max(12px, env(safe-area-inset-right, 12px))'
+          }}
+        >
+          <div className="max-w-md mx-auto">
+            <div className="flex justify-between text-[10px] sm:text-xs leading-tight mb-1">
+              <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
+              <span className="font-semibold">{gameState.score}/{scoreRequirement}</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+                style={{ width: `${Math.min(100, (gameState.score / scoreRequirement) * 100)}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
       
-      <div className="flex-1 flex flex-col justify-center">
+      {/* Game Board Area - Fill remaining space, edge-to-edge, no padding */}
+      <div 
+        className="flex-1 w-full overflow-hidden"
+        style={{ 
+          minHeight: 0,
+          maxHeight: '100%',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'stretch',
+          flex: '1 1 0%',
+          margin: 0,
+          padding: 0,
+          width: '100%'
+        }}
+      >
         <GameBoard
           grid={gameState.grid}
           currentBlock={gameState.currentBlock}
         />
-
-        <PowerUpBar
-          onUsePowerUp={handleUsePowerUp}
+      </div>
+      
+      {/* Fixed Bottom Controls - With navigation bar safe area */}
+      <div 
+        className="flex-shrink-0 w-full bg-background/95 backdrop-blur-sm border-t border-border/30"
+        style={{ 
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingTop: '0px',
+          margin: 0
+        }}
+      >
+        <GameControls
+          onRotate={rotate}
+          onMoveLeft={moveLeft}
+          onMoveRight={moveRight}
+          onMoveDown={moveDown}
           disabled={gameState.gameOver || gameState.paused}
         />
-        
-        <div style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 16px)' }}>
-          <GameControls
-            onRotate={rotate}
-            onMoveLeft={moveLeft}
-            onMoveRight={moveRight}
-            onMoveDown={moveDown}
-            disabled={gameState.gameOver || gameState.paused}
-          />
-        </div>
       </div>
 
       {/* Pause Dialog */}

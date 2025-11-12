@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, ShoppingBag, User, Award } from "lucide-react";
+import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, User, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { useAchievements } from "@/hooks/useAchievements";
@@ -72,17 +72,6 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer" onClick={() => navigate('/shop')}>
-            <div className="flex items-center justify-between">
-              <ShoppingBag className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
-              <Badge variant="secondary" className="text-xs">💰 {progress.totalCoins}</Badge>
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold mb-1">Shop</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">Spend coins</p>
-            </div>
-          </Card>
-
           <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer" onClick={() => navigate('/leaderboard')}>
             <Trophy className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500" />
             <div>
@@ -116,18 +105,18 @@ const Index = () => {
               </p>
             </div>
           </Card>
-        </div>
 
-        {/* Settings Button */}
-        <Card className="p-3 sm:p-4 card-hover cursor-pointer" onClick={() => navigate('/settings')}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <SettingsIcon className="h-6 w-6 text-muted-foreground" />
-              <span className="font-semibold">Settings</span>
+          <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer" onClick={() => navigate('/settings')}>
+            <div className="flex items-center justify-between">
+              <SettingsIcon className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+              <Badge variant="secondary" className="text-xs">⚙️</Badge>
             </div>
-            <Badge variant="outline">Configure</Badge>
-          </div>
-        </Card>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold mb-1">Settings</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Customize game</p>
+            </div>
+          </Card>
+        </div>
           </div>
         </div>
       </ScrollArea>
