@@ -8,11 +8,13 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSound } from '@/hooks/useSound';
+import { useBackButton } from '@/hooks/useBackButton';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Settings = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();

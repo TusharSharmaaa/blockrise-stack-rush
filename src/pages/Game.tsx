@@ -8,6 +8,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
 import { useAchievements } from '@/hooks/useAchievements';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,13 +24,15 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, watchAdToCompleteLevel, watchAdForCoins, canWatchAdToday } = useGameProgress();
+  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, watchAdToCompleteLevel, watchAdForCoins, canWatchAdToday, incrementLevelAttempt, getStarsForLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
   const { checkAndUnlock } = useAchievements();
+  useBackButton(); // Handle Android back button
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
+  const [hasTrackedAttempt, setHasTrackedAttempt] = useState(false);
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
@@ -41,6 +44,18 @@ const Game = () => {
     togglePause,
     resetGame
   } = useGameLoop();
+
+  // Track attempt when game starts (when gameOver is false and score is 0)
+  useEffect(() => {
+    if (!gameState.gameOver && gameState.score === 0 && !hasTrackedAttempt) {
+      incrementLevelAttempt(progress.currentLevel);
+      setHasTrackedAttempt(true);
+    }
+    // Reset tracking flag when game ends
+    if (gameState.gameOver) {
+      setHasTrackedAttempt(false);
+    }
+  }, [gameState.gameOver, gameState.score, progress.currentLevel, hasTrackedAttempt, incrementLevelAttempt]);
 
   // Play music on mount and prevent body scrolling
   useEffect(() => {
@@ -166,6 +181,7 @@ const Game = () => {
       playSound('coin');
       resetGame();
       setHasShownGameOverAd(false);
+      setHasTrackedAttempt(false); // Reset so we track attempt for new game
       playMusic();
     } else {
       toast.error('Ad was not completed');
@@ -186,7 +202,7 @@ const Game = () => {
         playSound('coin');
         // Navigate to level select or home
         setTimeout(() => {
-          navigate('/levels');
+          navigate('/level-select');
         }, 1500);
       } else {
         toast.error(adResult.message || 'Failed to complete level');
@@ -219,6 +235,7 @@ const Game = () => {
   const handlePlayAgain = () => {
     resetGame();
     setHasShownGameOverAd(false);
+    setHasTrackedAttempt(false); // Reset so we track attempt for new game
     playMusic();
   };
 
@@ -364,9 +381,19 @@ const Game = () => {
                 <div className="text-lg font-semibold text-primary mb-1">
                   ✨ Level {progress.currentLevel} Completed!
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground mb-2">
                   Target: {scoreRequirement} | Your Score: {gameState.score}
                 </div>
+                {progress.levelStars[progress.currentLevel] && (
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-sm font-semibold">Stars:</span>
+                    {Array.from({ length: 3 }, (_, i) => (
+                      <span key={i} className={`text-lg ${i < progress.levelStars[progress.currentLevel] ? 'text-yellow-500' : 'text-muted'}`}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-muted/50 rounded-lg p-4 text-center">

@@ -3,11 +3,13 @@ import { ArrowLeft, Trophy, Medal, MapPin, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { profile } = useUserProfile();
   const { entries, isLoading } = useLeaderboard(profile?.id);
 

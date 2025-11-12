@@ -4,12 +4,14 @@ import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, User, Award }
 import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { useAchievements } from "@/hooks/useAchievements";
+import { useBackButton } from "@/hooks/useBackButton";
 import { Badge } from "@/components/ui/badge";
 import ProfileSetupDialog from "@/components/ProfileSetupDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Index = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button (exits app on home page)
   const { progress, isLoading } = useGameProgress();
   const { getUnlockedCount, achievements } = useAchievements();
 

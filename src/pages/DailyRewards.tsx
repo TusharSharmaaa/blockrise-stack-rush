@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Gift, Calendar, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +10,7 @@ import { useState } from 'react';
 
 const DailyRewards = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { progress, claimDailyReward } = useGameProgress();
   const [isClaiming, setIsClaiming] = useState(false);
 

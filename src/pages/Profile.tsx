@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useBackButton } from '@/hooks/useBackButton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 
 const Profile = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { profile, updateProfile, checkNameUnique, canChangeUsername, recordUsernameChange } = useUserProfile();
   const { progress } = useGameProgress();
   const isOnline = useOnlineStatus();
