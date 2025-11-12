@@ -2,10 +2,6 @@
   "appId": "com.blockrise.stackrush",
   "appName": "BlockRise",
   "webDir": "dist",
-  "server": {
-    "url": "https://9c790342-8831-4a60-af4f-2cf5fb40e350.lovableproject.com?forceHideBadge=true",
-    "cleartext": true
-  },
   "android": {
     "allowMixedContent": true
   },
