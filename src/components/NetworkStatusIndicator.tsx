@@ -32,21 +32,21 @@ export const NetworkStatusIndicator = () => {
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-full text-xs font-medium shadow-lg transition-all duration-300",
+        "fixed z-50 flex items-center gap-2 rounded-full text-xs font-medium shadow-lg transition-all duration-300",
         isOnline
-          ? "bg-green-500/90 text-white animate-fade-in"
-          : "bg-destructive/90 text-destructive-foreground animate-pulse",
+          ? "bottom-4 right-4 px-2 py-1.5 bg-background/80 backdrop-blur-sm border border-border text-muted-foreground animate-fade-in"
+          : "top-4 right-4 px-3 py-2 bg-destructive/90 text-destructive-foreground animate-pulse",
         !isVisible && "animate-fade-out"
       )}
     >
       {isOnline ? (
         <>
-          <Wifi className="h-3 w-3" />
-          <span>Online</span>
+          <Wifi className="h-3 w-3 text-green-500" />
+          <span className="text-[10px]">Connected</span>
         </>
       ) : (
         <>
-          <WifiOff className="h-3 w-3" />
+          <WifiOff className="h-4 w-4" />
           <span>Offline</span>
         </>
       )}
