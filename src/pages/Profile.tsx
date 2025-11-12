@@ -16,6 +16,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateProfileData } from '@/utils/validation';
+import Fuse from 'fuse.js';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -26,8 +27,21 @@ const Profile = () => {
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState(profile?.username || '');
   const [country, setCountry] = useState(profile?.country || '');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+
+  // Configure Fuse.js for fuzzy search
+  const fuse = new Fuse(countries, {
+    keys: ['name', 'code'],
+    threshold: 0.4,
+    includeScore: true,
+  });
+
+  // Filter countries using fuzzy search
+  const filteredCountries = searchQuery
+    ? fuse.search(searchQuery).map(result => result.item)
+    : countries;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,18 +183,23 @@ const Profile = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search country..." />
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder="Search country..." 
+                      value={searchQuery}
+                      onValueChange={setSearchQuery}
+                    />
                     <CommandList>
                       <CommandEmpty>No country found.</CommandEmpty>
                       <CommandGroup>
-                        {countries.map((c) => (
+                        {filteredCountries.map((c) => (
                           <CommandItem
                             key={c.code}
                             value={c.name}
                             onSelect={(currentValue) => {
                               setCountry(currentValue);
                               setComboboxOpen(false);
+                              setSearchQuery('');
                               setError(undefined);
                             }}
                           >

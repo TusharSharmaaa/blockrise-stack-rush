@@ -14,6 +14,7 @@ import { useCountries } from '@/hooks/useCountries';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
+import Fuse from 'fuse.js';
 
 const ProfileSetupDialog = () => {
   const { profile, createProfile, checkNameUnique } = useUserProfile();
@@ -23,8 +24,21 @@ const ProfileSetupDialog = () => {
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState('');
   const [country, setCountry] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; country?: string }>({});
+
+  // Configure Fuse.js for fuzzy search
+  const fuse = new Fuse(countries, {
+    keys: ['name', 'code'],
+    threshold: 0.4, // Lower = stricter matching, Higher = more fuzzy
+    includeScore: true,
+  });
+
+  // Filter countries using fuzzy search
+  const filteredCountries = searchQuery
+    ? fuse.search(searchQuery).map(result => result.item)
+    : countries;
 
   useEffect(() => {
     // Show dialog if profile doesn't exist
@@ -175,18 +189,23 @@ const ProfileSetupDialog = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search country..." />
+                <Command shouldFilter={false}>
+                  <CommandInput 
+                    placeholder="Search country..." 
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                  />
                   <CommandList>
                     <CommandEmpty>No country found.</CommandEmpty>
                     <CommandGroup>
-                      {countries.map((c) => (
+                      {filteredCountries.map((c) => (
                         <CommandItem
                           key={c.code}
                           value={c.name}
                           onSelect={(currentValue) => {
                             setCountry(currentValue);
                             setComboboxOpen(false);
+                            setSearchQuery('');
                             setErrors(prev => ({ ...prev, country: undefined }));
                           }}
                         >
