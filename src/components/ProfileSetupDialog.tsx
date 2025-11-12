@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { User, Globe, Check, ChevronsUpDown, WifiOff } from 'lucide-react';
+import { User, Globe, Check, ChevronsUpDown, WifiOff, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,9 @@ const ProfileSetupDialog = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; country?: string }>({});
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Configure Fuse.js for fuzzy search
   const fuse = new Fuse(countries, {
@@ -46,6 +49,52 @@ const ProfileSetupDialog = () => {
       setOpen(true);
     }
   }, [profile]);
+
+  // Debounced username availability check
+  useEffect(() => {
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Reset states if name is empty or too short
+    if (!name || name.trim().length < 3) {
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    // Don't check if offline
+    if (!isOnline) {
+      setUsernameAvailable(null);
+      setIsCheckingUsername(false);
+      return;
+    }
+
+    // Start checking state
+    setIsCheckingUsername(true);
+    setUsernameAvailable(null);
+
+    // Debounce the actual check by 500ms
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const isUnique = await checkNameUnique(name.trim());
+        setUsernameAvailable(isUnique);
+      } catch (error) {
+        console.error('Error checking username:', error);
+        setUsernameAvailable(null);
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 500);
+
+    // Cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [name, checkNameUnique, isOnline]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,13 +120,10 @@ const ProfileSetupDialog = () => {
       
       console.log('[ProfileSetup] Validation passed');
 
-      // Check name uniqueness
-      console.log('[ProfileSetup] Checking name uniqueness...');
-      const isUnique = await checkNameUnique(validatedData.name);
-      console.log('[ProfileSetup] Uniqueness check result:', isUnique);
-      
-      if (!isUnique) {
-        setErrors({ name: 'Name already taken — please choose a different name.' });
+      // Final check on submit (in case of race conditions)
+      console.log('[ProfileSetup] Final uniqueness check...');
+      if (usernameAvailable === false) {
+        setErrors({ name: 'This username is already taken. Please choose a different name.' });
         setIsSubmitting(false);
         return;
       }
@@ -160,19 +206,52 @@ const ProfileSetupDialog = () => {
               <User className="h-4 w-4" />
               Name
             </Label>
-            <Input
-              id="setup-name"
-              type="text"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setErrors(prev => ({ ...prev, name: undefined }));
-              }}
-              maxLength={30}
-              required
-              disabled={isSubmitting}
-            />
+            <div className="relative">
+              <Input
+                id="setup-name"
+                type="text"
+                placeholder="Enter your name (min 3 characters)"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setErrors(prev => ({ ...prev, name: undefined }));
+                }}
+                maxLength={30}
+                required
+                disabled={isSubmitting}
+                className={cn(
+                  "pr-10",
+                  usernameAvailable === true && "border-green-500 focus-visible:ring-green-500",
+                  usernameAvailable === false && "border-destructive focus-visible:ring-destructive"
+                )}
+              />
+              {/* Availability indicator */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {isCheckingUsername && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {!isCheckingUsername && usernameAvailable === true && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+                {!isCheckingUsername && usernameAvailable === false && (
+                  <XCircle className="h-4 w-4 text-destructive" />
+                )}
+              </div>
+            </div>
+            
+            {/* Real-time feedback messages */}
+            {!errors.name && name.length >= 3 && !isCheckingUsername && usernameAvailable === true && (
+              <p className="text-sm text-green-600 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Username available!
+              </p>
+            )}
+            {!errors.name && name.length >= 3 && !isCheckingUsername && usernameAvailable === false && (
+              <p className="text-sm text-destructive flex items-center gap-1">
+                <XCircle className="h-3 w-3" />
+                Username already taken
+              </p>
+            )}
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name}</p>
             )}
@@ -239,9 +318,22 @@ const ProfileSetupDialog = () => {
           <Button
             type="submit"
             className="w-full gradient-primary"
-            disabled={isSubmitting || countriesLoading || !name || !country || !isOnline}
+            disabled={
+              isSubmitting || 
+              countriesLoading || 
+              !name || 
+              !country || 
+              !isOnline || 
+              isCheckingUsername ||
+              usernameAvailable === false ||
+              name.length < 3
+            }
           >
-            {isSubmitting ? 'Saving...' : isOnline ? 'Save & Continue' : 'Offline - Cannot Save'}
+            {isSubmitting ? 'Saving...' : 
+             isCheckingUsername ? 'Checking username...' :
+             usernameAvailable === false ? 'Username taken' :
+             !isOnline ? 'Offline - Cannot Save' : 
+             'Save & Continue'}
           </Button>
         </form>
       </DialogContent>
