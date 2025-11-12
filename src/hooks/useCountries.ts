@@ -24,6 +24,26 @@ export const useCountries = () => {
 
       if (error) throw error;
       
+      if (!data || data.length === 0) {
+        console.warn('[useCountries] Countries table empty. Using fallback list');
+        setCountries([
+          { code: 'US', name: 'United States' },
+          { code: 'IN', name: 'India' },
+          { code: 'GB', name: 'United Kingdom' },
+          { code: 'CA', name: 'Canada' },
+          { code: 'AU', name: 'Australia' },
+          { code: 'DE', name: 'Germany' },
+          { code: 'FR', name: 'France' },
+          { code: 'BR', name: 'Brazil' },
+          { code: 'ZA', name: 'South Africa' },
+          { code: 'JP', name: 'Japan' },
+          { code: 'CN', name: 'China' },
+          { code: 'SG', name: 'Singapore' },
+          { code: 'AE', name: 'United Arab Emirates' }
+        ]);
+        return;
+      }
+      
       console.log('[useCountries] Loaded countries:', data?.length);
       setCountries(data || []);
     } catch (error) {
