@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface LeaderboardEntry {
@@ -13,36 +13,27 @@ export interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
+export interface UserPosition {
+  rank: number;
+  entry: LeaderboardEntry | null;
+  totalPlayers: number;
+}
+
 export const useLeaderboard = (currentProfileId?: string) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadLeaderboard();
-
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('leaderboard-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        () => {
-          loadLeaderboard();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentProfileId]);
-
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     try {
+      setIsLoading(true);
+      
+      // Get total count of players
+      const { count: totalCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Load top 100 entries
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -64,12 +55,116 @@ export const useLeaderboard = (currentProfileId?: string) => {
       }));
 
       setEntries(leaderboardEntries);
+
+      // Get user's position if they have a profile
+      if (currentProfileId) {
+        await loadUserPosition(currentProfileId, totalCount || 0);
+      }
     } catch (error) {
       console.error('Error loading leaderboard:', error);
     } finally {
       setIsLoading(false);
     }
+  }, [currentProfileId]);
+
+  const loadUserPosition = async (profileId: string, totalPlayers: number) => {
+    try {
+      // Get user's profile
+      const { data: userProfile, error: userError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', profileId)
+        .single();
+
+      if (userError || !userProfile) {
+        setUserPosition(null);
+        return;
+      }
+
+      // Count how many players have a higher score
+      const { count, error: countError } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .gt('highest_score', userProfile.highest_score || 0);
+
+      if (countError) {
+        console.error('Error counting user position:', countError);
+        return;
+      }
+
+      const rank = (count || 0) + 1;
+
+      // Check if user is in the top 100
+      const userEntry: LeaderboardEntry = {
+        id: userProfile.id,
+        rank,
+        username: userProfile.username,
+        city: userProfile.city,
+        country: userProfile.country,
+        score: userProfile.highest_score || 0,
+        level: userProfile.current_level || 1,
+        avatarColor: userProfile.avatar_color,
+        isCurrentUser: true
+      };
+
+      setUserPosition({
+        rank,
+        entry: userEntry,
+        totalPlayers
+      });
+    } catch (error) {
+      console.error('Error loading user position:', error);
+    }
   };
+
+  useEffect(() => {
+    loadLeaderboard();
+
+    // Subscribe to realtime updates for profiles table
+    const profilesChannel = supabase
+      .channel('leaderboard-profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        (payload) => {
+          // Only reload if highest_score was updated
+          if (payload.eventType === 'UPDATE' && payload.new?.highest_score !== payload.old?.highest_score) {
+            console.log('Profile score updated:', payload);
+            loadLeaderboard();
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            console.log('Profile changed:', payload);
+            loadLeaderboard();
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to realtime updates for leaderboard table
+    const leaderboardChannel = supabase
+      .channel('leaderboard-scores-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'leaderboard'
+        },
+        (payload) => {
+          console.log('New score submitted:', payload);
+          loadLeaderboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(leaderboardChannel);
+    };
+  }, [loadLeaderboard]);
 
   const submitScore = async (profileId: string, score: number, level: number) => {
     try {
@@ -88,5 +183,5 @@ export const useLeaderboard = (currentProfileId?: string) => {
     }
   };
 
-  return { entries, isLoading, submitScore, refresh: loadLeaderboard };
+  return { entries, userPosition, isLoading, submitScore, refresh: loadLeaderboard };
 };
