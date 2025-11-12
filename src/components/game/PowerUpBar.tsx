@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { usePowerUps } from '@/hooks/usePowerUps';
 import { useEffect, useState } from 'react';
+import { Clock, Sparkles, Shuffle, Bomb } from 'lucide-react';
 
 interface PowerUpBarProps {
   onUsePowerUp: (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => void;
@@ -27,26 +28,55 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
   }, [activePowerUp, getRemainingTime]);
 
   const powerUps = [
-    { id: 'slowTime' as const, icon: '⏱️', name: 'Slow Time', color: 'bg-blue-500' },
-    { id: 'clearLine' as const, icon: '✨', name: 'Clear Line', color: 'bg-purple-500' },
-    { id: 'shuffle' as const, icon: '🔄', name: 'Shuffle', color: 'bg-green-500' },
-    { id: 'bomb' as const, icon: '💣', name: 'Bomb', color: 'bg-red-500' },
+    { 
+      id: 'slowTime' as const, 
+      icon: Clock, 
+      name: 'Slow Time', 
+      color: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30'
+    },
+    { 
+      id: 'clearLine' as const, 
+      icon: Sparkles, 
+      name: 'Clear Line', 
+      color: 'text-purple-600 dark:text-purple-400',
+      bgColor: 'bg-purple-100 dark:bg-purple-900/30'
+    },
+    { 
+      id: 'shuffle' as const, 
+      icon: Shuffle, 
+      name: 'Shuffle', 
+      color: 'text-green-600 dark:text-green-400',
+      bgColor: 'bg-green-100 dark:bg-green-900/30'
+    },
+    { 
+      id: 'bomb' as const, 
+      icon: Bomb, 
+      name: 'Bomb', 
+      color: 'text-red-600 dark:text-red-400',
+      bgColor: 'bg-red-100 dark:bg-red-900/30'
+    },
   ];
 
   return (
     <div className="bg-card/50 backdrop-blur-sm p-2 sm:p-3 space-y-2 sm:space-y-3">
       {/* Active Power-Up Display */}
-      {activePowerUp && (
-        <div className="space-y-1 sm:space-y-2 animate-fade-in">
-          <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className="font-semibold text-primary truncate">
-              {powerUps.find(p => p.id === activePowerUp.type)?.icon} {powerUps.find(p => p.id === activePowerUp.type)?.name} Active
-            </span>
-            <span className="text-muted-foreground ml-2 flex-shrink-0">{Math.ceil(remainingTime / 1000)}s</span>
+      {activePowerUp && (() => {
+        const activePowerUpData = powerUps.find(p => p.id === activePowerUp.type);
+        const IconComponent = activePowerUpData?.icon;
+        return (
+          <div className="space-y-1 sm:space-y-2 animate-fade-in">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="font-semibold text-primary truncate flex items-center gap-1.5">
+                {IconComponent && <IconComponent className="h-4 w-4" />}
+                {activePowerUpData?.name} Active
+              </span>
+              <span className="text-muted-foreground ml-2 flex-shrink-0">{Math.ceil(remainingTime / 1000)}s</span>
+            </div>
+            <Progress value={(remainingTime / activePowerUp.duration) * 100} className="h-1.5 sm:h-2" />
           </div>
-          <Progress value={(remainingTime / activePowerUp.duration) * 100} className="h-1.5 sm:h-2" />
-        </div>
-      )}
+        );
+      })()}
 
       {/* Power-Up Buttons */}
       <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
@@ -54,6 +84,7 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
           const count = inventory[powerUp.id];
           const hasItem = count > 0;
           const isActiveType = activePowerUp?.type === powerUp.id;
+          const IconComponent = powerUp.icon;
 
           return (
             <div key={powerUp.id} className="relative">
@@ -62,10 +93,10 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
                 disabled={disabled || !hasItem || !!activePowerUp}
                 variant="outline"
                 size="sm"
-                className={`w-full h-10 sm:h-12 text-lg sm:text-xl relative touch-manipulation ${isActiveType ? 'border-primary border-2' : ''}`}
+                className={`w-full h-10 sm:h-12 relative touch-manipulation ${isActiveType ? 'border-primary border-2' : ''} ${powerUp.bgColor} ${!hasItem ? 'opacity-50' : ''}`}
                 style={{ touchAction: 'manipulation' }}
               >
-                {powerUp.icon}
+                <IconComponent className={`h-5 w-5 sm:h-6 sm:w-6 ${powerUp.color}`} />
               </Button>
               {hasItem && (
                 <Badge 

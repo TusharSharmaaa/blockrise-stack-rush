@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, User, Award } from "lucide-react";
+import { Play, Trophy, Calendar, Settings as SettingsIcon, Layers, User, Award, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { useAchievements } from "@/hooks/useAchievements";
@@ -92,6 +92,17 @@ const Index = () => {
             <div>
               <h2 className="text-xl sm:text-2xl font-bold mb-1">Daily Rewards</h2>
               <p className="text-xs sm:text-sm text-muted-foreground">Claim streak</p>
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer" onClick={() => navigate('/shop')}>
+            <div className="flex items-center justify-between">
+              <ShoppingBag className="h-6 w-6 sm:h-8 sm:w-8 text-orange-500" />
+              <Badge variant="secondary" className="text-xs">💰</Badge>
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-bold mb-1">Shop</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground">Buy power-ups</p>
             </div>
           </Card>
 

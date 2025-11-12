@@ -3,12 +3,16 @@ import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
 import { useGameLoop } from '@/hooks/useGameLoop';
+import { GAME_CONSTANTS } from '@/utils/gameConstants';
+import { GRID_HEIGHT, getRandomBlock } from '@/utils/blockShapes';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useBackButton } from '@/hooks/useBackButton';
+import { usePowerUps } from '@/hooks/usePowerUps';
+import PowerUpBar from '@/components/game/PowerUpBar';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -29,10 +33,12 @@ const Game = () => {
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
   const { checkAndUnlock } = useAchievements();
+  const { usePowerUp, loadInventory, activePowerUp, clearActivePowerUp } = usePowerUps();
   useBackButton(); // Handle Android back button
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
   const [hasTrackedAttempt, setHasTrackedAttempt] = useState(false);
+  const [normalSpeed, setNormalSpeed] = useState(GAME_CONSTANTS.BASE_SPEED);
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
@@ -42,7 +48,9 @@ const Game = () => {
     moveDown,
     rotate,
     togglePause,
-    resetGame
+    resetGame,
+    clearLine,
+    clearArea
   } = useGameLoop();
 
   // Track attempt when game starts (when gameOver is false and score is 0)
@@ -56,6 +64,30 @@ const Game = () => {
       setHasTrackedAttempt(false);
     }
   }, [gameState.gameOver, gameState.score, progress.currentLevel, hasTrackedAttempt, incrementLevelAttempt]);
+
+  // Load power-up inventory on mount
+  useEffect(() => {
+    loadInventory();
+  }, [loadInventory]);
+
+  // Track normal speed for current level
+  useEffect(() => {
+    const baseSpeed = Math.max(
+      GAME_CONSTANTS.MIN_SPEED,
+      GAME_CONSTANTS.BASE_SPEED - (gameState.level - 1) * GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL
+    );
+    setNormalSpeed(baseSpeed);
+  }, [gameState.level]);
+
+  // Handle slowTime power-up expiration
+  useEffect(() => {
+    if (!activePowerUp || activePowerUp.type !== 'slowTime') {
+      // Reset speed to normal when slowTime power-up expires
+      if (gameState.speed !== normalSpeed) {
+        setGameState(state => ({ ...state, speed: normalSpeed }));
+      }
+    }
+  }, [activePowerUp, gameState.speed, normalSpeed]);
 
   // Play music on mount and prevent body scrolling
   useEffect(() => {
@@ -236,7 +268,65 @@ const Game = () => {
     resetGame();
     setHasShownGameOverAd(false);
     setHasTrackedAttempt(false); // Reset so we track attempt for new game
+    clearActivePowerUp(); // Clear any active power-ups
     playMusic();
+  };
+
+  // Power-up handlers
+  const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
+    if (gameState.gameOver || gameState.paused) return;
+
+    const success = await usePowerUp(type, type === 'slowTime' ? 30000 : 0);
+    if (!success) {
+      toast.error('Cannot use power-up right now');
+      return;
+    }
+
+    playSound('powerup');
+
+    switch (type) {
+      case 'slowTime':
+        // Slow down the game by doubling the speed interval (higher interval = slower)
+        setGameState(state => ({
+          ...state,
+          speed: state.speed * GAME_CONSTANTS.SLOW_TIME_MULTIPLIER
+        }));
+        toast.success('⏱️ Time slowed down!');
+        break;
+
+      case 'clearLine':
+        // Clear the bottom line
+        setGameState(state => {
+          const bottomLineIndex = GRID_HEIGHT - 1;
+          return clearLine(state, bottomLineIndex);
+        });
+        toast.success('✨ Bottom line cleared!');
+        break;
+
+      case 'shuffle':
+        // Get a new random block
+        const newBlock = getRandomBlock();
+        setGameState(state => ({
+          ...state,
+          currentBlock: {
+            ...state.currentBlock!,
+            shape: newBlock.shape,
+            color: newBlock.color
+          }
+        }));
+        toast.success('🔄 Block shuffled!');
+        break;
+
+      case 'bomb':
+        // Clear 3x3 area around current block center
+        if (gameState.currentBlock) {
+          const centerX = gameState.currentBlock.x + Math.floor(gameState.currentBlock.shape[0].length / 2);
+          const centerY = gameState.currentBlock.y + Math.floor(gameState.currentBlock.shape.length / 2);
+          setGameState(state => clearArea(state, centerX, centerY, GAME_CONSTANTS.BOMB_RADIUS));
+          toast.success('💣 Area cleared!');
+        }
+        break;
+    }
   };
 
   return (
@@ -315,6 +405,22 @@ const Game = () => {
         <GameBoard
           grid={gameState.grid}
           currentBlock={gameState.currentBlock}
+        />
+      </div>
+
+      {/* Power-Up Bar - Between game board and controls */}
+      <div 
+        className="flex-shrink-0 w-full"
+        style={{ 
+          paddingLeft: 'max(8px, env(safe-area-inset-left, 8px))',
+          paddingRight: 'max(8px, env(safe-area-inset-right, 8px))',
+          paddingTop: '8px',
+          paddingBottom: '8px'
+        }}
+      >
+        <PowerUpBar
+          onUsePowerUp={handleUsePowerUp}
+          disabled={gameState.gameOver || gameState.paused}
         />
       </div>
       

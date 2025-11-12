@@ -35,7 +35,15 @@ const Profile = () => {
 
   return (
     <ScrollArea className="h-screen">
-      <div className="min-h-screen bg-background pb-20">
+      <div 
+        className="min-h-screen bg-background pb-20"
+        style={{
+          paddingTop: `max(env(safe-area-inset-top, 0px), 24px)`,
+          paddingLeft: `max(env(safe-area-inset-left, 0px), 0px)`,
+          paddingRight: `max(env(safe-area-inset-right, 0px), 0px)`,
+          paddingBottom: `max(env(safe-area-inset-bottom, 0px), 0px)`,
+        }}
+      >
         <div className="max-w-md mx-auto p-4 sm:p-6 space-y-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
