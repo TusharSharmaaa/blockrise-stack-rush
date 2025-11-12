@@ -138,7 +138,16 @@ export const useUserProfile = () => {
             .eq('id', existing.id)
             .select()
             .single();
-          if (updateErr) throw updateErr;
+          
+          // Handle username unique constraint violation on update
+          if (updateErr) {
+            // @ts-ignore
+            if (updateErr.code === '23505' && updateErr.message?.includes('profiles_username_unique_idx')) {
+              throw new Error('USERNAME_TAKEN');
+            }
+            throw updateErr;
+          }
+          
           localStorage.setItem('profileId', updated.id);
           const updatedProfile: UserProfile = {
             id: updated.id,
@@ -191,9 +200,14 @@ export const useUserProfile = () => {
         .single();
 
       if (error) {
-        // Friendly duplicate key handling
-        // @ts-ignore - code may not exist on all error shapes
+        // @ts-ignore
         if (error.code === '23505') {
+          // Check if it's a username conflict
+          // @ts-ignore
+          if (error.message?.includes('profiles_username_unique_idx')) {
+            throw new Error('USERNAME_TAKEN');
+          }
+          // Otherwise it's a user_id conflict, fetch existing
           const { data: fetched } = await supabase
             .from('profiles')
             .select('*')
@@ -238,11 +252,21 @@ export const useUserProfile = () => {
       setProfile(newProfile);
       return newProfile;
     } catch (error: any) {
-      // Normalize duplicate key messages
-      const msg = String(error?.message || 'Failed to create profile');
+      // Normalize error messages for UI
+      const msg = String(error?.message || '');
+      
+      if (msg === 'USERNAME_TAKEN') {
+        throw new Error('USERNAME_TAKEN');
+      }
+      
       if (msg.includes('duplicate key value') || msg.includes('profiles_user_id_key')) {
         throw new Error('You already have a profile. Please try again.');
       }
+      
+      if (msg.includes('profiles_username_unique_idx')) {
+        throw new Error('USERNAME_TAKEN');
+      }
+      
       console.error('[useUserProfile] Error creating profile:', error);
       throw error;
     }

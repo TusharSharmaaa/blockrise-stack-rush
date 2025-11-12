@@ -114,7 +114,15 @@ const ProfileSetupDialog = () => {
     } catch (error: any) {
       console.error('[ProfileSetup] Error during submission:', error);
       const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
-      setErrors({ name: errorMessage });
+      
+      // Handle username conflict specifically
+      if (errorMessage === 'USERNAME_TAKEN') {
+        setErrors({ name: 'This username is already taken. Please choose a different name.' });
+        toast.error('Username already taken');
+      } else {
+        setErrors({ name: errorMessage });
+        toast.error('Failed to save profile');
+      }
     } finally {
       setIsSubmitting(false);
     }
