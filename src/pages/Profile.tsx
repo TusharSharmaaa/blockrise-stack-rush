@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, User, MapPin, Globe, Check, ChevronsUpDown } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowLeft, User, MapPin, Globe, Check, ChevronsUpDown, WifiOff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useCountries } from '@/hooks/useCountries';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateProfileData } from '@/utils/validation';
@@ -20,6 +22,7 @@ const Profile = () => {
   const { profile, updateProfile, checkNameUnique } = useUserProfile();
   const { progress } = useGameProgress();
   const { countries, isLoading: countriesLoading } = useCountries();
+  const isOnline = useOnlineStatus();
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState(profile?.username || '');
   const [country, setCountry] = useState(profile?.country || '');
@@ -29,6 +32,12 @@ const Profile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    // Check online status before proceeding
+    if (!isOnline) {
+      toast.error('No internet connection. Please check your network and try again.');
+      return;
+    }
 
     setIsSubmitting(true);
     setError(undefined);
@@ -104,6 +113,15 @@ const Profile = () => {
         {/* Profile Form */}
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {!isOnline && (
+              <Alert variant="destructive">
+                <WifiOff className="h-4 w-4" />
+                <AlertDescription>
+                  You're offline. Connect to the internet to update your profile.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive rounded-md">
                 <p className="text-sm text-destructive">{error}</p>
@@ -185,9 +203,9 @@ const Profile = () => {
             <Button
               type="submit"
               className="w-full gradient-primary"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isOnline}
             >
-              {isSubmitting ? 'Saving...' : 'Update Profile'}
+              {isSubmitting ? 'Saving...' : isOnline ? 'Update Profile' : 'Offline - Cannot Save'}
             </Button>
           </form>
         </Card>

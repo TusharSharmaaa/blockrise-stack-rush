@@ -3,19 +3,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Globe, Check, ChevronsUpDown } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { User, Globe, Check, ChevronsUpDown, WifiOff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountries } from '@/hooks/useCountries';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 
 const ProfileSetupDialog = () => {
   const { profile, createProfile, checkNameUnique } = useUserProfile();
   const { countries, isLoading: countriesLoading } = useCountries();
+  const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState('');
@@ -33,6 +36,12 @@ const ProfileSetupDialog = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    // Check online status before proceeding
+    if (!isOnline) {
+      toast.error('No internet connection. Please check your network and try again.');
+      return;
+    }
 
     setIsSubmitting(true);
     setErrors({});
@@ -115,6 +124,15 @@ const ProfileSetupDialog = () => {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isOnline && (
+            <Alert variant="destructive">
+              <WifiOff className="h-4 w-4" />
+              <AlertDescription>
+                You're offline. Connect to the internet to create your profile.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="setup-name" className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -194,9 +212,9 @@ const ProfileSetupDialog = () => {
           <Button
             type="submit"
             className="w-full gradient-primary"
-            disabled={isSubmitting || countriesLoading || !name || !country}
+            disabled={isSubmitting || countriesLoading || !name || !country || !isOnline}
           >
-            {isSubmitting ? 'Saving...' : 'Save & Continue'}
+            {isSubmitting ? 'Saving...' : isOnline ? 'Save & Continue' : 'Offline - Cannot Save'}
           </Button>
         </form>
       </DialogContent>
