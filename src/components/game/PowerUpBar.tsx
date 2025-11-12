@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { usePowerUps } from '@/hooks/usePowerUps';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Clock, Sparkles, Shuffle, Bomb } from 'lucide-react';
 
 interface PowerUpBarProps {
@@ -11,8 +11,34 @@ interface PowerUpBarProps {
 }
 
 const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
-  const { inventory, activePowerUp, getRemainingTime, hasPowerUp } = usePowerUps();
+  const { inventory, activePowerUp, getRemainingTime, hasPowerUp, loadInventory } = usePowerUps();
   const [remainingTime, setRemainingTime] = useState(0);
+  const prevActivePowerUpRef = useRef(activePowerUp);
+
+  // Reload inventory on mount to ensure it's up to date
+  useEffect(() => {
+    loadInventory();
+    
+    // Listen for inventory changes from other components (e.g., when power-up is used)
+    const handleInventoryChange = () => {
+      loadInventory();
+    };
+    
+    window.addEventListener('powerUpInventoryChanged', handleInventoryChange);
+    
+    return () => {
+      window.removeEventListener('powerUpInventoryChanged', handleInventoryChange);
+    };
+  }, [loadInventory]);
+
+  // Reload inventory when activePowerUp changes from a value to null (power-up expired)
+  useEffect(() => {
+    if (prevActivePowerUpRef.current && !activePowerUp) {
+      // Power-up was active and is now null (expired or cleared)
+      loadInventory();
+    }
+    prevActivePowerUpRef.current = activePowerUp;
+  }, [activePowerUp, loadInventory]);
 
   useEffect(() => {
     if (activePowerUp) {
@@ -21,11 +47,13 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
         setRemainingTime(time);
         if (time <= 0) {
           clearInterval(interval);
+          // Reload inventory when power-up expires to ensure count is updated
+          loadInventory();
         }
       }, 100);
       return () => clearInterval(interval);
     }
-  }, [activePowerUp, getRemainingTime]);
+  }, [activePowerUp, getRemainingTime, loadInventory]);
 
   const powerUps = [
     { 

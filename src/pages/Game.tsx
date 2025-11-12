@@ -4,7 +4,7 @@ import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { GAME_CONSTANTS } from '@/utils/gameConstants';
-import { GRID_HEIGHT, getRandomBlock } from '@/utils/blockShapes';
+import { GRID_HEIGHT, GRID_WIDTH, getRandomBlock } from '@/utils/blockShapes';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
@@ -28,7 +28,7 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, watchAdToCompleteLevel, watchAdForCoins, canWatchAdToday, incrementLevelAttempt, getStarsForLevel } = useGameProgress();
+  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, watchAdForCoins, canWatchAdToday, incrementLevelAttempt, getStarsForLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
@@ -65,9 +65,29 @@ const Game = () => {
     }
   }, [gameState.gameOver, gameState.score, progress.currentLevel, hasTrackedAttempt, incrementLevelAttempt]);
 
-  // Load power-up inventory on mount
+  // Load power-up inventory on mount and when component becomes visible
   useEffect(() => {
     loadInventory();
+    
+    // Reload inventory when page becomes visible (e.g., returning from shop)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadInventory();
+      }
+    };
+    
+    // Also reload on focus (for mobile apps)
+    const handleFocus = () => {
+      loadInventory();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadInventory]);
 
   // Track normal speed for current level
@@ -214,33 +234,11 @@ const Game = () => {
       resetGame();
       setHasShownGameOverAd(false);
       setHasTrackedAttempt(false); // Reset so we track attempt for new game
+      // Reload inventory to ensure counts are up to date
+      await loadInventory();
       playMusic();
     } else {
       toast.error('Ad was not completed');
-    }
-  };
-
-  const handleWatchAdToFinishLevel = async () => {
-    if (!canWatchAdToday()) {
-      toast.error('Daily ad limit reached! Come back tomorrow.');
-      return;
-    }
-
-    const result = await showRewardedAd();
-    if (result.success) {
-      const adResult = await watchAdToCompleteLevel(progress.currentLevel, gameState.score);
-      if (adResult.success) {
-        toast.success(`🎉 Level ${adResult.levelCompleted} completed! +${adResult.coinsEarned} coins! Next level unlocked!`);
-        playSound('coin');
-        // Navigate to level select or home
-        setTimeout(() => {
-          navigate('/level-select');
-        }, 1500);
-      } else {
-        toast.error(adResult.message || 'Failed to complete level');
-      }
-    } else {
-      toast.error('Ad was not completed. Please try again.');
     }
   };
 
@@ -252,10 +250,14 @@ const Game = () => {
 
     const result = await showRewardedAd();
     if (result.success) {
-      const adResult = await watchAdForCoins(75); // Earn 75 coins for watching ad
+      const adResult = await watchAdForCoins(100); // Earn 100 coins for watching ad
       if (adResult.success) {
         toast.success(`💰 You earned ${adResult.coinsEarned} coins!`);
         playSound('coin');
+        // Navigate to home after crediting coins
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
       } else {
         toast.error(adResult.message || 'Failed to earn coins');
       }
@@ -264,11 +266,13 @@ const Game = () => {
     }
   };
 
-  const handlePlayAgain = () => {
+  const handlePlayAgain = async () => {
     resetGame();
     setHasShownGameOverAd(false);
     setHasTrackedAttempt(false); // Reset so we track attempt for new game
     clearActivePowerUp(); // Clear any active power-ups
+    // Reload inventory to ensure counts are up to date for new game
+    await loadInventory();
     playMusic();
   };
 
@@ -282,6 +286,8 @@ const Game = () => {
       return;
     }
 
+    // State is updated synchronously by saveInventory, and custom event notifies PowerUpBar
+    // No need to reload here as the event system handles cross-component updates
     playSound('powerup');
 
     switch (type) {
@@ -304,16 +310,44 @@ const Game = () => {
         break;
 
       case 'shuffle':
-        // Get a new random block
-        const newBlock = getRandomBlock();
-        setGameState(state => ({
-          ...state,
-          currentBlock: {
-            ...state.currentBlock!,
-            shape: newBlock.shape,
-            color: newBlock.color
-          }
-        }));
+        // Get a new random block with different shape
+        // Keep trying until we get a different shape to ensure it actually changes
+        let newBlock = getRandomBlock();
+        let attempts = 0;
+        while (gameState.currentBlock && 
+               JSON.stringify(newBlock.shape) === JSON.stringify(gameState.currentBlock.shape) && 
+               attempts < 10) {
+          newBlock = getRandomBlock();
+          attempts++;
+        }
+        
+        setGameState(state => {
+          if (!state.currentBlock) return state;
+          
+          // Recalculate x position to center the new block based on its width
+          const newBlockWidth = newBlock.shape[0].length;
+          const newX = Math.max(0, Math.min(
+            GRID_WIDTH - newBlockWidth,
+            Math.floor(GRID_WIDTH / 2) - Math.floor(newBlockWidth / 2)
+          ));
+          
+          // Keep the same y position
+          const currentY = state.currentBlock.y;
+          
+          // Create completely new block object to ensure React detects the change
+          const shuffledBlock = {
+            shape: newBlock.shape, // New shape
+            color: newBlock.color, // New color
+            x: newX, // Recalculated x position
+            y: currentY, // Keep current y
+            id: Math.random().toString() // New ID to force re-render
+          };
+          
+          return {
+            ...state,
+            currentBlock: shuffledBlock
+          };
+        });
         toast.success('🔄 Block shuffled!');
         break;
 
@@ -519,35 +553,22 @@ const Game = () => {
             )}
           </div>
           <DialogFooter className="flex flex-col gap-2">
-            {/* Watch Ad to Finish Level - Only show if level not completed */}
-            {!hasCompletedLevel(progress.currentLevel, gameState.score) && (
-              <Button 
-                onClick={handleWatchAdToFinishLevel}
-                disabled={isRewardedLoading || !canWatchAdToday()}
-                className="w-full gradient-primary"
-                variant="default"
-              >
-                <Video className="mr-2 h-4 w-4" />
-                {isRewardedLoading ? 'Loading...' : 'Watch Ad to Finish Level (+100 Coins)'}
-              </Button>
-            )}
-            
-            {/* Watch Ad & Earn Money - Always available */}
+            {/* Watch Ad & Earn Coins - Middle button with 100 coins */}
             <Button 
               onClick={handleWatchAdForMoney}
               disabled={isRewardedLoading || !canWatchAdToday()}
-              className="w-full bg-accent hover:bg-accent/90"
+              className="w-full gradient-primary"
               variant="default"
             >
               <Coins className="mr-2 h-4 w-4" />
-              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Earn Money (+75 Coins)'}
+              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Earn Coins (+100 Coins)'}
             </Button>
 
             {/* Continue Playing Option */}
             <Button 
               onClick={handleContinueWithAd}
               disabled={isRewardedLoading || !canWatchAdToday()}
-              className="w-full gradient-primary"
+              className="w-full bg-accent hover:bg-accent/90"
               variant="default"
             >
               <Video className="mr-2 h-4 w-4" />

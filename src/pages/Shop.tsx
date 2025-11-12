@@ -57,9 +57,15 @@ const POWER_UPS: PowerUpItem[] = [
 const Shop = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
-  const { progress, addCoins } = useGameProgress();
+  const { progress, addCoins, isLoading } = useGameProgress();
   const { inventory, addPowerUp, loadInventory } = usePowerUps();
   const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
+  const [localProgress, setLocalProgress] = useState(progress);
+
+  // Sync local progress with hook progress
+  useEffect(() => {
+    setLocalProgress(progress);
+  }, [progress]);
 
   useEffect(() => {
     loadInventory();
@@ -68,22 +74,32 @@ const Shop = () => {
   const handlePurchase = async (powerUp: PowerUpItem) => {
     if (isPurchasing) return;
     
-    if (progress.totalCoins < powerUp.price) {
+    // Use local progress for immediate UI update
+    if (localProgress.totalCoins < powerUp.price) {
       toast.error(`Not enough coins! You need ${powerUp.price} coins.`);
       return;
     }
 
     setIsPurchasing(powerUp.id);
     try {
-      // Deduct coins
+      // Update local progress immediately for UI responsiveness
+      const newCoins = localProgress.totalCoins - powerUp.price;
+      setLocalProgress({ ...localProgress, totalCoins: newCoins });
+      
+      // Deduct coins (this will update the actual progress state)
       await addCoins(-powerUp.price);
       
       // Add power-up to inventory
       await addPowerUp(powerUp.id, 1);
       
+      // Reload inventory to ensure it's up to date
+      await loadInventory();
+      
       toast.success(`Purchased ${powerUp.name}! Check your inventory during gameplay.`);
     } catch (error) {
       console.error('Purchase error:', error);
+      // Revert local progress on error
+      setLocalProgress(progress);
       toast.error('Failed to purchase. Please try again.');
     } finally {
       setIsPurchasing(null);
@@ -93,22 +109,32 @@ const Shop = () => {
   const handleBulkPurchase = async (powerUp: PowerUpItem, quantity: number) => {
     const totalPrice = powerUp.price * quantity;
     
-    if (progress.totalCoins < totalPrice) {
+    // Use local progress for immediate UI update
+    if (localProgress.totalCoins < totalPrice) {
       toast.error(`Not enough coins! You need ${totalPrice} coins.`);
       return;
     }
 
     setIsPurchasing(powerUp.id);
     try {
-      // Deduct coins
+      // Update local progress immediately for UI responsiveness
+      const newCoins = localProgress.totalCoins - totalPrice;
+      setLocalProgress({ ...localProgress, totalCoins: newCoins });
+      
+      // Deduct coins (this will update the actual progress state)
       await addCoins(-totalPrice);
       
       // Add power-ups to inventory
       await addPowerUp(powerUp.id, quantity);
       
+      // Reload inventory to ensure it's up to date
+      await loadInventory();
+      
       toast.success(`Purchased ${quantity}x ${powerUp.name}!`);
     } catch (error) {
       console.error('Purchase error:', error);
+      // Revert local progress on error
+      setLocalProgress(progress);
       toast.error('Failed to purchase. Please try again.');
     } finally {
       setIsPurchasing(null);
@@ -133,7 +159,7 @@ const Shop = () => {
             </div>
             <Badge variant="secondary" className="text-lg px-4 py-2">
               <Coins className="h-4 w-4 mr-1" />
-              {progress.totalCoins}
+              {localProgress.totalCoins}
             </Badge>
           </div>
 
@@ -154,7 +180,7 @@ const Shop = () => {
           <div className="space-y-4">
             {POWER_UPS.map((powerUp) => {
               const owned = inventory[powerUp.id];
-              const canAfford = progress.totalCoins >= powerUp.price;
+              const canAfford = localProgress.totalCoins >= powerUp.price;
               const isPurchasingItem = isPurchasing === powerUp.id;
 
               return (
@@ -199,7 +225,7 @@ const Shop = () => {
                         </Button>
                         
                         {/* Bulk Purchase (5x) */}
-                        {canAfford && progress.totalCoins >= powerUp.price * 5 && (
+                        {canAfford && localProgress.totalCoins >= powerUp.price * 5 && (
                           <Button
                             onClick={() => handleBulkPurchase(powerUp, 5)}
                             disabled={isPurchasingItem}
