@@ -18,7 +18,7 @@ import Fuse from 'fuse.js';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const ProfileSetupDialog = () => {
-  const { profile, createProfile, checkNameUnique } = useUserProfile();
+  const { profile, isLoading: profileLoading, createProfile, checkNameUnique } = useUserProfile();
   const { countries, isLoading: countriesLoading } = useCountries();
   const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
@@ -35,7 +35,13 @@ const ProfileSetupDialog = () => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const skipButtonTimerRef = useRef<NodeJS.Timeout | null>(null);
   const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
+  const checkNameUniqueRef = useRef(checkNameUnique);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  // Keep ref updated with latest function
+  useEffect(() => {
+    checkNameUniqueRef.current = checkNameUnique;
+  }, [checkNameUnique]);
 
   // Configure Fuse.js for fuzzy search
   const fuse = new Fuse(countries, {
@@ -50,17 +56,38 @@ const ProfileSetupDialog = () => {
     : countries;
 
   useEffect(() => {
-    // Show dialog if profile doesn't exist
-    if (!profile) {
-      setOpen(true);
+    // Don't show dialog while profile is loading
+    if (profileLoading) {
+      return;
     }
-  }, [profile]);
+
+    // Check if profile is already completed (stored in localStorage)
+    const profileComplete = localStorage.getItem('blockrise_profile_complete');
+    const profileId = localStorage.getItem('profileId');
+    
+    // Show dialog only if:
+    // 1. No profile exists in state
+    // 2. No profile completion flag in localStorage
+    // 3. No profileId in localStorage
+    // This ensures it shows for ALL new users
+    if (!profile && !profileComplete && !profileId) {
+      setOpen(true);
+    } else if (profile || profileComplete || profileId) {
+      // Profile exists or is marked as complete, close dialog
+      setOpen(false);
+    }
+  }, [profile, profileLoading]);
 
   // Debounced username availability check
   useEffect(() => {
-    // Clear previous timer
+    // Clear previous timers immediately
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (skipButtonTimerRef.current) {
+      clearTimeout(skipButtonTimerRef.current);
+      skipButtonTimerRef.current = null;
     }
 
     // Reset states if name is empty or too short
@@ -68,6 +95,7 @@ const ProfileSetupDialog = () => {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
       setUsernameSuggestions([]);
+      setShowSkipValidation(false);
       return;
     }
 
@@ -76,6 +104,7 @@ const ProfileSetupDialog = () => {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
       setUsernameSuggestions([]);
+      setShowSkipValidation(false);
       return;
     }
 
@@ -85,24 +114,32 @@ const ProfileSetupDialog = () => {
     setUsernameSuggestions([]);
     setShowSkipValidation(false);
 
+    let timeoutId: NodeJS.Timeout | null = null;
+    let isMounted = true;
+
     // Show skip button after 5 seconds
     skipButtonTimerRef.current = setTimeout(() => {
-      if (isCheckingUsername) {
+      if (isMounted) {
         setShowSkipValidation(true);
         console.log('[ProfileSetup] Showing skip validation button');
       }
     }, 5000);
 
     // Set a timeout to prevent infinite loading (10 seconds max)
-    const timeoutId = setTimeout(() => {
-      console.error('[ProfileSetup] Username check timeout');
-      setIsCheckingUsername(false);
-      setUsernameAvailable(null);
-      toast.error('Connection timeout. Please try again.');
+    timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.error('[ProfileSetup] Username check timeout');
+        setIsCheckingUsername(false);
+        setUsernameAvailable(null);
+        setShowSkipValidation(true);
+        toast.error('Connection timeout. Please try again.');
+      }
     }, 10000);
 
     // Debounce the actual check by 500ms
     debounceTimerRef.current = setTimeout(async () => {
+      if (!isMounted) return;
+
       try {
         const trimmedName = name.trim().toLowerCase();
         
@@ -113,25 +150,30 @@ const ProfileSetupDialog = () => {
         if (cached && (now - cached.timestamp) < CACHE_DURATION) {
           // Use cached result
           console.log('[ProfileSetup] Using cached result for:', trimmedName);
-        clearTimeout(timeoutId);
-        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
-        setShowSkipValidation(false);
-        setUsernameAvailable(cached.available);
-        
-        // If username is taken, generate suggestions
-        if (!cached.available) {
-          await generateUsernameSuggestions(name.trim());
-        } else {
-          setUsernameSuggestions([]);
-        }
-        setIsCheckingUsername(false);
-        return;
+          if (timeoutId) clearTimeout(timeoutId);
+          if (skipButtonTimerRef.current) {
+            clearTimeout(skipButtonTimerRef.current);
+            skipButtonTimerRef.current = null;
+          }
+          setShowSkipValidation(false);
+          setUsernameAvailable(cached.available);
+          
+          // If username is taken, generate suggestions
+          if (!cached.available) {
+            await generateUsernameSuggestions(name.trim());
+          } else {
+            setUsernameSuggestions([]);
+          }
+          setIsCheckingUsername(false);
+          return;
         }
         
         // Make API call if not cached or expired
         console.log('[ProfileSetup] Checking username availability for:', name.trim());
-        const isUnique = await checkNameUnique(name.trim());
+        const isUnique = await checkNameUniqueRef.current(name.trim());
         console.log('[ProfileSetup] Uniqueness result:', isUnique);
+        
+        if (!isMounted) return;
         
         // Cache the result
         usernameCheckCacheRef.current.set(trimmedName, {
@@ -139,8 +181,11 @@ const ProfileSetupDialog = () => {
           timestamp: now
         });
         
-        clearTimeout(timeoutId);
-        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
+        if (timeoutId) clearTimeout(timeoutId);
+        if (skipButtonTimerRef.current) {
+          clearTimeout(skipButtonTimerRef.current);
+          skipButtonTimerRef.current = null;
+        }
         setShowSkipValidation(false);
         setUsernameAvailable(isUnique);
         
@@ -151,29 +196,42 @@ const ProfileSetupDialog = () => {
           setUsernameSuggestions([]);
         }
       } catch (error) {
+        if (!isMounted) return;
         console.error('[ProfileSetup] Error checking username:', error);
-        clearTimeout(timeoutId);
-        if (skipButtonTimerRef.current) clearTimeout(skipButtonTimerRef.current);
+        if (timeoutId) clearTimeout(timeoutId);
+        if (skipButtonTimerRef.current) {
+          clearTimeout(skipButtonTimerRef.current);
+          skipButtonTimerRef.current = null;
+        }
         setUsernameAvailable(null);
         setUsernameSuggestions([]);
         setShowSkipValidation(true);
         toast.error('Failed to check username. Please try again.');
       } finally {
-        setIsCheckingUsername(false);
+        if (isMounted) {
+          setIsCheckingUsername(false);
+        }
       }
     }, 500);
 
     // Cleanup
     return () => {
+      isMounted = false;
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
       }
       if (skipButtonTimerRef.current) {
         clearTimeout(skipButtonTimerRef.current);
+        skipButtonTimerRef.current = null;
       }
-      clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      // Reset loading state on cleanup to prevent stuck spinner
+      setIsCheckingUsername(false);
     };
-  }, [name, checkNameUnique, isOnline]);
+  }, [name, isOnline]); // Removed checkNameUnique from dependencies to prevent unnecessary re-runs
 
   const generateUsernameSuggestions = async (baseName: string) => {
     const suggestions: string[] = [];
@@ -212,7 +270,7 @@ const ProfileSetupDialog = () => {
           isAvailable = cached.available;
         } else {
           // Make API call
-          isAvailable = await checkNameUnique(candidate);
+          isAvailable = await checkNameUniqueRef.current(candidate);
           
           // Cache the result
           usernameCheckCacheRef.current.set(candidateLower, {
@@ -282,9 +340,20 @@ const ProfileSetupDialog = () => {
 
       // Final check on submit (in case of race conditions)
       console.log('[ProfileSetup] Final uniqueness check...');
+      
+      // CRITICAL: Username must be unique - cannot proceed without it
       if (usernameAvailable === false) {
         setErrors({ name: 'This username is already taken. Please choose a different name.' });
         setIsSubmitting(false);
+        toast.error('Username must be unique. Please choose a different username.');
+        return;
+      }
+      
+      // CRITICAL: Username must be confirmed as available
+      if (usernameAvailable !== true) {
+        setErrors({ name: 'Please wait for username validation to complete.' });
+        setIsSubmitting(false);
+        toast.error('Please wait for username validation to complete.');
         return;
       }
 
@@ -312,22 +381,29 @@ const ProfileSetupDialog = () => {
       
       console.log('[ProfileSetup] Backend verification successful:', verifyData);
       
-      // Only mark as complete if everything succeeded
+      // Mark as complete if everything succeeded
       localStorage.setItem('blockrise_profile_complete', 'true');
+      localStorage.setItem('profileId', newProfile.id);
+      
+      // Close dialog
+      setOpen(false);
       
       toast.success('Profile created! Welcome to BlockRise! 🎉');
-      setOpen(false);
     } catch (error: any) {
       console.error('[ProfileSetup] Error during submission:', error);
       const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
       
       // Handle username conflict specifically
-      if (errorMessage === 'USERNAME_TAKEN') {
+      if (errorMessage === 'USERNAME_TAKEN' || 
+          errorMessage.includes('username') || 
+          errorMessage.includes('unique') ||
+          errorMessage.includes('duplicate')) {
         setErrors({ name: 'This username is already taken. Please choose a different name.' });
-        toast.error('Username already taken');
+        setUsernameAvailable(false);
+        toast.error('Username already taken. Please choose a unique username.');
       } else {
         setErrors({ name: errorMessage });
-        toast.error('Failed to save profile');
+        toast.error('Failed to save profile. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -335,20 +411,37 @@ const ProfileSetupDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {
-      // Prevent closing - modal is mandatory
-      return;
-    }}>
+    <Dialog 
+      open={open} 
+      onOpenChange={() => {
+        // Prevent closing - modal is mandatory until profile is created
+        // User cannot proceed without a unique username
+        return;
+      }}
+      modal={true}
+    >
       <DialogContent 
-        className="sm:max-w-md" 
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
+        className="sm:max-w-md z-50" 
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.info('Please complete your profile to continue');
+        }}
+        onPointerDownOutside={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.info('Please complete your profile to continue');
+        }}
+        onInteractOutside={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toast.info('Please complete your profile to continue');
+        }}
       >
         <DialogHeader>
           <DialogTitle>Welcome to BlockRise!</DialogTitle>
           <DialogDescription>
-            Complete your profile to get started
+            Create your profile with a unique username to join the leaderboard and start playing
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -364,8 +457,11 @@ const ProfileSetupDialog = () => {
           <div className="space-y-2">
             <Label htmlFor="setup-name" className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Name
+              Username <span className="text-destructive">*</span>
             </Label>
+            <p className="text-xs text-muted-foreground">
+              Your username must be unique and will be displayed on the leaderboard
+            </p>
             <div className="relative">
               <Input
                 id="setup-name"
@@ -537,13 +633,15 @@ const ProfileSetupDialog = () => {
               !country || 
               !isOnline || 
               isCheckingUsername ||
+              usernameAvailable !== true || // MUST be true (unique) to proceed
               usernameAvailable === false ||
-              name.length < 3
+              name.trim().length < 3
             }
           >
             {isSubmitting ? 'Saving...' : 
              isCheckingUsername ? 'Checking username...' :
-             usernameAvailable === false ? 'Username taken' :
+             usernameAvailable === false ? 'Username taken - Choose another' :
+             usernameAvailable !== true ? 'Validating username...' :
              !isOnline ? 'Offline - Cannot Save' : 
              'Save & Continue'}
           </Button>

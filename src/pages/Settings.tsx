@@ -1,11 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Shield, Mail, Lock, LogIn } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -13,11 +11,6 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useSound } from '@/hooks/useSound';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
-import { z } from 'zod';
-
-const emailSchema = z.string().email('Invalid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -26,21 +19,6 @@ const Settings = () => {
   const { formatPrice } = useCurrency();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  
-  // Account upgrade state
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [upgradeEmail, setUpgradeEmail] = useState('');
-  const [upgradePassword, setUpgradePassword] = useState('');
-  const [isUpgrading, setIsUpgrading] = useState(false);
-
-  useEffect(() => {
-    checkAnonymousStatus();
-  }, []);
-
-  const checkAnonymousStatus = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setIsAnonymous(user?.is_anonymous ?? false);
-  };
 
   useEffect(() => {
     if (!permissionGranted && notificationsEnabled) {
@@ -64,53 +42,6 @@ const Settings = () => {
     toast.info('Opening payment...');
   };
 
-  const handleUpgradeAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsUpgrading(true);
-
-    try {
-      // Validate inputs
-      emailSchema.parse(upgradeEmail);
-      passwordSchema.parse(upgradePassword);
-
-      // Update the anonymous user with email and password
-      const { data, error } = await supabase.auth.updateUser({
-        email: upgradeEmail,
-        password: upgradePassword,
-      });
-
-      if (error) throw error;
-
-      toast.success('Account upgraded! 🎉', {
-        description: 'Your anonymous account is now permanent.',
-      });
-      
-      setIsAnonymous(false);
-      setUpgradeEmail('');
-      setUpgradePassword('');
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      } else {
-        toast.error(error.message || 'Failed to upgrade account');
-      }
-    } finally {
-      setIsUpgrading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      toast.success('Signed out successfully');
-      navigate('/auth');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to sign out');
-    }
-  };
-
   return (
     <ScrollArea className="h-screen">
       <div className="min-h-screen bg-background pb-20">
@@ -127,62 +58,6 @@ const Settings = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Account Upgrade for Anonymous Users */}
-          {isAnonymous && (
-            <div className="bg-card rounded-lg p-6 space-y-4 card-elevated border-2 border-primary/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">Upgrade Your Account</h2>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                You're using a temporary account. Upgrade to a permanent account to secure your progress and access it from any device.
-              </p>
-              
-              <form onSubmit={handleUpgradeAccount} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="upgrade-email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </Label>
-                  <Input
-                    id="upgrade-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={upgradeEmail}
-                    onChange={(e) => setUpgradeEmail(e.target.value)}
-                    required
-                    disabled={isUpgrading}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="upgrade-password" className="flex items-center gap-2">
-                    <Lock className="h-4 w-4" />
-                    Password
-                  </Label>
-                  <Input
-                    id="upgrade-password"
-                    type="password"
-                    placeholder="Min. 6 characters"
-                    value={upgradePassword}
-                    onChange={(e) => setUpgradePassword(e.target.value)}
-                    required
-                    disabled={isUpgrading}
-                    minLength={6}
-                  />
-                </div>
-                
-                <Button
-                  type="submit"
-                  className="w-full gradient-primary"
-                  disabled={isUpgrading}
-                >
-                  {isUpgrading ? 'Upgrading...' : 'Upgrade to Permanent Account'}
-                </Button>
-              </form>
-            </div>
-          )}
-
           {/* Appearance Settings */}
           <div className="bg-card rounded-lg p-6 space-y-4 card-elevated">
             <h2 className="text-xl font-semibold mb-4">Appearance</h2>
@@ -294,20 +169,6 @@ const Settings = () => {
             </p>
           </div>
 
-          {/* Sign Out for Permanent Accounts */}
-          {!isAnonymous && (
-            <div className="bg-card rounded-lg p-6 card-elevated">
-              <h2 className="text-xl font-semibold mb-4">Account</h2>
-              <Button 
-                variant="outline" 
-                className="w-full" 
-                onClick={handleSignOut}
-              >
-                <LogIn className="h-4 w-4 mr-2 rotate-180" />
-                Sign Out
-              </Button>
-            </div>
-          )}
         </div>
         </div>
       </div>
