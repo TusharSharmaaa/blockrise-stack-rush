@@ -16,26 +16,26 @@ export const useAdMob = () => {
   const [isRewardedLoading, setIsRewardedLoading] = useState(false);
   const [isInterstitialLoading, setIsInterstitialLoading] = useState(false);
 
-  useEffect(() => {
-    if (!isNative) return;
-
-    const initialize = async () => {
-      try {
-        await AdMob.initialize({
-          testingDevices: ['TEST_DEVICE_ID'],
-          initializeForTesting: true
-        });
-        setIsInitialized(true);
-      } catch (error) {
-        console.error('AdMob initialization failed:', error);
-      }
-    };
-
-    initialize();
-  }, []);
+  const ensureInit = async () => {
+    if (!isNative) return false;
+    if (isInitialized) return true;
+    try {
+      await AdMob.initialize({
+        testingDevices: ['TEST_DEVICE_ID'],
+        initializeForTesting: true
+      });
+      setIsInitialized(true);
+      return true;
+    } catch (error) {
+      console.error('AdMob initialization failed:', error);
+      return false;
+    }
+  };
 
   const showBanner = async () => {
-    if (!isNative || !isInitialized) return;
+    if (!isNative) return;
+    const ok = await ensureInit();
+    if (!ok) return;
 
     try {
       const options: BannerAdOptions = {
@@ -49,7 +49,6 @@ export const useAdMob = () => {
       console.error('Show banner failed:', error);
     }
   };
-
   const hideBanner = async () => {
     if (!isNative || !isInitialized) return;
 
