@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Block } from '@/types/game';
 import { GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 
@@ -9,7 +9,25 @@ interface GameBoardProps {
 
 const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const cellSize = 24;
+  const [cellSize, setCellSize] = useState(24);
+
+  // Make responsive based on screen width
+  useEffect(() => {
+    const updateSize = () => {
+      const screenWidth = window.innerWidth;
+      if (screenWidth < 640) {
+        // Mobile
+        setCellSize(Math.min(20, Math.floor((screenWidth - 32) / GRID_WIDTH)));
+      } else {
+        // Desktop
+        setCellSize(24);
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -81,15 +99,19 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
         });
       });
     }
-  }, [grid, currentBlock]);
+  }, [grid, currentBlock, cellSize]);
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex items-center justify-center p-2 sm:p-4">
       <canvas
         ref={canvasRef}
         width={GRID_WIDTH * cellSize}
         height={GRID_HEIGHT * cellSize}
-        className="border-2 border-game-border rounded-lg card-elevated"
+        className="border-2 border-game-border rounded-lg card-elevated max-w-full"
+        style={{ 
+          width: `${GRID_WIDTH * cellSize}px`,
+          height: `${GRID_HEIGHT * cellSize}px`
+        }}
       />
     </div>
   );
