@@ -3,10 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { ArrowLeft, User, MapPin, Globe } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Globe, Check, ChevronsUpDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
+import { useCountries } from '@/hooks/useCountries';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateProfileData } from '@/utils/validation';
@@ -15,6 +19,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const { profile, updateProfile, checkNameUnique } = useUserProfile();
   const { progress } = useGameProgress();
+  const { countries, isLoading: countriesLoading } = useCountries();
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState(profile?.username || '');
   const [country, setCountry] = useState(profile?.country || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,18 +137,49 @@ const Profile = () => {
                 <Globe className="h-4 w-4" />
                 Country
               </Label>
-              <Input
-                id="country"
-                type="text"
-                placeholder="Your country"
-                value={country}
-                onChange={(e) => {
-                  setCountry(e.target.value);
-                  setError(undefined);
-                }}
-                maxLength={50}
-                required
-              />
+              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboboxOpen}
+                    className="w-full justify-between"
+                    disabled={isSubmitting || countriesLoading}
+                  >
+                    {country || "Type or select your country"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search country..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {countries.map((c) => (
+                          <CommandItem
+                            key={c.code}
+                            value={c.name}
+                            onSelect={(currentValue) => {
+                              setCountry(currentValue);
+                              setComboboxOpen(false);
+                              setError(undefined);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                country === c.name ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {c.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button

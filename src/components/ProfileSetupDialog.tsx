@@ -3,8 +3,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, Globe } from 'lucide-react';
+import { User, Globe, Check, ChevronsUpDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountries } from '@/hooks/useCountries';
 import { toast } from 'sonner';
@@ -14,6 +16,7 @@ const ProfileSetupDialog = () => {
   const { profile, createProfile, checkNameUnique } = useUserProfile();
   const { countries, isLoading: countriesLoading } = useCountries();
   const [open, setOpen] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
   const [name, setName] = useState('');
   const [country, setCountry] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,25 +122,49 @@ const ProfileSetupDialog = () => {
               <Globe className="h-4 w-4" />
               Country
             </Label>
-            <Select
-              value={country}
-              onValueChange={(value) => {
-                setCountry(value);
-                setErrors(prev => ({ ...prev, country: undefined }));
-              }}
-              disabled={isSubmitting || countriesLoading}
-            >
-              <SelectTrigger id="setup-country">
-                <SelectValue placeholder="Select your country" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[200px]">
-                {countries.map((c) => (
-                  <SelectItem key={c.code} value={c.name}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboboxOpen}
+                  className="w-full justify-between"
+                  disabled={isSubmitting || countriesLoading}
+                >
+                  {country || "Type or select your country"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search country..." />
+                  <CommandList>
+                    <CommandEmpty>No country found.</CommandEmpty>
+                    <CommandGroup>
+                      {countries.map((c) => (
+                        <CommandItem
+                          key={c.code}
+                          value={c.name}
+                          onSelect={(currentValue) => {
+                            setCountry(currentValue);
+                            setComboboxOpen(false);
+                            setErrors(prev => ({ ...prev, country: undefined }));
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              country === c.name ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {c.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {errors.country && (
               <p className="text-sm text-destructive">{errors.country}</p>
             )}
