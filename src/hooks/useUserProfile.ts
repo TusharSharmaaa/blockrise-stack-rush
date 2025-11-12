@@ -37,9 +37,9 @@ export const useUserProfile = () => {
 
   const loadProfile = async () => {
     try {
-      // First check localStorage for profile ID
+      // Prefer localStorage for fast boot
       const localId = localStorage.getItem('profileId');
-      
+
       if (localId) {
         const { data, error } = await supabase
           .from('profiles')
@@ -58,7 +58,35 @@ export const useUserProfile = () => {
             joinedDate: data.created_at,
             highestScore: data.highest_score,
             currentLevel: data.current_level,
-            totalCoins: data.total_coins
+            totalCoins: data.total_coins,
+          });
+          return;
+        }
+      }
+
+      // Fallback: check by current authenticated user id
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData.user?.id;
+      if (uid) {
+        const { data: existing, error: existingErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', uid)
+          .maybeSingle();
+
+        if (existing && !existingErr) {
+          localStorage.setItem('profileId', existing.id);
+          setProfile({
+            id: existing.id,
+            user_id: existing.user_id,
+            username: existing.username,
+            city: existing.city,
+            country: existing.country,
+            avatarColor: existing.avatar_color,
+            joinedDate: existing.created_at,
+            highestScore: existing.highest_score,
+            currentLevel: existing.current_level,
+            totalCoins: existing.total_coins,
           });
         }
       }
@@ -72,51 +100,126 @@ export const useUserProfile = () => {
   const createProfile = async (name: string, country: string) => {
     console.log('[useUserProfile] Creating profile:', { name, country });
     try {
-      // First, ensure we have an anonymous user session
+      // Ensure we have a user session (anonymous or authenticated)
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
+      let uid = user?.id;
+
+      if (authError || !uid) {
         console.log('[useUserProfile] No user session, creating anonymous user...');
         const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-        
-        if (anonError) {
+        if (anonError || !anonData.user) {
           console.error('[useUserProfile] Anonymous auth error:', anonError);
           throw new Error('Failed to create user session');
         }
-        
-        if (!anonData.user) {
-          throw new Error('Failed to create user session');
-        }
-        
-        console.log('[useUserProfile] Anonymous user created:', anonData.user.id);
+        uid = anonData.user.id;
+        console.log('[useUserProfile] Anonymous user created:', uid);
       }
-      
+
+      // If a profile already exists for this user, update it instead of inserting
+      const { data: existing, error: existingErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', uid)
+        .maybeSingle();
+
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-      
-      // Get current user ID
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      
+
+      if (existing && !existingErr) {
+        // Update minimal fields if necessary and return existing
+        const updates: any = {};
+        if (!existing.username || existing.username !== name) updates.username = name;
+        if (!existing.country || existing.country !== country) updates.country = country;
+        if (!existing.avatar_color) updates.avatar_color = avatarColor;
+
+        if (Object.keys(updates).length > 0) {
+          const { error: updateErr, data: updated } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', existing.id)
+            .select()
+            .single();
+          if (updateErr) throw updateErr;
+          localStorage.setItem('profileId', updated.id);
+          const updatedProfile: UserProfile = {
+            id: updated.id,
+            user_id: updated.user_id,
+            username: updated.username,
+            city: updated.city,
+            country: updated.country,
+            avatarColor: updated.avatar_color,
+            joinedDate: updated.created_at,
+            highestScore: updated.highest_score,
+            currentLevel: updated.current_level,
+            totalCoins: updated.total_coins,
+          };
+          setProfile(updatedProfile);
+          return updatedProfile;
+        }
+
+        // No updates needed; just set and return
+        localStorage.setItem('profileId', existing.id);
+        const existingProfile: UserProfile = {
+          id: existing.id,
+          user_id: existing.user_id,
+          username: existing.username,
+          city: existing.city,
+          country: existing.country,
+          avatarColor: existing.avatar_color,
+          joinedDate: existing.created_at,
+          highestScore: existing.highest_score,
+          currentLevel: existing.current_level,
+          totalCoins: existing.total_coins,
+        };
+        setProfile(existingProfile);
+        return existingProfile;
+      }
+
+      // Create new profile (safe upsert in case of race)
       const { data, error } = await supabase
         .from('profiles')
-        .insert({
-          user_id: currentUser?.id,
+        .upsert({
+          user_id: uid,
           username: name,
           city: '',
           country: country,
           avatar_color: avatarColor,
           highest_score: 0,
           current_level: 1,
-          total_coins: 0
-        })
+          total_coins: 0,
+        }, { onConflict: 'user_id' })
         .select()
         .single();
 
       if (error) {
-        console.error('[useUserProfile] Insert error:', error);
+        // Friendly duplicate key handling
+        // @ts-ignore - code may not exist on all error shapes
+        if (error.code === '23505') {
+          const { data: fetched } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', uid)
+            .single();
+          if (fetched) {
+            localStorage.setItem('profileId', fetched.id);
+            const fetchedProfile: UserProfile = {
+              id: fetched.id,
+              user_id: fetched.user_id,
+              username: fetched.username,
+              city: fetched.city,
+              country: fetched.country,
+              avatarColor: fetched.avatar_color,
+              joinedDate: fetched.created_at,
+              highestScore: fetched.highest_score,
+              currentLevel: fetched.current_level,
+              totalCoins: fetched.total_coins,
+            };
+            setProfile(fetchedProfile);
+            return fetchedProfile;
+          }
+        }
+        console.error('[useUserProfile] Insert/upsert error:', error);
         throw error;
       }
-      
-      console.log('[useUserProfile] Profile created in DB:', data.id);
 
       const newProfile: UserProfile = {
         id: data.id,
@@ -126,16 +229,20 @@ export const useUserProfile = () => {
         country: data.country,
         avatarColor: data.avatar_color,
         joinedDate: data.created_at,
-        highestScore: 0,
-        currentLevel: 1,
-        totalCoins: 0
+        highestScore: data.highest_score ?? 0,
+        currentLevel: data.current_level ?? 1,
+        totalCoins: data.total_coins ?? 0,
       };
 
       localStorage.setItem('profileId', data.id);
-      console.log('[useUserProfile] Profile saved to localStorage');
       setProfile(newProfile);
       return newProfile;
-    } catch (error) {
+    } catch (error: any) {
+      // Normalize duplicate key messages
+      const msg = String(error?.message || 'Failed to create profile');
+      if (msg.includes('duplicate key value') || msg.includes('profiles_user_id_key')) {
+        throw new Error('You already have a profile. Please try again.');
+      }
       console.error('[useUserProfile] Error creating profile:', error);
       throw error;
     }
