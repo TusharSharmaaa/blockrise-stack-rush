@@ -311,6 +311,45 @@ export const useUserProfile = () => {
     }
   };
 
+  const canChangeUsername = (currentLevel: number): { canChange: boolean; reason?: string; changeNumber?: number } => {
+    const changeAtLevel5 = localStorage.getItem('username_change_level_5') === 'true';
+    const changeAtLevel15 = localStorage.getItem('username_change_level_15') === 'true';
+    
+    // Check if user can use their first change (level 5)
+    if (currentLevel >= 5 && !changeAtLevel5) {
+      return { canChange: true, reason: 'You can change your username once at level 5', changeNumber: 1 };
+    }
+    
+    // Check if user can use their second change (level 15)
+    if (currentLevel >= 15 && !changeAtLevel15) {
+      return { canChange: true, reason: 'You can change your username once at level 15', changeNumber: 2 };
+    }
+    
+    // User has used both changes
+    if (changeAtLevel5 && changeAtLevel15) {
+      return { canChange: false, reason: 'You have used both username changes (at level 5 and 15)' };
+    }
+    
+    // User hasn't reached the required level yet
+    if (currentLevel < 5) {
+      return { canChange: false, reason: `Reach level 5 to change your username (Current: ${currentLevel})` };
+    }
+    
+    if (currentLevel < 15 && changeAtLevel5) {
+      return { canChange: false, reason: `Reach level 15 to change your username again (Current: ${currentLevel})` };
+    }
+    
+    return { canChange: false, reason: 'Cannot change username at this time' };
+  };
+
+  const recordUsernameChange = (level: number) => {
+    if (level >= 5 && level < 15) {
+      localStorage.setItem('username_change_level_5', 'true');
+    } else if (level >= 15) {
+      localStorage.setItem('username_change_level_15', 'true');
+    }
+  };
+
   const checkNameUnique = async (name: string, currentUserId?: string): Promise<boolean> => {
     console.log('[useUserProfile] Checking name uniqueness:', { name, currentUserId });
     try {
@@ -341,5 +380,13 @@ export const useUserProfile = () => {
     }
   };
 
-  return { profile, isLoading, createProfile, updateProfile, checkNameUnique };
+  return { 
+    profile, 
+    isLoading, 
+    createProfile, 
+    updateProfile, 
+    checkNameUnique,
+    canChangeUsername,
+    recordUsernameChange,
+  };
 };

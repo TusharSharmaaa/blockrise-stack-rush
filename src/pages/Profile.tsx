@@ -1,94 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, User, MapPin, Globe, Check, ChevronsUpDown, WifiOff } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, User, Globe, Lock, Edit2, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useGameProgress } from '@/hooks/useGameProgress';
-import { useCountries } from '@/hooks/useCountries';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
-import Fuse from 'fuse.js';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, updateProfile, checkNameUnique } = useUserProfile();
+  const { profile, updateProfile, checkNameUnique, canChangeUsername, recordUsernameChange } = useUserProfile();
   const { progress } = useGameProgress();
-  const { countries, isLoading: countriesLoading } = useCountries();
   const isOnline = useOnlineStatus();
-  const [comboboxOpen, setComboboxOpen] = useState(false);
-  const [name, setName] = useState(profile?.username || '');
-  const [country, setCountry] = useState(profile?.country || '');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState(profile?.username || '');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string>();
-
-  // Configure Fuse.js for fuzzy search
-  const fuse = new Fuse(countries, {
-    keys: ['name', 'code'],
-    threshold: 0.4,
-    includeScore: true,
-  });
-
-  // Filter countries using fuzzy search
-  const filteredCountries = searchQuery
-    ? fuse.search(searchQuery).map(result => result.item)
-    : countries;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-
-    // Check online status before proceeding
-    if (!isOnline) {
-      toast.error('No internet connection. Please check your network and try again.');
-      return;
+  
+  const usernameChangeInfo = canChangeUsername(progress.currentLevel);
+  
+  // Update newUsername when profile changes
+  useEffect(() => {
+    if (profile?.username && !isEditingUsername) {
+      setNewUsername(profile.username);
     }
-
-    setIsSubmitting(true);
-    setError(undefined);
-    
-    try {
-      // Validate and sanitize inputs
-      const validatedData = validateProfileData({
-        name,
-        country,
-      });
-
-      // Check name uniqueness only if name changed
-      if (validatedData.name !== profile?.username) {
-        const isUnique = await checkNameUnique(validatedData.name, profile?.user_id);
-        if (!isUnique) {
-          setError('Name already taken — please choose a different name.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      if (profile) {
-        await updateProfile({ 
-          username: validatedData.name,
-          city: '',
-          country: validatedData.country 
-        });
-        toast.success('Profile updated!');
-      }
-      navigate('/leaderboard');
-    } catch (error: any) {
-      const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
-      setError(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  }, [profile?.username, isEditingUsername]);
 
   return (
     <ScrollArea className="h-screen">
@@ -124,113 +65,191 @@ const Profile = () => {
           </div>
         </Card>
 
-        {/* Profile Form */}
+        {/* Profile Info */}
         <Card className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {!isOnline && (
-              <Alert variant="destructive">
-                <WifiOff className="h-4 w-4" />
-                <AlertDescription>
-                  You're offline. Connect to the internet to update your profile.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive rounded-md">
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
-            
+          <div className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name" className="flex items-center gap-2">
-                <User className="h-4 w-4" />
-                Name
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setError(undefined);
-                }}
-                maxLength={30}
-                required
-              />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span className="text-sm font-medium">Username</span>
+                  {!usernameChangeInfo.canChange && <Lock className="h-3 w-3" />}
+                </div>
+                {usernameChangeInfo.canChange && !isEditingUsername && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingUsername(true);
+                      setNewUsername(profile?.username || '');
+                      setUsernameAvailable(null);
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Change
+                  </Button>
+                )}
+              </div>
+              
+              {!isEditingUsername ? (
+                <>
+                  <div className="text-lg font-semibold">
+                    {profile?.username || 'Not set'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {usernameChangeInfo.reason}
+                  </p>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      placeholder="Enter new username"
+                      value={newUsername}
+                      onChange={async (e) => {
+                        const value = e.target.value;
+                        setNewUsername(value);
+                        setUsernameAvailable(null);
+                        
+                        if (value.trim().length >= 3 && value !== profile?.username) {
+                          setIsCheckingUsername(true);
+                          try {
+                            const isUnique = await checkNameUnique(value.trim());
+                            setUsernameAvailable(isUnique);
+                          } catch (error) {
+                            setUsernameAvailable(false);
+                          } finally {
+                            setIsCheckingUsername(false);
+                          }
+                        } else if (value === profile?.username) {
+                          setUsernameAvailable(null);
+                        }
+                      }}
+                      maxLength={30}
+                      className={usernameAvailable === true ? "border-green-500" : usernameAvailable === false ? "border-destructive" : ""}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {isCheckingUsername && (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                      {!isCheckingUsername && usernameAvailable === true && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                      {!isCheckingUsername && usernameAvailable === false && (
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {usernameAvailable === true && (
+                    <p className="text-sm text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Username available!
+                    </p>
+                  )}
+                  
+                  {usernameAvailable === false && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <XCircle className="h-3 w-3" />
+                      Username already taken
+                    </p>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditingUsername(false);
+                        setNewUsername(profile?.username || '');
+                        setUsernameAvailable(null);
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!isOnline) {
+                          toast.error('No internet connection. Please check your network and try again.');
+                          return;
+                        }
+                        
+                        if (newUsername.trim() === profile?.username) {
+                          setIsEditingUsername(false);
+                          return;
+                        }
+                        
+                        if (newUsername.trim().length < 3) {
+                          toast.error('Username must be at least 3 characters');
+                          return;
+                        }
+                        
+                        if (usernameAvailable !== true) {
+                          toast.error('Please wait for username validation or choose a different username');
+                          return;
+                        }
+                        
+                        setIsSubmitting(true);
+                        try {
+                          const validatedData = validateProfileData({
+                            name: newUsername.trim(),
+                            country: profile?.country || '',
+                          });
+                          
+                          await updateProfile({ username: validatedData.name });
+                          recordUsernameChange(progress.currentLevel);
+                          
+                          toast.success(`Username changed! (Change ${usernameChangeInfo.changeNumber}/2 used)`);
+                          setIsEditingUsername(false);
+                          setUsernameAvailable(null);
+                        } catch (error: any) {
+                          const errorMessage = error?.message || 'Failed to update username';
+                          if (errorMessage.includes('username') || errorMessage.includes('unique')) {
+                            toast.error('Username already taken. Please choose a different username.');
+                            setUsernameAvailable(false);
+                          } else {
+                            toast.error(errorMessage);
+                          }
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      disabled={isSubmitting || !isOnline || usernameAvailable !== true || newUsername.trim().length < 3}
+                      className="flex-1"
+                    >
+                      {isSubmitting ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    {usernameChangeInfo.reason}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Globe className="h-4 w-4" />
+                <span className="text-sm font-medium">Country</span>
+                <Lock className="h-3 w-3 ml-auto" />
+              </div>
+              <div className="text-lg font-semibold">
+                {profile?.country || 'Not set'}
+              </div>
               <p className="text-xs text-muted-foreground">
-                This will be shown on the leaderboard
+                Country cannot be changed after creation
               </p>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="country" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Country
-              </Label>
-              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={comboboxOpen}
-                    className="w-full justify-between"
-                    disabled={isSubmitting || countriesLoading}
-                  >
-                    {country || "Type or select your country"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput 
-                      placeholder="Search country..." 
-                      value={searchQuery}
-                      onValueChange={setSearchQuery}
-                    />
-                    <CommandList>
-                      <CommandEmpty>No country found.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredCountries.map((c) => (
-                          <CommandItem
-                            key={c.code}
-                            value={c.name}
-                            onSelect={(currentValue) => {
-                              setCountry(currentValue);
-                              setComboboxOpen(false);
-                              setSearchQuery('');
-                              setError(undefined);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                country === c.name ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {c.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full gradient-primary"
-              disabled={isSubmitting || !isOnline}
-            >
-              {isSubmitting ? 'Saving...' : isOnline ? 'Update Profile' : 'Offline - Cannot Save'}
-            </Button>
-          </form>
+          </div>
         </Card>
 
         <div className="text-center text-sm text-muted-foreground">
-          <p>Your profile will be visible on the global leaderboard</p>
+          <p>Your profile is visible on the global leaderboard</p>
         </div>
         </div>
       </div>
