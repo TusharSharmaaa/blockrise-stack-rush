@@ -12,7 +12,7 @@ import { useSound } from '@/hooks/useSound';
 import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
 import { Button } from '@/components/ui/button';
-import { Play, Home, Video, Trophy } from 'lucide-react';
+import { Play, Home, Video, Trophy, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock } from '@/utils/blockShapes';
@@ -29,7 +29,7 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement } = useGameProgress();
+  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, watchAdToCompleteLevel, watchAdForCoins, canWatchAdToday } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
@@ -239,6 +239,50 @@ const Game = () => {
     }
   };
 
+  const handleWatchAdToFinishLevel = async () => {
+    if (!canWatchAdToday()) {
+      toast.error('Daily ad limit reached! Come back tomorrow.');
+      return;
+    }
+
+    const result = await showRewardedAd();
+    if (result.success) {
+      const adResult = await watchAdToCompleteLevel(progress.currentLevel, gameState.score);
+      if (adResult.success) {
+        toast.success(`🎉 Level ${adResult.levelCompleted} completed! +${adResult.coinsEarned} coins! Next level unlocked!`);
+        playSound('coin');
+        // Navigate to level select or home
+        setTimeout(() => {
+          navigate('/levels');
+        }, 1500);
+      } else {
+        toast.error(adResult.message || 'Failed to complete level');
+      }
+    } else {
+      toast.error('Ad was not completed. Please try again.');
+    }
+  };
+
+  const handleWatchAdForMoney = async () => {
+    if (!canWatchAdToday()) {
+      toast.error('Daily ad limit reached! Come back tomorrow.');
+      return;
+    }
+
+    const result = await showRewardedAd();
+    if (result.success) {
+      const adResult = await watchAdForCoins(75); // Earn 75 coins for watching ad
+      if (adResult.success) {
+        toast.success(`💰 You earned ${adResult.coinsEarned} coins!`);
+        playSound('coin');
+      } else {
+        toast.error(adResult.message || 'Failed to earn coins');
+      }
+    } else {
+      toast.error('Ad was not completed. Please try again.');
+    }
+  };
+
   const handlePlayAgain = () => {
     resetGame();
     setHasShownGameOverAd(false);
@@ -364,15 +408,41 @@ const Game = () => {
             )}
           </div>
           <DialogFooter className="flex flex-col gap-2">
+            {/* Watch Ad to Finish Level - Only show if level not completed */}
+            {!hasCompletedLevel(progress.currentLevel, gameState.score) && (
+              <Button 
+                onClick={handleWatchAdToFinishLevel}
+                disabled={isRewardedLoading || !canWatchAdToday()}
+                className="w-full gradient-primary"
+                variant="default"
+              >
+                <Video className="mr-2 h-4 w-4" />
+                {isRewardedLoading ? 'Loading...' : 'Watch Ad to Finish Level (+100 Coins)'}
+              </Button>
+            )}
+            
+            {/* Watch Ad & Earn Money - Always available */}
+            <Button 
+              onClick={handleWatchAdForMoney}
+              disabled={isRewardedLoading || !canWatchAdToday()}
+              className="w-full bg-accent hover:bg-accent/90"
+              variant="default"
+            >
+              <Coins className="mr-2 h-4 w-4" />
+              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Earn Money (+75 Coins)'}
+            </Button>
+
+            {/* Continue Playing Option */}
             <Button 
               onClick={handleContinueWithAd}
-              disabled={isRewardedLoading}
+              disabled={isRewardedLoading || !canWatchAdToday()}
               className="w-full gradient-primary"
               variant="default"
             >
               <Video className="mr-2 h-4 w-4" />
-              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Continue (+50 Coins)'}
+              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Continue Playing (+50 Coins)'}
             </Button>
+
             <div className="flex gap-2 w-full">
               <Button onClick={() => navigate('/')} variant="outline" className="flex-1">
                 <Home className="mr-2 h-4 w-4" />

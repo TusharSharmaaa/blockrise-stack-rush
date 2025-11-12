@@ -249,6 +249,83 @@ export const useGameProgress = () => {
     return progress.levelScores[level] || 0;
   };
 
+  const watchAdToCompleteLevel = async (level: number, currentScore: number) => {
+    const today = new Date().toDateString();
+    
+    // Reset daily counter if new day
+    if (progress.lastAdWatchDate !== today) {
+      progress.adsWatchedToday = 0;
+      progress.lastAdWatchDate = today;
+    }
+
+    if (progress.adsWatchedToday >= progress.maxAdsPerDay) {
+      return { success: false, message: 'Daily ad limit reached. Come back tomorrow!' };
+    }
+
+    const requirement = getScoreRequirement(level);
+    const newLevelScores = {
+      ...progress.levelScores,
+      [level]: Math.max(progress.levelScores[level] || 0, requirement) // Mark as completed with requirement score
+    };
+
+    // Unlock next level if not already unlocked
+    const nextLevel = level + 1;
+    const newUnlockedLevels = progress.unlockedLevels.includes(nextLevel)
+      ? progress.unlockedLevels
+      : [...progress.unlockedLevels, nextLevel];
+
+    const newProgress = {
+      ...progress,
+      levelScores: newLevelScores,
+      unlockedLevels: newUnlockedLevels,
+      currentLevel: Math.max(progress.currentLevel, nextLevel), // Progress to next level
+      totalCoins: progress.totalCoins + 100, // Reward for completing level via ad
+      adsWatchedToday: progress.adsWatchedToday + 1,
+      lastAdWatchDate: today,
+      totalAdsWatched: progress.totalAdsWatched + 1
+    };
+
+    await saveProgress(newProgress);
+    await syncProgressToBackend(newProgress);
+    
+    return { 
+      success: true, 
+      coinsEarned: 100,
+      levelCompleted: level,
+      nextLevelUnlocked: nextLevel
+    };
+  };
+
+  const watchAdForCoins = async (coinAmount: number = 50) => {
+    const today = new Date().toDateString();
+    
+    // Reset daily counter if new day
+    if (progress.lastAdWatchDate !== today) {
+      progress.adsWatchedToday = 0;
+      progress.lastAdWatchDate = today;
+    }
+
+    if (progress.adsWatchedToday >= progress.maxAdsPerDay) {
+      return { success: false, message: 'Daily ad limit reached. Come back tomorrow!' };
+    }
+
+    const newProgress = {
+      ...progress,
+      totalCoins: progress.totalCoins + coinAmount,
+      adsWatchedToday: progress.adsWatchedToday + 1,
+      lastAdWatchDate: today,
+      totalAdsWatched: progress.totalAdsWatched + 1
+    };
+
+    await saveProgress(newProgress);
+    await syncProgressToBackend(newProgress);
+    
+    return { 
+      success: true, 
+      coinsEarned: coinAmount
+    };
+  };
+
   const resetProgress = async () => {
     await saveProgress(INITIAL_PROGRESS);
   };
@@ -257,6 +334,8 @@ export const useGameProgress = () => {
     progress,
     isLoading,
     watchAdForLevel,
+    watchAdToCompleteLevel,
+    watchAdForCoins,
     selectLevel,
     addCoins,
     claimDailyReward,

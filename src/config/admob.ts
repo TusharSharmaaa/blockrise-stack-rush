@@ -1,26 +1,24 @@
-// AdMob configuration for dev/staging and production
-const IS_DEV = import.meta.env.DEV || import.meta.env.MODE === 'staging';
-
+// AdMob configuration - Using test ad unit IDs
+// Google Test Ad Unit IDs for development and testing
 export const ADMOB_CONFIG = {
-  // Use test IDs in development/staging, real IDs in production
-  BANNER_ID: IS_DEV 
-    ? 'ca-app-pub-3940256099942544/6300978111' 
-    : 'ca-app-pub-3940256099942544~3347511713',
+  // Test Banner Ad Unit ID
+  BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
   
-  INTERSTITIAL_ID: IS_DEV 
-    ? 'ca-app-pub-3940256099942544/1033173712' 
-    : 'ca-app-pub-3940256099942544~3347511713',
+  // Test Interstitial Ad Unit ID
+  INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   
-  REWARDED_ID: IS_DEV 
-    ? 'ca-app-pub-3940256099942544/5224354917' 
-    : 'ca-app-pub-3940256099942544~3347511713',
+  // Test Rewarded Ad Unit ID
+  REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
   
-  IS_DEV,
+  IS_DEV: true,
 };
 
 // Ad placement documentation for QA
 export const AD_PLACEMENTS = {
   BANNER: 'Bottom of home screen',
-  INTERSTITIAL_GAME_OVER: 'After game over',
+  INTERSTITIAL_GAME_OVER: 'After game over (automatic)',
   REWARDED_UNLOCK_LEVEL: 'When unlocking new level (watch 3 ads)',
+  REWARDED_FINISH_LEVEL: 'Watch ad to finish/complete a level when failed',
+  REWARDED_EARN_MONEY: 'Watch ad to earn coins after game over',
+  REWARDED_CONTINUE: 'Watch ad to continue playing after game over',
 } as const;
