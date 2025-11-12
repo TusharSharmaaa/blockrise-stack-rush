@@ -7,6 +7,7 @@ import { User, Globe, Check, ChevronsUpDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountries } from '@/hooks/useCountries';
 import { toast } from 'sonner';
@@ -59,10 +60,30 @@ const ProfileSetupDialog = () => {
       }
 
       console.log('[ProfileSetup] Creating profile...');
-      await createProfile(validatedData.name, validatedData.country);
+      const newProfile = await createProfile(validatedData.name, validatedData.country);
       console.log('[ProfileSetup] Profile created successfully');
       
-      // Store locally to prevent re-prompting
+      // Verify profile was saved with valid ID
+      if (!newProfile || !newProfile.id) {
+        throw new Error('Profile was not saved properly. Please try again.');
+      }
+      
+      // Double-check the profile exists in backend
+      console.log('[ProfileSetup] Verifying profile in backend...');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('id', newProfile.id)
+        .single();
+      
+      if (verifyError || !verifyData) {
+        console.error('[ProfileSetup] Backend verification failed:', verifyError);
+        throw new Error('Could not verify profile was saved. Please try again.');
+      }
+      
+      console.log('[ProfileSetup] Backend verification successful:', verifyData);
+      
+      // Only mark as complete if everything succeeded
       localStorage.setItem('blockrise_profile_complete', 'true');
       
       toast.success('Profile created! Welcome to BlockRise! 🎉');
