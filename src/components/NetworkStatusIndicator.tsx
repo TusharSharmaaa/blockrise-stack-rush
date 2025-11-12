@@ -1,13 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { Wifi, WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export const NetworkStatusIndicator = () => {
   const isOnline = useOnlineStatus();
   const [isVisible, setIsVisible] = useState(true);
+  const prevOnlineStatus = useRef<boolean>(isOnline);
 
   useEffect(() => {
+    // Detect transition from offline to online
+    if (!prevOnlineStatus.current && isOnline) {
+      toast.success('Back online! 🎉', {
+        description: 'Your connection has been restored.',
+        duration: 3000,
+      });
+    }
+
+    // Update previous status
+    prevOnlineStatus.current = isOnline;
+
     // Always show when offline
     if (!isOnline) {
       setIsVisible(true);
