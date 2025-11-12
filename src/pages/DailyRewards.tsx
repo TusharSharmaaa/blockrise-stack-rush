@@ -1,0 +1,118 @@
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Gift, Calendar, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useGameProgress } from '@/hooks/useGameProgress';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+
+const DailyRewards = () => {
+  const navigate = useNavigate();
+  const { progress, claimDailyReward } = useGameProgress();
+
+  const handleClaimReward = async () => {
+    const reward = await claimDailyReward();
+    if (reward > 0) {
+      toast.success(`Claimed ${reward} coins! Keep your streak going!`);
+    } else {
+      toast.info('Already claimed today. Come back tomorrow!');
+    }
+  };
+
+  const streakRewards = [50, 60, 70, 80, 90, 100, 120];
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-md mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="h-6 w-6" />
+            </Button>
+            <h1 className="text-3xl font-bold">Daily Rewards</h1>
+          </div>
+          <Badge variant="secondary" className="text-lg px-4 py-2">
+            💰 {progress.totalCoins}
+          </Badge>
+        </div>
+
+        {/* Current Streak */}
+        <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg p-6 card-elevated text-center">
+          <Zap className="h-12 w-12 mx-auto mb-3 text-primary" />
+          <h2 className="text-3xl font-bold mb-2">{progress.dailyStreak} Day Streak</h2>
+          <p className="text-muted-foreground">Keep playing daily to maintain your streak!</p>
+        </div>
+
+        {/* Claim Button */}
+        <Button
+          onClick={handleClaimReward}
+          disabled={progress.hasClaimedDailyReward}
+          className="w-full h-16 text-lg gradient-primary"
+        >
+          <Gift className="mr-2 h-5 w-5" />
+          {progress.hasClaimedDailyReward ? 'Claimed Today' : 'Claim Daily Reward'}
+        </Button>
+
+        {/* Streak Rewards */}
+        <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
+          <h3 className="text-xl font-semibold flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Streak Rewards
+          </h3>
+          <div className="space-y-3">
+            {streakRewards.map((reward, index) => {
+              const day = index + 1;
+              const isCurrentDay = progress.dailyStreak === day;
+              const isPastDay = progress.dailyStreak > day;
+
+              return (
+                <div
+                  key={day}
+                  className={`flex items-center justify-between p-3 rounded-lg ${
+                    isCurrentDay
+                      ? 'bg-primary/20 border-2 border-primary'
+                      : isPastDay
+                      ? 'bg-muted/50'
+                      : 'bg-muted/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {isPastDay ? (
+                      <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
+                        <span className="text-primary-foreground text-lg">✓</span>
+                      </div>
+                    ) : (
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                        <span className="font-bold">{day}</span>
+                      </div>
+                    )}
+                    <span className="font-medium">Day {day}</span>
+                  </div>
+                  <Badge variant={isCurrentDay ? "default" : "outline"}>
+                    {reward} coins
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bonus Info */}
+        <div className="bg-card rounded-lg p-6 card-elevated">
+          <h3 className="font-semibold mb-2">🎁 Bonus Tips</h3>
+          <ul className="text-sm text-muted-foreground space-y-1">
+            <li>• Base reward: 50 coins daily</li>
+            <li>• Streak bonus: +10 coins per consecutive day</li>
+            <li>• Miss a day and your streak resets</li>
+            <li>• Week 7+ gives maximum 120 coins daily!</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DailyRewards;

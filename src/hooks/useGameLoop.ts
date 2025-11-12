@@ -8,6 +8,7 @@ import {
   GRID_HEIGHT
 } from '@/utils/blockShapes';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Preferences } from '@capacitor/preferences';
 
 const BASE_SPEED = 1000;
 const SPEED_INCREASE_PER_LEVEL = 100;
@@ -42,6 +43,30 @@ export const useGameLoop = () => {
   });
 
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load selected level on mount
+  useEffect(() => {
+    loadSelectedLevel();
+  }, []);
+
+  const loadSelectedLevel = async () => {
+    try {
+      const { value } = await Preferences.get({ key: 'gameProgress' });
+      if (value) {
+        const progress = JSON.parse(value);
+        const selectedLevel = progress.currentLevel || 1;
+        const levelSpeed = Math.max(100, BASE_SPEED - (selectedLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+        
+        setGameState(prevState => ({
+          ...prevState,
+          level: selectedLevel,
+          speed: levelSpeed
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load level:', error);
+    }
+  };
 
   const checkCollision = useCallback((block: Block, grid: (string | null)[][], offsetX = 0, offsetY = 0): boolean => {
     return block.shape.some((row, rowIndex) =>
