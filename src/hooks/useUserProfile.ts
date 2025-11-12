@@ -72,11 +72,34 @@ export const useUserProfile = () => {
   const createProfile = async (name: string, country: string) => {
     console.log('[useUserProfile] Creating profile:', { name, country });
     try {
+      // First, ensure we have an anonymous user session
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.log('[useUserProfile] No user session, creating anonymous user...');
+        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+        
+        if (anonError) {
+          console.error('[useUserProfile] Anonymous auth error:', anonError);
+          throw new Error('Failed to create user session');
+        }
+        
+        if (!anonData.user) {
+          throw new Error('Failed to create user session');
+        }
+        
+        console.log('[useUserProfile] Anonymous user created:', anonData.user.id);
+      }
+      
       const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+      
+      // Get current user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
       
       const { data, error } = await supabase
         .from('profiles')
         .insert({
+          user_id: currentUser?.id,
           username: name,
           city: '',
           country: country,
