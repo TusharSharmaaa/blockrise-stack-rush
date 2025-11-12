@@ -3,8 +3,10 @@ import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
 import PowerUpBar from '@/components/game/PowerUpBar';
+import SyncIndicator from '@/components/game/SyncIndicator';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameProgress } from '@/hooks/useGameProgress';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
 import { usePowerUps } from '@/hooks/usePowerUps';
@@ -27,6 +29,7 @@ import {
 const Game = () => {
   const navigate = useNavigate();
   const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement } = useGameProgress();
+  const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
   const { usePowerUp, loadInventory } = usePowerUps();
@@ -144,7 +147,17 @@ const Game = () => {
   useEffect(() => {
     if (gameState.gameOver && !hasShownGameOverAd) {
       setHasShownGameOverAd(true);
-      updateGameStats(gameState.score, progress.currentLevel);
+      
+      // Update stats and sync to backend
+      updateGameStats(gameState.score, progress.currentLevel).then(() => {
+        // Trigger sync indicator animation
+        window.dispatchEvent(new Event('progressSynced'));
+        
+        if (profile?.id) {
+          toast.success('Progress saved to cloud! ☁️');
+        }
+      });
+      
       playSound('gameOver');
       stopMusic();
       
@@ -183,6 +196,11 @@ const Game = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Sync Indicator */}
+      <div className="absolute top-2 right-2 z-50">
+        <SyncIndicator profileId={profile?.id} />
+      </div>
+      
       <GameHUD
         score={gameState.score}
         level={gameState.level}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Preferences } from '@capacitor/preferences';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface LevelProgress {
   currentLevel: number;
@@ -166,12 +167,16 @@ export const useGameProgress = () => {
 
   const selectLevel = async (level: number) => {
     if (progress.unlockedLevels.includes(level)) {
-      await saveProgress({ ...progress, currentLevel: level });
+      const newProgress = { ...progress, currentLevel: level };
+      await saveProgress(newProgress);
+      await syncProgressToBackend(newProgress);
     }
   };
 
   const addCoins = async (amount: number) => {
-    await saveProgress({ ...progress, totalCoins: progress.totalCoins + amount });
+    const newProgress = { ...progress, totalCoins: progress.totalCoins + amount };
+    await saveProgress(newProgress);
+    await syncProgressToBackend(newProgress);
   };
 
   const claimDailyReward = async () => {
@@ -180,11 +185,13 @@ export const useGameProgress = () => {
       const streakBonus = progress.dailyStreak * 10;
       const totalReward = baseReward + streakBonus;
 
-      await saveProgress({
+      const newProgress = {
         ...progress,
         totalCoins: progress.totalCoins + totalReward,
         hasClaimedDailyReward: true
-      });
+      };
+      await saveProgress(newProgress);
+      await syncProgressToBackend(newProgress);
       return totalReward;
     }
     return 0;
@@ -204,6 +211,33 @@ export const useGameProgress = () => {
       levelScores: newLevelScores
     };
     await saveProgress(newProgress);
+    
+    // Sync with backend if user has a profile
+    await syncProgressToBackend(newProgress);
+  };
+
+  const syncProgressToBackend = async (progressData: LevelProgress) => {
+    try {
+      const profileId = localStorage.getItem('profileId');
+      if (!profileId) return; // No profile, skip backend sync
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          highest_score: progressData.highestScore,
+          current_level: progressData.currentLevel,
+          total_coins: progressData.totalCoins
+        })
+        .eq('id', profileId);
+
+      if (error) {
+        console.error('Failed to sync progress to backend:', error);
+      } else {
+        console.log('✅ Progress synced to backend');
+      }
+    } catch (error) {
+      console.error('Error syncing to backend:', error);
+    }
   };
 
   const hasCompletedLevel = (level: number, score: number): boolean => {
