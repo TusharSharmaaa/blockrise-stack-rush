@@ -12,7 +12,21 @@ export default {
         "2xl": "1400px",
       },
     },
+    screens: {
+      'xs': '375px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
+      spacing: {
+        'safe-top': 'var(--min-safe-top)',
+        'safe-bottom': 'var(--min-safe-bottom)',
+        'safe-left': 'max(var(--safe-left), 1rem)',
+        'safe-right': 'max(var(--safe-right), 1rem)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
