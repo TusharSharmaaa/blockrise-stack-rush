@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
 import ContrastChecker from "@/components/ContrastChecker";
+import { useFontScaling } from "@/hooks/useFontScaling";
 import Index from "./pages/Index";
 import Game from "./pages/Game";
 import Settings from "./pages/Settings";
@@ -17,7 +18,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  // Initialize font scaling system
+  useFontScaling();
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -40,6 +45,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

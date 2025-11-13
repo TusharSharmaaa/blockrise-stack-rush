@@ -145,6 +145,40 @@ All colors MUST be HSL.
     
     /* Dynamic viewport height for mobile */
     --vh: 1vh;
+    
+    /* Responsive typography scale */
+    --font-size-xs: clamp(0.75rem, 1.5vw, 0.875rem);
+    --font-size-sm: clamp(0.875rem, 2vw, 1rem);
+    --font-size-base: clamp(1rem, 2.5vw, 1.125rem);
+    --font-size-lg: clamp(1.125rem, 3vw, 1.25rem);
+    --font-size-xl: clamp(1.25rem, 3.5vw, 1.5rem);
+    --font-size-2xl: clamp(1.5rem, 4vw, 2rem);
+    --font-size-3xl: clamp(1.875rem, 5vw, 2.5rem);
+    --font-size-4xl: clamp(2.25rem, 6vw, 3rem);
+    --font-size-5xl: clamp(3rem, 8vw, 4rem);
+    --font-size-6xl: clamp(3.75rem, 10vw, 5rem);
+    
+    /* Line heights for readability */
+    --line-height-tight: 1.25;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.75;
+  }
+  
+  /* Font scale adjustments based on user preference */
+  [data-font-scale="small"] {
+    --font-scale-multiplier: 0.875;
+  }
+  
+  [data-font-scale="medium"] {
+    --font-scale-multiplier: 1;
+  }
+  
+  [data-font-scale="large"] {
+    --font-scale-multiplier: 1.125;
+  }
+  
+  [data-font-scale="extra-large"] {
+    --font-scale-multiplier: 1.25;
   }
 }
 
@@ -172,8 +206,66 @@ All colors MUST be HSL.
     padding-bottom: var(--safe-bottom);
     padding-left: var(--safe-left);
     padding-right: var(--safe-right);
-    /* Responsive font sizing */
-    font-size: clamp(14px, 2vw, 16px);
+    /* Responsive and accessible font sizing */
+    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+  }
+  
+  /* Typography classes with responsive scaling */
+  h1, .text-h1 {
+    font-size: calc(var(--font-size-4xl) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-tight);
+    font-weight: 700;
+  }
+  
+  h2, .text-h2 {
+    font-size: calc(var(--font-size-3xl) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-tight);
+    font-weight: 600;
+  }
+  
+  h3, .text-h3 {
+    font-size: calc(var(--font-size-2xl) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-tight);
+    font-weight: 600;
+  }
+  
+  h4, .text-h4 {
+    font-size: calc(var(--font-size-xl) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+    font-weight: 600;
+  }
+  
+  h5, .text-h5 {
+    font-size: calc(var(--font-size-lg) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+    font-weight: 600;
+  }
+  
+  h6, .text-h6 {
+    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+    font-weight: 600;
+  }
+  
+  p, .text-body {
+    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-relaxed);
+  }
+  
+  .text-small {
+    font-size: calc(var(--font-size-sm) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+  }
+  
+  .text-tiny {
+    font-size: calc(var(--font-size-xs) * var(--font-scale-multiplier, 1));
+    line-height: var(--line-height-normal);
+  }
+  
+  /* Ensure buttons and inputs respect font scaling */
+  button, input, select, textarea {
+    font-size: inherit;
   }
   
   #root {
