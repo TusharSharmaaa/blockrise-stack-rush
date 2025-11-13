@@ -53,6 +53,23 @@ export default {
         },
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
+        glass: {
+          bg: "var(--glass-bg)",
+          border: "var(--glass-border)",
+        },
+      },
+      backgroundImage: {
+        "gradient-hero": "var(--gradient-hero)",
+        "gradient-glass": "var(--gradient-glass)",
+      },
+      boxShadow: {
+        glow: "var(--shadow-glow)",
+        "glow-lg": "var(--shadow-glow-lg)",
+        neon: "var(--shadow-neon)",
+        premium: "var(--shadow-premium)",
+      },
+      backdropBlur: {
+        glass: "16px",
       },
       borderRadius: {
         lg: "var(--radius)",
