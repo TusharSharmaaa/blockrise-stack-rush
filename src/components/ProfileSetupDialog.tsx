@@ -633,8 +633,7 @@ const ProfileSetupDialog = () => {
               !country || 
               !isOnline || 
               isCheckingUsername ||
-              usernameAvailable !== true || // MUST be true (unique) to proceed
-              usernameAvailable === false ||
+              usernameAvailable !== true ||
               name.trim().length < 3
             }
           >
