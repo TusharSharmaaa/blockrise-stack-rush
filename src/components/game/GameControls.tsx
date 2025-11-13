@@ -20,40 +20,40 @@ const GameControls = ({
     <div className="flex flex-col gap-3 p-4">
       <div className="flex justify-center">
         <Button
-          variant="outline"
+          variant="neon"
           size="lg"
           onClick={onRotate}
           disabled={disabled}
-          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
+          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
           <RotateCw className="h-6 w-6" />
         </Button>
       </div>
       <div className="flex justify-center gap-3">
         <Button
-          variant="outline"
+          variant="neon"
           size="lg"
           onClick={onMoveLeft}
           disabled={disabled}
-          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
+          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
           <ArrowLeft className="h-6 w-6" />
         </Button>
         <Button
-          variant="outline"
+          variant="neon"
           size="lg"
           onClick={onMoveDown}
           disabled={disabled}
-          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
+          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
           <ArrowDown className="h-6 w-6" />
         </Button>
         <Button
-          variant="outline"
+          variant="neon"
           size="lg"
           onClick={onMoveRight}
           disabled={disabled}
-          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
+          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
           <ArrowRight className="h-6 w-6" />
         </Button>

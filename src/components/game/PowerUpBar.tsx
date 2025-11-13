@@ -34,17 +34,17 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
   ];
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm p-3 space-y-3">
+    <div className="glass-card p-3 space-y-3 shadow-glow">
       {/* Active Power-Up Display */}
       {activePowerUp && (
-        <div className="space-y-2 animate-fade-in">
+        <div className="space-y-2 animate-fade-in glass-card p-3 border border-primary/40 shadow-neon">
           <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-primary">
+            <span className="font-semibold text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">
               {powerUps.find(p => p.id === activePowerUp.type)?.icon} {powerUps.find(p => p.id === activePowerUp.type)?.name} Active
             </span>
-            <span className="text-muted-foreground">{Math.ceil(remainingTime / 1000)}s</span>
+            <span className="text-muted-foreground font-mono">{Math.ceil(remainingTime / 1000)}s</span>
           </div>
-          <Progress value={(remainingTime / activePowerUp.duration) * 100} className="h-2" />
+          <Progress value={(remainingTime / activePowerUp.duration) * 100} className="h-2 shadow-neon" />
         </div>
       )}
 
@@ -60,23 +60,29 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
               <Button
                 onClick={() => onUsePowerUp(powerUp.id)}
                 disabled={disabled || !hasItem || !!activePowerUp}
-                variant="outline"
+                variant={isActiveType ? "neon" : "outline"}
                 size="sm"
-                className={`w-full h-12 text-xl relative ${isActiveType ? 'border-primary border-2' : ''}`}
+                className={`w-full h-12 text-xl transition-all duration-200 ${
+                  isActiveType 
+                    ? 'animate-pulse-glow scale-105' 
+                    : hasItem 
+                    ? 'hover:scale-110 hover:shadow-glow' 
+                    : 'opacity-50'
+                } ${!disabled && hasItem && !activePowerUp ? 'glass-card border-primary/30' : ''}`}
               >
                 {powerUp.icon}
               </Button>
               {hasItem && (
                 <Badge 
-                  variant="secondary" 
-                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                  variant="neon" 
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs animate-pulse"
                 >
                   {count}
                 </Badge>
               )}
               {!hasItem && (
-                <div className="absolute -bottom-1 -right-1 bg-muted/50 rounded-full h-4 w-4 flex items-center justify-center">
-                  <span className="text-[8px] text-muted-foreground/60">0</span>
+                <div className="absolute -bottom-1 -right-1 bg-muted/80 backdrop-blur-sm rounded-full h-4 w-4 flex items-center justify-center border border-muted">
+                  <span className="text-[8px] text-muted-foreground">0</span>
                 </div>
               )}
             </div>
