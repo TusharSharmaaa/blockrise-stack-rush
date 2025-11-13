@@ -72,6 +72,19 @@ export const getScoreRequirement = (level: number): number => {
   return Math.floor(500 + (level * level * 50));
 };
 
+// Calculate the highest level reached based on score
+export const getLevelReached = (score: number): number => {
+  // Check each level requirement from highest to lowest
+  for (let level = 50; level >= 1; level--) {
+    const requirement = getScoreRequirement(level);
+    if (score >= requirement) {
+      return level + 1; // Return the next level (the level they've reached)
+    }
+  }
+  // If score is below level 1 requirement, they're still on level 1
+  return 1;
+};
+
 export const useGameProgress = () => {
   const [progress, setProgress] = useState<LevelProgress>(INITIAL_PROGRESS);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,14 +283,25 @@ export const useGameProgress = () => {
         newLevelStars[level] = 1; // 1 star for 3+ attempts
       }
 
-      // Unlock Level 2 if Level 1 is completed (eligibility-based unlock)
-      if (level === 1 && !newUnlockedLevels.includes(2)) {
-        newUnlockedLevels.push(2);
+      // Unlock next level when current level is completed
+      const nextLevel = level + 1;
+      if (nextLevel <= 50 && !newUnlockedLevels.includes(nextLevel)) {
+        newUnlockedLevels.push(nextLevel);
+      }
+    }
+
+    // Update currentLevel to next level if current level is completed
+    let newCurrentLevel = progress.currentLevel;
+    if (isLevelCompleted) {
+      const nextLevel = level + 1;
+      if (nextLevel <= 50) {
+        newCurrentLevel = Math.max(newCurrentLevel, nextLevel);
       }
     }
 
     const newProgress = {
       ...progress,
+      currentLevel: newCurrentLevel,
       totalGamesPlayed: progress.totalGamesPlayed + 1,
       highestScore: Math.max(progress.highestScore, score),
       levelScores: newLevelScores,

@@ -119,14 +119,16 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer" onClick={() => navigate('/settings')}>
+          <Card className="p-4 sm:p-6 space-y-3 sm:space-y-4 card-hover cursor-pointer col-span-2" onClick={() => navigate('/settings')}>
             <div className="flex items-center justify-between">
-              <SettingsIcon className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+              <div className="flex items-center gap-3">
+                <SettingsIcon className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold mb-1">Settings</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Customize game</p>
+                </div>
+              </div>
               <Badge variant="secondary" className="text-xs">⚙️</Badge>
-            </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold mb-1">Settings</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">Customize game</p>
             </div>
           </Card>
         </div>

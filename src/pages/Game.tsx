@@ -5,7 +5,7 @@ import GameHUD from '@/components/game/GameHUD';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { GAME_CONSTANTS } from '@/utils/gameConstants';
 import { GRID_HEIGHT, GRID_WIDTH, getRandomBlock } from '@/utils/blockShapes';
-import { useGameProgress } from '@/hooks/useGameProgress';
+import { useGameProgress, getLevelReached } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
@@ -276,6 +276,29 @@ const Game = () => {
     playMusic();
   };
 
+  const handleGoToNextLevel = async () => {
+    const levelCompleted = hasCompletedLevel(progress.currentLevel, gameState.score);
+    if (levelCompleted) {
+      const nextLevel = progress.currentLevel + 1;
+      // Check if next level is unlocked
+      if (progress.unlockedLevels.includes(nextLevel)) {
+        await selectLevel(nextLevel);
+        resetGame();
+        setHasShownGameOverAd(false);
+        setHasTrackedAttempt(false);
+        clearActivePowerUp();
+        await loadInventory();
+        playMusic();
+      } else {
+        // If next level is not unlocked, just restart current level
+        handlePlayAgain();
+      }
+    } else {
+      // If level not completed, just restart
+      handlePlayAgain();
+    }
+  };
+
   // Power-up handlers
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
     if (gameState.gameOver || gameState.paused) return;
@@ -507,7 +530,11 @@ const Game = () => {
               {hasCompletedLevel(progress.currentLevel, gameState.score) ? 'Level Complete! 🎉' : 'Game Over!'}
             </DialogTitle>
             <DialogDescription>
-              You scored {gameState.score} points and reached level {gameState.level}!
+              {hasCompletedLevel(progress.currentLevel, gameState.score) ? (
+                <>Congratulations! You scored {gameState.score} points and reached level {getLevelReached(gameState.score)}!</>
+              ) : (
+                <>You scored {gameState.score} points and reached level {gameState.level}!</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -580,9 +607,12 @@ const Game = () => {
                 <Home className="mr-2 h-4 w-4" />
                 Home
               </Button>
-              <Button onClick={handlePlayAgain} className="flex-1">
+              <Button 
+                onClick={hasCompletedLevel(progress.currentLevel, gameState.score) ? handleGoToNextLevel : handlePlayAgain} 
+                className="flex-1"
+              >
                 <Play className="mr-2 h-4 w-4" />
-                Play Again
+                {hasCompletedLevel(progress.currentLevel, gameState.score) ? 'Go to Next Level' : 'Play Again'}
               </Button>
             </div>
           </DialogFooter>
