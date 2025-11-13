@@ -15,7 +15,7 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-full bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
@@ -24,12 +24,12 @@ const Index = () => {
   return (
     <>
       <ProfileSetupDialog />
-      <ScrollArea className="h-screen">
-        <div className="min-h-screen bg-background p-4 sm:p-6 pb-20 relative overflow-hidden">
+      <ScrollArea className="h-full">
+        <div className="min-h-full bg-background relative overflow-hidden">
           {/* Animated background gradient */}
           <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
           
-          <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 relative z-10">
+          <div className="container-responsive space-y-4 sm:space-y-6 relative z-10 py-4 sm:py-6 pb-20">
         {/* Header */}
         <div className="text-center space-y-2 mb-6 sm:mb-8 animate-slide-up">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-gradient bg-[length:200%_auto]">

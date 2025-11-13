@@ -133,10 +133,18 @@ All colors MUST be HSL.
   }
 
   :root {
-    --safe-area-inset-top: env(safe-area-inset-top, 0px);
-    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-area-inset-left: env(safe-area-inset-left, 0px);
-    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    /* Safe area insets for mobile devices */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    
+    /* Minimum safe areas with 16px fallback for devices without notches */
+    --min-safe-top: max(env(safe-area-inset-top, 0px), 16px);
+    --min-safe-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+    
+    /* Dynamic viewport height for mobile */
+    --vh: 1vh;
   }
 }
 
@@ -145,24 +153,96 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    height: 100%;
+    /* Account for dynamic viewport height on mobile */
+    height: 100dvh;
+  }
+
   body {
     @apply bg-background text-foreground;
+    height: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
     touch-action: pan-x pan-y;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    padding-top: var(--safe-area-inset-top);
-    padding-left: var(--safe-area-inset-left);
-    padding-right: var(--safe-area-inset-right);
+    /* Ensure content respects safe areas with minimum padding */
+    padding-top: var(--min-safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    /* Responsive font sizing */
+    font-size: clamp(14px, 2vw, 16px);
   }
   
-  html, body, #root {
+  #root {
     height: 100%;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 }
 
 @layer utilities {
+  /* Safe area utilities for responsive layout */
+  .safe-top {
+    padding-top: var(--min-safe-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: var(--min-safe-bottom);
+  }
+  
+  .safe-left {
+    padding-left: max(var(--safe-left), 1rem);
+  }
+  
+  .safe-right {
+    padding-right: max(var(--safe-right), 1rem);
+  }
+  
+  .safe-all {
+    padding-top: var(--min-safe-top);
+    padding-bottom: var(--min-safe-bottom);
+    padding-left: max(var(--safe-left), 1rem);
+    padding-right: max(var(--safe-right), 1rem);
+  }
+  
+  /* Responsive container with safe areas */
+  .container-responsive {
+    width: 100%;
+    max-width: 100%;
+    padding-left: max(var(--safe-left), 1rem);
+    padding-right: max(var(--safe-right), 1rem);
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  @media (min-width: 640px) {
+    .container-responsive {
+      max-width: 640px;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .container-responsive {
+      max-width: 768px;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .container-responsive {
+      max-width: 1024px;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .container-responsive {
+      max-width: 1280px;
+    }
+  }
+
   .game-glow {
     box-shadow: var(--shadow-glow);
   }

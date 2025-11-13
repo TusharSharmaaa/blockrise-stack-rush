@@ -246,12 +246,16 @@ const Game = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col relative overflow-hidden">
       {/* Sync Indicator */}
       <div className="absolute top-2 right-2 z-50">
         <SyncIndicator profileId={profile?.id} />
       </div>
       
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
+      
+      <div className="flex-1 flex flex-col relative z-10">
       <GameHUD
         score={gameState.score}
         level={gameState.level}
@@ -260,7 +264,7 @@ const Game = () => {
       />
       
       {/* Score Progress Bar */}
-      <div className="px-4 py-2 glass-card border-t border-glass-border shadow-glow">
+      <div className="container-responsive py-2 glass-card border-t border-glass-border shadow-glow">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between text-xs mb-1">
             <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
@@ -286,7 +290,7 @@ const Game = () => {
           disabled={gameState.gameOver || gameState.paused}
         />
         
-        <div style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 16px)' }}>
+        <div className="safe-bottom pb-4">
           <GameControls
             onRotate={rotate}
             onMoveLeft={moveLeft}
@@ -295,6 +299,7 @@ const Game = () => {
             disabled={gameState.gameOver || gameState.paused}
           />
         </div>
+      </div>
       </div>
 
       {/* Pause Dialog */}
