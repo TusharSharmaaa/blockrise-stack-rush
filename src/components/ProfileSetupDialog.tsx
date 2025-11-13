@@ -634,7 +634,6 @@ const ProfileSetupDialog = () => {
               !isOnline || 
               isCheckingUsername ||
               usernameAvailable !== true || // MUST be true (unique) to proceed
-              usernameAvailable === false ||
               name.trim().length < 3
             }
           >
