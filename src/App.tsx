@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NetworkStatusIndicator } from "@/components/NetworkStatusIndicator";
+import ContrastChecker from "@/components/ContrastChecker";
 import Index from "./pages/Index";
 import Game from "./pages/Game";
 import Settings from "./pages/Settings";
@@ -22,6 +23,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <NetworkStatusIndicator />
+      <ContrastChecker />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
