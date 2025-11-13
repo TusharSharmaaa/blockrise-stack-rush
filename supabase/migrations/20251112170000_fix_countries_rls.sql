@@ -7,3 +7,5 @@ CREATE POLICY "Countries are viewable by everyone"
   ON public.countries FOR SELECT
   USING (true);
 
+
+
