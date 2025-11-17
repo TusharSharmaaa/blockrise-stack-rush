@@ -7,16 +7,16 @@ import { Slider } from '@/components/ui/slider';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useCurrency } from '@/hooks/useCurrency';
 import { useSound } from '@/hooks/useSound';
+import { useBackButton } from '@/hooks/useBackButton';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const Settings = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
-  const { formatPrice } = useCurrency();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
@@ -36,10 +36,6 @@ const Settings = () => {
     }
     await toggleNotifications(enabled);
     toast.success(enabled ? 'Notifications enabled' : 'Notifications disabled');
-  };
-
-  const handleRemoveAds = () => {
-    toast.info('Opening payment...');
   };
 
   return (
@@ -156,17 +152,6 @@ const Settings = () => {
                 <span className="text-foreground">Production</span>
               </div>
             </div>
-          </div>
-
-          {/* Monetization */}
-          <div className="bg-card rounded-lg p-6 card-elevated">
-            <h2 className="text-xl font-semibold mb-4">Premium</h2>
-            <Button className="w-full gradient-primary">
-              Remove Ads - $2.99
-            </Button>
-            <p className="text-sm text-muted-foreground mt-2">
-              One-time purchase, no subscription
-            </p>
           </div>
 
         </div>

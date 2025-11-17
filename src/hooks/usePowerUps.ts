@@ -29,60 +29,113 @@ export const usePowerUps = () => {
     try {
       const { value } = await Preferences.get({ key: 'powerUpInventory' });
       if (value) {
-        setInventory(JSON.parse(value));
+        const parsed = JSON.parse(value);
+        setInventory(parsed);
+      } else {
+        // If no inventory exists, initialize with default
+        setInventory(INITIAL_INVENTORY);
       }
     } catch (error) {
       console.error('Failed to load power-up inventory:', error);
+      setInventory(INITIAL_INVENTORY);
     }
   }, []);
 
   const saveInventory = useCallback(async (newInventory: PowerUpInventory) => {
+    // Update state immediately (synchronously) for UI responsiveness
+    setInventory(newInventory);
     try {
       await Preferences.set({
         key: 'powerUpInventory',
         value: JSON.stringify(newInventory)
       });
-      setInventory(newInventory);
+      // Dispatch custom event to notify other components of inventory change
+      window.dispatchEvent(new CustomEvent('powerUpInventoryChanged', { detail: newInventory }));
     } catch (error) {
       console.error('Failed to save power-up inventory:', error);
     }
   }, []);
 
   const addPowerUp = useCallback(async (type: keyof PowerUpInventory, amount: number = 1) => {
-    const newInventory = {
-      ...inventory,
-      [type]: inventory[type] + amount
-    };
-    await saveInventory(newInventory);
+    // Reload inventory first to ensure we have the latest state
+    try {
+      const { value } = await Preferences.get({ key: 'powerUpInventory' });
+      const currentInventory = value ? JSON.parse(value) : INITIAL_INVENTORY;
+      
+      const newInventory = {
+        ...currentInventory,
+        [type]: (currentInventory[type] || 0) + amount
+      };
+      await saveInventory(newInventory);
+    } catch (error) {
+      console.error('Failed to add power-up:', error);
+      // Fallback to using state if Preferences fails
+      const newInventory = {
+        ...inventory,
+        [type]: (inventory[type] || 0) + amount
+      };
+      await saveInventory(newInventory);
+    }
   }, [inventory, saveInventory]);
 
   const usePowerUp = useCallback(async (type: keyof PowerUpInventory, duration: number = 30000): Promise<boolean> => {
-    if (inventory[type] <= 0) {
-      return false;
-    }
-
     if (activePowerUp) {
       return false; // Can't use power-up while another is active
     }
 
-    const newInventory = {
-      ...inventory,
-      [type]: inventory[type] - 1
-    };
-    await saveInventory(newInventory);
+    // Reload inventory first to ensure we have the latest state
+    try {
+      const { value } = await Preferences.get({ key: 'powerUpInventory' });
+      const currentInventory = value ? JSON.parse(value) : INITIAL_INVENTORY;
+      
+      if (currentInventory[type] <= 0) {
+        return false;
+      }
 
-    setActivePowerUp({
-      type,
-      duration,
-      startTime: Date.now()
-    });
+      const newInventory = {
+        ...currentInventory,
+        [type]: currentInventory[type] - 1
+      };
+      await saveInventory(newInventory);
 
-    // Auto-deactivate after duration
-    setTimeout(() => {
-      setActivePowerUp(null);
-    }, duration);
+      setActivePowerUp({
+        type,
+        duration,
+        startTime: Date.now()
+      });
 
-    return true;
+      // Auto-deactivate after duration
+      setTimeout(() => {
+        setActivePowerUp(null);
+      }, duration);
+
+      return true;
+    } catch (error) {
+      console.error('Failed to use power-up:', error);
+      // Fallback to using state if Preferences fails
+      if (inventory[type] <= 0) {
+        return false;
+      }
+
+      const newInventory = {
+        ...inventory,
+        [type]: inventory[type] - 1
+      };
+      await saveInventory(newInventory);
+
+      setActivePowerUp({
+        type,
+        duration,
+        startTime: Date.now()
+      });
+
+      // Auto-deactivate after duration
+      setTimeout(() => {
+        setActivePowerUp(null);
+      }, duration);
+
+      return true;
+    }
   }, [inventory, activePowerUp, saveInventory]);
 
   const clearActivePowerUp = useCallback(() => {

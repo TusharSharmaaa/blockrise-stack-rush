@@ -9,24 +9,83 @@ interface GameBoardProps {
 
 const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(24);
 
-  // Make responsive based on screen width
+  // Make responsive based on actual container dimensions
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
     const updateSize = () => {
-      const screenWidth = window.innerWidth;
-      if (screenWidth < 640) {
-        // Mobile
-        setCellSize(Math.min(20, Math.floor((screenWidth - 32) / GRID_WIDTH)));
-      } else {
-        // Desktop
-        setCellSize(24);
-      }
+      if (!containerRef.current) return;
+      
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const availableWidth = containerRect.width;
+      const availableHeight = containerRect.height;
+      
+      // Skip if dimensions are not valid
+      if (availableWidth <= 0 || availableHeight <= 0) return;
+      
+      // Calculate cell size based on actual available space
+      // Account for minimal border (1px on each side)
+      const widthWithPadding = Math.max(0, availableWidth - 2);
+      const heightWithPadding = Math.max(0, availableHeight - 2);
+      
+      // Calculate cell size based on both dimensions
+      const heightBasedSize = Math.floor(heightWithPadding / GRID_HEIGHT);
+      const widthBasedSize = Math.floor(widthWithPadding / GRID_WIDTH);
+      
+      // Use the smaller dimension to ensure it fits perfectly
+      let calculatedSize = Math.min(heightBasedSize, widthBasedSize);
+      
+      // Ensure minimum readable size, but maximize space usage
+      calculatedSize = Math.max(12, calculatedSize);
+      
+      setCellSize((prevSize) => {
+        // Only update if size actually changed
+        if (Math.abs(prevSize - calculatedSize) > 0.5) {
+          return calculatedSize;
+        }
+        return prevSize;
+      });
     };
 
-    updateSize();
+    // Use ResizeObserver for precise measurements
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          updateSize();
+        }
+      }
+    });
+    
+    resizeObserver.observe(container);
+    
+    // Initial calculation - try multiple times to ensure layout is complete
+    let attempts = 0;
+    const tryUpdate = () => {
+      updateSize();
+      attempts++;
+      if (attempts < 5 && containerRef.current && containerRef.current.getBoundingClientRect().height === 0) {
+        setTimeout(tryUpdate, 100);
+      }
+    };
+    
+    const timeoutId = setTimeout(tryUpdate, 50);
+    
+    // Also listen to window resize and orientation change
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateSize, 200);
+    });
+    
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSize);
+      window.removeEventListener('orientationchange', updateSize);
+    };
   }, []);
 
   useEffect(() => {
@@ -102,15 +161,29 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
   }, [grid, currentBlock, cellSize]);
 
   return (
-    <div className="flex items-center justify-center p-2 sm:p-4">
+    <div 
+      ref={containerRef}
+      className="w-full h-full overflow-hidden flex items-center justify-center"
+      style={{ 
+        padding: '0',
+        margin: '0',
+        minHeight: 0,
+        minWidth: 0
+      }}
+    >
       <canvas
         ref={canvasRef}
         width={GRID_WIDTH * cellSize}
         height={GRID_HEIGHT * cellSize}
-        className="border-2 border-game-border rounded-lg card-elevated max-w-full"
+        className="border border-game-border/50 block"
         style={{ 
           width: `${GRID_WIDTH * cellSize}px`,
-          height: `${GRID_HEIGHT * cellSize}px`
+          height: `${GRID_HEIGHT * cellSize}px`,
+          maxWidth: '100%',
+          maxHeight: '100%',
+          display: 'block',
+          margin: '0 auto',
+          borderRadius: '2px'
         }}
       />
     </div>

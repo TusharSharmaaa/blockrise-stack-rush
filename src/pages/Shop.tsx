@@ -1,185 +1,283 @@
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ShoppingBag, Coins, Zap, Shield, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Coins, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
-import { useCurrency } from '@/hooks/useCurrency';
+import { usePowerUps } from '@/hooks/usePowerUps';
+import { useBackButton } from '@/hooks/useBackButton';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Card } from '@/components/ui/card';
+
+interface PowerUpItem {
+  id: keyof ReturnType<typeof usePowerUps>['inventory'];
+  name: string;
+  icon: string;
+  description: string;
+  price: number;
+  color: string;
+}
+
+const POWER_UPS: PowerUpItem[] = [
+  {
+    id: 'slowTime',
+    name: 'Slow Time',
+    icon: '⏱️',
+    description: 'Slow down the game speed for 30 seconds',
+    price: 150,
+    color: 'bg-blue-500'
+  },
+  {
+    id: 'clearLine',
+    name: 'Clear Line',
+    icon: '✨',
+    description: 'Instantly clear the bottom line',
+    price: 200,
+    color: 'bg-purple-500'
+  },
+  {
+    id: 'shuffle',
+    name: 'Shuffle',
+    icon: '🔄',
+    description: 'Shuffle the current block',
+    price: 100,
+    color: 'bg-green-500'
+  },
+  {
+    id: 'bomb',
+    name: 'Bomb',
+    icon: '💣',
+    description: 'Clear a 3x3 area around the block',
+    price: 250,
+    color: 'bg-red-500'
+  }
+];
 
 const Shop = () => {
   const navigate = useNavigate();
-  const { progress, addCoins } = useGameProgress();
-  const { formatPrice, isLoading: currencyLoading } = useCurrency();
+  useBackButton(); // Handle Android back button
+  const { progress, addCoins, isLoading } = useGameProgress();
+  const { inventory, addPowerUp, loadInventory } = usePowerUps();
+  const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
+  const [localProgress, setLocalProgress] = useState(progress);
 
-  const coinPacks = [
-    { id: 'pack1', coins: 100, priceKey: 'coinPack100' as const, popular: false },
-    { id: 'pack2', coins: 500, priceKey: 'coinPack500' as const, popular: true, bonus: 50 },
-    { id: 'pack3', coins: 1000, priceKey: 'coinPack1000' as const, popular: false, bonus: 150 },
-  ];
+  // Sync local progress with hook progress
+  useEffect(() => {
+    setLocalProgress(progress);
+  }, [progress]);
 
-  const powerUps = [
-    { id: 'slowtime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100 },
-    { id: 'clearline', name: 'Clear Line', description: 'Clear any full line instantly', icon: '✨', price: 150 },
-    { id: 'shuffle', name: 'Block Shuffle', description: 'Change next 3 blocks', icon: '🔄', price: 75 },
-    { id: 'bomb', name: 'Bomb', description: 'Clear 3x3 area', icon: '💣', price: 200 },
-  ];
+  useEffect(() => {
+    loadInventory();
+  }, [loadInventory]);
 
-  const premiumItems = [
-    { id: 'noads', name: 'Remove Ads', description: 'Remove all ads forever', icon: <Shield className="h-6 w-6" />, priceKey: 'removeAds' as const, popular: true },
-    { id: 'premium', name: 'Premium Pass', description: '2x coins, exclusive skins, ad-free', icon: <Star className="h-6 w-6" />, priceKey: 'premium' as const, popular: false },
-  ];
-
-  const [isPurchasing, setIsPurchasing] = useState(false);
-
-  const handlePurchasePowerUp = async (powerUp: typeof powerUps[0]) => {
+  const handlePurchase = async (powerUp: PowerUpItem) => {
     if (isPurchasing) return;
-    if (progress.totalCoins < powerUp.price) {
-      toast.error('Not enough coins!');
+    
+    // Use local progress for immediate UI update
+    if (localProgress.totalCoins < powerUp.price) {
+      toast.error(`Not enough coins! You need ${powerUp.price} coins.`);
       return;
     }
-    setIsPurchasing(true);
+
+    setIsPurchasing(powerUp.id);
     try {
+      // Update local progress immediately for UI responsiveness
+      const newCoins = localProgress.totalCoins - powerUp.price;
+      setLocalProgress({ ...localProgress, totalCoins: newCoins });
+      
+      // Deduct coins (this will update the actual progress state)
       await addCoins(-powerUp.price);
-      toast.success(`${powerUp.name} purchased! (Coming soon in gameplay)`);
+      
+      // Add power-up to inventory
+      await addPowerUp(powerUp.id, 1);
+      
+      // Reload inventory to ensure it's up to date
+      await loadInventory();
+      
+      toast.success(`Purchased ${powerUp.name}! Check your inventory during gameplay.`);
+    } catch (error) {
+      console.error('Purchase error:', error);
+      // Revert local progress on error
+      setLocalProgress(progress);
+      toast.error('Failed to purchase. Please try again.');
     } finally {
-      setIsPurchasing(false);
+      setIsPurchasing(null);
     }
   };
 
-  const handlePurchaseIAP = (item: string) => {
-    if (isPurchasing) return;
-    setIsPurchasing(true);
-    toast.info('Opening payment... (Demo mode)');
-    setTimeout(() => setIsPurchasing(false), 1000);
+  const handleBulkPurchase = async (powerUp: PowerUpItem, quantity: number) => {
+    const totalPrice = powerUp.price * quantity;
+    
+    // Use local progress for immediate UI update
+    if (localProgress.totalCoins < totalPrice) {
+      toast.error(`Not enough coins! You need ${totalPrice} coins.`);
+      return;
+    }
+
+    setIsPurchasing(powerUp.id);
+    try {
+      // Update local progress immediately for UI responsiveness
+      const newCoins = localProgress.totalCoins - totalPrice;
+      setLocalProgress({ ...localProgress, totalCoins: newCoins });
+      
+      // Deduct coins (this will update the actual progress state)
+      await addCoins(-totalPrice);
+      
+      // Add power-ups to inventory
+      await addPowerUp(powerUp.id, quantity);
+      
+      // Reload inventory to ensure it's up to date
+      await loadInventory();
+      
+      toast.success(`Purchased ${quantity}x ${powerUp.name}!`);
+    } catch (error) {
+      console.error('Purchase error:', error);
+      // Revert local progress on error
+      setLocalProgress(progress);
+      toast.error('Failed to purchase. Please try again.');
+    } finally {
+      setIsPurchasing(null);
+    }
   };
 
-  if (currencyLoading) {
-    return <div className="h-full bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-    </div>;
-  }
-
   return (
-    <ScrollArea className="h-full">
-      <div className="min-h-full bg-background relative overflow-hidden">
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
-        
-        <div className="container-responsive space-y-4 sm:space-y-6 relative z-10 py-4 sm:py-6 pb-20">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="h-8 w-8 text-primary" />
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
               <h1 className="text-3xl font-bold">Shop</h1>
             </div>
+            <Badge variant="secondary" className="text-lg px-4 py-2">
+              <Coins className="h-4 w-4 mr-1" />
+              {localProgress.totalCoins}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="text-lg px-4 py-2">
-            💰 {progress.totalCoins}
-          </Badge>
+
+          {/* Info Card */}
+          <Card className="p-4 bg-gradient-to-br from-primary/20 to-primary/5 card-elevated">
+            <div className="flex items-start gap-3">
+              <ShoppingBag className="h-6 w-6 text-primary mt-1" />
+              <div>
+                <h3 className="font-semibold mb-1">Power-Up Shop</h3>
+                <p className="text-sm text-muted-foreground">
+                  Purchase power-ups to help you during gameplay. Use them strategically to beat high scores!
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Power-Up Items */}
+          <div className="space-y-4">
+            {POWER_UPS.map((powerUp) => {
+              const owned = inventory[powerUp.id];
+              const canAfford = localProgress.totalCoins >= powerUp.price;
+              const isPurchasingItem = isPurchasing === powerUp.id;
+
+              return (
+                <Card key={powerUp.id} className="p-4 sm:p-6 card-elevated">
+                  <div className="space-y-4">
+                    {/* Power-Up Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`${powerUp.color} rounded-lg p-3 text-2xl`}>
+                          {powerUp.icon}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold">{powerUp.name}</h3>
+                          <p className="text-sm text-muted-foreground">{powerUp.description}</p>
+                        </div>
+                      </div>
+                      {owned > 0 && (
+                        <Badge variant="secondary" className="text-sm">
+                          {owned} owned
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Price and Purchase */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-5 w-5 text-yellow-500" />
+                        <span className="text-lg font-bold">{powerUp.price}</span>
+                        <span className="text-sm text-muted-foreground">coins</span>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        {/* Single Purchase */}
+                        <Button
+                          onClick={() => handlePurchase(powerUp)}
+                          disabled={!canAfford || isPurchasingItem}
+                          variant={canAfford ? "default" : "outline"}
+                          size="sm"
+                          className="gradient-primary"
+                        >
+                          {isPurchasingItem ? '...' : 'Buy 1'}
+                        </Button>
+                        
+                        {/* Bulk Purchase (5x) */}
+                        {canAfford && localProgress.totalCoins >= powerUp.price * 5 && (
+                          <Button
+                            onClick={() => handleBulkPurchase(powerUp, 5)}
+                            disabled={isPurchasingItem}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Buy 5
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* How to Use Info */}
+          <Card className="p-4 bg-card card-elevated">
+            <div className="flex items-start gap-3">
+              <Zap className="h-5 w-5 text-primary mt-1" />
+              <div>
+                <h3 className="font-semibold mb-2">How to Use Power-Ups</h3>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Power-ups appear in your inventory during gameplay</li>
+                  <li>• Tap a power-up button to activate it</li>
+                  <li>• Only one power-up can be active at a time</li>
+                  <li>• Power-ups are consumed when used</li>
+                  <li>• Earn coins by watching ads, daily rewards, and achievements!</li>
+                </ul>
+              </div>
+            </div>
+          </Card>
+
+          {/* Ways to Earn Coins */}
+          <Card className="p-4 bg-gradient-to-br from-accent/20 to-accent/5 card-elevated">
+            <h3 className="font-semibold mb-2 flex items-center gap-2">
+              <Coins className="h-5 w-5 text-yellow-500" />
+              Ways to Earn Coins
+            </h3>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Watch ads: 10-75 coins per ad</li>
+              <li>• Daily rewards: 50-120 coins (based on streak)</li>
+              <li>• Complete achievements: 50-500 coins</li>
+              <li>• Unlock levels: 50 bonus coins</li>
+            </ul>
+          </Card>
         </div>
-
-        {/* Premium Items */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6 text-yellow-500" />
-            Premium
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {premiumItems.map((item) => (
-              <Card key={item.id} className={`p-6 relative ${item.popular ? 'border-2 border-primary' : ''}`}>
-                {item.popular && (
-                  <Badge className="absolute top-4 right-4 bg-primary">Most Popular</Badge>
-                )}
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-primary/10 rounded-lg text-primary">
-                    {item.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                    <Button
-                      onClick={() => handlePurchaseIAP(item.id)}
-                      className="w-full mt-4 gradient-primary"
-                    >
-                      Buy for {formatPrice(item.priceKey)}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Coin Packs */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Coins className="h-6 w-6 text-yellow-500" />
-            Coin Packs
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {coinPacks.map((pack) => (
-              <Card key={pack.id} className={`p-6 relative ${pack.popular ? 'border-2 border-primary' : ''}`}>
-                {pack.popular && (
-                  <Badge className="absolute top-4 right-4 bg-primary">Best Value</Badge>
-                )}
-                <div className="text-center space-y-4">
-                  <div className="text-5xl">💰</div>
-                  <div>
-                    <div className="text-3xl font-bold">{pack.coins}</div>
-                    {pack.bonus && (
-                      <div className="text-sm text-primary font-semibold">+{pack.bonus} Bonus!</div>
-                    )}
-                    <div className="text-xs text-muted-foreground">coins</div>
-                  </div>
-                  <Button
-                    onClick={() => handlePurchaseIAP(pack.id)}
-                    className="w-full gradient-primary"
-                  >
-                    {formatPrice(pack.priceKey)}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Power-ups */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Star className="h-6 w-6 text-yellow-500" />
-            Power-ups
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {powerUps.map((powerUp) => (
-              <Card key={powerUp.id} className="p-4 text-center space-y-3">
-                <div className="text-4xl">{powerUp.icon}</div>
-                <div>
-                  <h3 className="font-semibold">{powerUp.name}</h3>
-                  <p className="text-xs text-muted-foreground">{powerUp.description}</p>
-                </div>
-                    <Button
-                      onClick={() => handlePurchasePowerUp(powerUp)}
-                      className="w-full"
-                      variant="outline"
-                      disabled={progress.totalCoins < powerUp.price || isPurchasing}
-                    >
-                  <Coins className="h-4 w-4 mr-1" />
-                  {powerUp.price}
-                </Button>
-              </Card>
-            ))}
-          </div>
-        </section>
       </div>
-    </div>
     </ScrollArea>
   );
 };
 
 export default Shop;
+
