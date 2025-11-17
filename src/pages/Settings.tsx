@@ -9,8 +9,10 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useSound } from '@/hooks/useSound';
 import { useFontScaling } from '@/hooks/useFontScaling';
+import { useGameProgress } from '@/hooks/useGameProgress';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -18,7 +20,9 @@ const Settings = () => {
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const { fontScale, setCustomScale } = useFontScaling();
+  const { resetProgress } = useGameProgress();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (!permissionGranted && notificationsEnabled) {
@@ -201,6 +205,63 @@ const Settings = () => {
                 <span className="text-foreground">Production</span>
               </div>
             </div>
+          </Card>
+
+          {/* Developer/Testing Section */}
+          <Card variant="glass" className="p-6 shadow-glow border-destructive/20">
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Reset Progress</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Reset all game progress, including levels, coins, and achievements. This action cannot be undone.
+            </p>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  className="w-full"
+                  disabled={isResetting}
+                >
+                  {isResetting ? 'Resetting...' : 'Reset All Progress'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all your game progress including:
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li>All unlocked levels</li>
+                      <li>All coins and achievements</li>
+                      <li>All game statistics</li>
+                      <li>All ad watch counters</li>
+                    </ul>
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      setIsResetting(true);
+                      try {
+                        await resetProgress();
+                        toast.success('Progress reset successfully!');
+                        // Reload the app to reflect changes
+                        setTimeout(() => {
+                          window.location.reload();
+                        }, 1000);
+                      } catch (error) {
+                        console.error('Failed to reset progress:', error);
+                        toast.error('Failed to reset progress');
+                        setIsResetting(false);
+                      }
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, Reset Everything
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </Card>
 
         </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Preferences } from '@capacitor/preferences';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -18,6 +18,8 @@ export interface LevelProgress {
   lastAdWatchDate: string;
   adsWatchedToday: number;
   maxAdsPerDay: number;
+  adsWatchedForUnlockCountToday: number; // Count of ads watched specifically to unlock levels
+  maxAdsForUnlockPerDay: number; // Daily limit for ads watched to unlock levels
   levelScores: { [level: number]: number };
   levelCompletionMethod: { [level: number]: 'score' | 'ad' }; // How each level was completed
   levelStars: { [level: number]: number }; // 1-3 stars per level
@@ -51,6 +53,8 @@ const INITIAL_PROGRESS: LevelProgress = {
   lastAdWatchDate: new Date().toDateString(),
   adsWatchedToday: 0,
   maxAdsPerDay: 10,
+  adsWatchedForUnlockCountToday: 0, // Count of ads watched specifically to unlock levels
+  maxAdsForUnlockPerDay: 6, // Daily limit for ads watched to unlock levels
   levelScores: {},
   levelCompletionMethod: {},
   levelStars: {},
@@ -98,6 +102,13 @@ export const getLevelReached = (score: number): number => {
 export const useGameProgress = () => {
   const [progress, setProgress] = useState<LevelProgress>(INITIAL_PROGRESS);
   const [isLoading, setIsLoading] = useState(true);
+  // Use ref to always have latest progress state
+  const progressRef = useRef<LevelProgress>(INITIAL_PROGRESS);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
 
   useEffect(() => {
     loadProgress();
@@ -105,22 +116,40 @@ export const useGameProgress = () => {
 
   const migrateProgress = (savedProgress: any): LevelProgress => {
     // Migrate old progress format to new format
-    return {
-      ...INITIAL_PROGRESS,
+    // IMPORTANT: Spread savedProgress FIRST, then INITIAL_PROGRESS to preserve existing values
+    const migrated: LevelProgress = {
       ...savedProgress,
-      // Ensure new fields exist
-      adsWatchedForNextLevel: savedProgress.adsWatchedForNextLevel ?? 0,
-      adsWatchedForUnlockToday: savedProgress.adsWatchedForUnlockToday ?? 0,
-      lastAdUnlockDate: savedProgress.lastAdUnlockDate ?? new Date().toDateString(),
-      levelCompletionMethod: savedProgress.levelCompletionMethod ?? {},
-      levelStars: savedProgress.levelStars ?? {},
-      levelAttempts: savedProgress.levelAttempts ?? {},
-      // Migrate unlockedLevels: if old format had multiple levels, keep only Level 1 if it's a fresh start
-      // Otherwise, keep existing unlocked levels (for existing users)
+      ...INITIAL_PROGRESS,
+      // Override with saved values (preserve existing data)
+      currentLevel: savedProgress.currentLevel ?? INITIAL_PROGRESS.currentLevel,
       unlockedLevels: savedProgress.unlockedLevels && savedProgress.unlockedLevels.length > 0 
         ? savedProgress.unlockedLevels 
-        : [1]
+        : INITIAL_PROGRESS.unlockedLevels,
+      adsWatchedForNextLevel: savedProgress.adsWatchedForNextLevel ?? INITIAL_PROGRESS.adsWatchedForNextLevel,
+      adsRequiredPerLevel: savedProgress.adsRequiredPerLevel ?? INITIAL_PROGRESS.adsRequiredPerLevel,
+      adsWatchedForUnlockToday: savedProgress.adsWatchedForUnlockToday ?? INITIAL_PROGRESS.adsWatchedForUnlockToday,
+      lastAdUnlockDate: savedProgress.lastAdUnlockDate ?? INITIAL_PROGRESS.lastAdUnlockDate,
+      totalCoins: savedProgress.totalCoins ?? INITIAL_PROGRESS.totalCoins,
+      dailyStreak: savedProgress.dailyStreak ?? INITIAL_PROGRESS.dailyStreak,
+      lastPlayedDate: savedProgress.lastPlayedDate ?? INITIAL_PROGRESS.lastPlayedDate,
+      hasClaimedDailyReward: savedProgress.hasClaimedDailyReward ?? INITIAL_PROGRESS.hasClaimedDailyReward,
+      totalGamesPlayed: savedProgress.totalGamesPlayed ?? INITIAL_PROGRESS.totalGamesPlayed,
+      highestScore: savedProgress.highestScore ?? INITIAL_PROGRESS.highestScore,
+      lastAdWatchDate: savedProgress.lastAdWatchDate ?? INITIAL_PROGRESS.lastAdWatchDate,
+      adsWatchedToday: savedProgress.adsWatchedToday ?? INITIAL_PROGRESS.adsWatchedToday,
+      maxAdsPerDay: savedProgress.maxAdsPerDay ?? INITIAL_PROGRESS.maxAdsPerDay,
+      // NEW FIELDS - use saved value if exists, otherwise default
+      adsWatchedForUnlockCountToday: savedProgress.adsWatchedForUnlockCountToday !== undefined 
+        ? savedProgress.adsWatchedForUnlockCountToday 
+        : INITIAL_PROGRESS.adsWatchedForUnlockCountToday,
+      maxAdsForUnlockPerDay: savedProgress.maxAdsForUnlockPerDay ?? INITIAL_PROGRESS.maxAdsForUnlockPerDay,
+      levelScores: savedProgress.levelScores ?? INITIAL_PROGRESS.levelScores,
+      levelCompletionMethod: savedProgress.levelCompletionMethod ?? INITIAL_PROGRESS.levelCompletionMethod,
+      levelStars: savedProgress.levelStars ?? INITIAL_PROGRESS.levelStars,
+      levelAttempts: savedProgress.levelAttempts ?? INITIAL_PROGRESS.levelAttempts,
+      totalAdsWatched: savedProgress.totalAdsWatched ?? INITIAL_PROGRESS.totalAdsWatched
     };
+    return migrated;
   };
 
   const loadProgress = async () => {
@@ -128,11 +157,27 @@ export const useGameProgress = () => {
       const { value } = await Preferences.get({ key: 'gameProgress' });
       if (value) {
         const savedProgress = JSON.parse(value);
+        console.log('📂 Loaded saved progress:', {
+          hasAdsWatchedForUnlockCountToday: 'adsWatchedForUnlockCountToday' in savedProgress,
+          hasMaxAdsForUnlockPerDay: 'maxAdsForUnlockPerDay' in savedProgress,
+          adsWatchedForUnlockCountToday: savedProgress.adsWatchedForUnlockCountToday,
+          maxAdsForUnlockPerDay: savedProgress.maxAdsForUnlockPerDay
+        });
         updateDailyStreak(savedProgress);
         const migratedProgress = migrateProgress(savedProgress);
+        console.log('🔄 Migrated progress:', {
+          adsWatchedForUnlockCountToday: migratedProgress.adsWatchedForUnlockCountToday,
+          maxAdsForUnlockPerDay: migratedProgress.maxAdsForUnlockPerDay,
+          adsWatchedForNextLevel: migratedProgress.adsWatchedForNextLevel
+        });
+        progressRef.current = migratedProgress; // Update ref first
         setProgress(migratedProgress);
         // Save migrated progress back
         await saveProgress(migratedProgress);
+      } else {
+        console.log('📂 No saved progress, using initial state');
+        progressRef.current = INITIAL_PROGRESS; // Update ref for initial state
+        setProgress(INITIAL_PROGRESS);
       }
     } catch (error) {
       console.error('Failed to load progress:', error);
@@ -142,12 +187,21 @@ export const useGameProgress = () => {
   };
 
   const saveProgress = async (newProgress: LevelProgress) => {
+    // Update ref first
+    progressRef.current = newProgress;
+    // Update local state immediately so UI reflects changes in real time
+    setProgress(newProgress);
+
     try {
       await Preferences.set({
         key: 'gameProgress',
         value: JSON.stringify(newProgress)
       });
-      setProgress(newProgress);
+      console.log('✅ Progress saved:', {
+        adsWatchedForNextLevel: newProgress.adsWatchedForNextLevel,
+        adsWatchedForUnlockCountToday: newProgress.adsWatchedForUnlockCountToday,
+        maxAdsForUnlockPerDay: newProgress.maxAdsForUnlockPerDay
+      });
     } catch (error) {
       console.error('Failed to save progress:', error);
     }
@@ -187,29 +241,65 @@ export const useGameProgress = () => {
   };
 
   const watchAdForLevel = async () => {
+    // Use ref to get latest state (avoids stale closure issues)
+    const currentProgress = progressRef.current;
     const today = new Date().toDateString();
     
-    // Reset daily counters if new day
-    if (progress.lastAdWatchDate !== today) {
-      progress.adsWatchedToday = 0;
-      progress.lastAdWatchDate = today;
+    console.log('📺 watchAdForLevel called, current state:', {
+      adsWatchedForNextLevel: currentProgress.adsWatchedForNextLevel,
+      adsWatchedForUnlockCountToday: currentProgress.adsWatchedForUnlockCountToday,
+      lastAdUnlockDate: currentProgress.lastAdUnlockDate,
+      today,
+      maxAdsForUnlockPerDay: currentProgress.maxAdsForUnlockPerDay
+    });
+    
+    // Reset daily counters if new day - create new object, don't mutate
+    let updatedProgress = { ...currentProgress };
+    
+    // Only reset if it's actually a new day (not just a different time)
+    if (currentProgress.lastAdWatchDate && currentProgress.lastAdWatchDate !== today) {
+      updatedProgress = {
+        ...updatedProgress,
+        adsWatchedToday: 0,
+        lastAdWatchDate: today
+      };
+    } else if (!currentProgress.lastAdWatchDate) {
+      updatedProgress = {
+        ...updatedProgress,
+        lastAdWatchDate: today
+      };
     }
-    if (progress.lastAdUnlockDate !== today) {
-      progress.adsWatchedForUnlockToday = 0;
-      progress.lastAdUnlockDate = today;
+    
+    // Only reset unlock counters if it's actually a new day
+    if (currentProgress.lastAdUnlockDate && currentProgress.lastAdUnlockDate !== today) {
+      console.log('🔄 Resetting daily unlock counters (new day)', {
+        oldDate: currentProgress.lastAdUnlockDate,
+        newDate: today
+      });
+      updatedProgress = {
+        ...updatedProgress,
+        adsWatchedForUnlockToday: 0,
+        adsWatchedForUnlockCountToday: 0,
+        lastAdUnlockDate: today
+      };
+    } else if (!currentProgress.lastAdUnlockDate) {
+      updatedProgress = {
+        ...updatedProgress,
+        lastAdUnlockDate: today
+      };
     }
 
-    // Check daily ad limit
-    if (progress.adsWatchedToday >= progress.maxAdsPerDay) {
-      return { success: false, message: 'Daily ad limit reached. Come back tomorrow!' };
+    // Check daily ad limit for unlocking (6 ads per day)
+    if (updatedProgress.adsWatchedForUnlockCountToday >= updatedProgress.maxAdsForUnlockPerDay) {
+      return { success: false, message: 'Daily ad limit for unlocking reached. Come back tomorrow!' };
     }
 
     // Check daily limit for level unlocks (max 2 levels per day via ads)
-    if (progress.adsWatchedForUnlockToday >= 2) {
+    if (updatedProgress.adsWatchedForUnlockToday >= 2) {
       return { success: false, message: 'Daily level unlock limit reached! You can only unlock 2 levels per day via ads. Come back tomorrow!' };
     }
 
-    const nextLevel = Math.max(...progress.unlockedLevels) + 1;
+    const nextLevel = Math.max(...updatedProgress.unlockedLevels) + 1;
     if (nextLevel <= 2) {
       return {
         success: false,
@@ -220,27 +310,43 @@ export const useGameProgress = () => {
       return { success: false, message: 'All levels are already unlocked!' };
     }
 
-    const adsWatchedForNextLevel = progress.adsWatchedForNextLevel + 1;
+    const adsWatchedForNextLevel = updatedProgress.adsWatchedForNextLevel + 1;
+    const newUnlockCount = updatedProgress.adsWatchedForUnlockCountToday + 1;
+
+    console.log('📊 Updating counters:', {
+      adsWatchedForNextLevel,
+      newUnlockCount,
+      previousUnlockCount: updatedProgress.adsWatchedForUnlockCountToday
+    });
 
     const baseProgress = {
-      ...progress,
+      ...updatedProgress,
       adsWatchedForNextLevel,
-      adsWatchedToday: progress.adsWatchedToday + 1,
+      adsWatchedToday: updatedProgress.adsWatchedToday + 1,
+      adsWatchedForUnlockCountToday: newUnlockCount,
       lastAdWatchDate: today,
-      totalAdsWatched: progress.totalAdsWatched + 1,
-      totalCoins: progress.totalCoins + 10
+      totalAdsWatched: updatedProgress.totalAdsWatched + 1,
+      totalCoins: updatedProgress.totalCoins + 10
     };
 
-    if (adsWatchedForNextLevel >= progress.adsRequiredPerLevel) {
-      const updatedUnlockedLevels = Array.from(new Set([...progress.unlockedLevels, nextLevel])).sort((a, b) => a - b);
+    if (adsWatchedForNextLevel >= updatedProgress.adsRequiredPerLevel) {
+      const updatedUnlockedLevels = Array.from(new Set([...updatedProgress.unlockedLevels, nextLevel])).sort((a, b) => a - b);
       const newProgress = {
         ...baseProgress,
         unlockedLevels: updatedUnlockedLevels,
-        adsWatchedForNextLevel: 0,
-        adsWatchedForUnlockToday: progress.adsWatchedForUnlockToday + 1,
+        adsWatchedForNextLevel: 0, // Reset for next level unlock
+        adsWatchedForUnlockToday: updatedProgress.adsWatchedForUnlockToday + 1,
         lastAdUnlockDate: today,
-        totalCoins: baseProgress.totalCoins + 50 // Bonus on unlock
+        totalCoins: baseProgress.totalCoins + 50, // Bonus on unlock
+        // Keep adsWatchedForUnlockCountToday - don't reset it! It should continue counting up to 6
       };
+
+      console.log('🎉 Level unlocked! New progress:', {
+        level: nextLevel,
+        adsWatchedForUnlockCountToday: newProgress.adsWatchedForUnlockCountToday,
+        adsWatchedForUnlockToday: newProgress.adsWatchedForUnlockToday,
+        adsWatchedForNextLevel: newProgress.adsWatchedForNextLevel
+      });
 
       await saveProgress(newProgress);
       await syncProgressToBackend(newProgress);
@@ -252,7 +358,7 @@ export const useGameProgress = () => {
       success: true, 
       levelUnlocked: false,
       adsWatched: adsWatchedForNextLevel,
-      adsRemaining: progress.adsRequiredPerLevel - adsWatchedForNextLevel
+      adsRemaining: updatedProgress.adsRequiredPerLevel - adsWatchedForNextLevel
     };
   };
 
@@ -477,14 +583,14 @@ export const useGameProgress = () => {
       [level]: Math.max(progress.levelScores[level] || 0, currentScore) // Keep actual score; no bonus points
     };
 
-    // Set completion method to ad and give 3 stars
+    // Set completion method to ad and give 0 stars (no stars for ad completion)
     const newLevelCompletionMethod = {
       ...progress.levelCompletionMethod,
       [level]: 'ad' as const
     };
     const newLevelStars = {
       ...progress.levelStars,
-      [level]: 3 // Always 3 stars for ad completion
+      [level]: 0 // No stars for ad completion
     };
 
     // Unlock next level if not already unlocked

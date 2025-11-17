@@ -184,6 +184,22 @@ export const useGameLoop = () => {
       Haptics.impact({ style: ImpactStyle.Medium });
     }
 
+    // Check if top row has any blocks (game over condition)
+    const topRowHasBlocks = clearedGrid[0]?.some(cell => cell !== null);
+    if (topRowHasBlocks) {
+      Haptics.impact({ style: ImpactStyle.Heavy });
+      return {
+        ...state,
+        grid: clearedGrid,
+        currentBlock: null,
+        score: newScore,
+        level: newLevel,
+        linesCleared: state.linesCleared + linesCleared,
+        speed: newSpeed,
+        gameOver: true
+      };
+    }
+
     const nextBlockData = getRandomBlock();
     const newCurrentBlock: Block = {
       ...state.nextBlock!,
@@ -192,12 +208,17 @@ export const useGameLoop = () => {
       id: Math.random().toString()
     };
 
-    // Check if game over
+    // Check if game over (next block can't be placed)
     if (checkCollision(newCurrentBlock, clearedGrid)) {
       Haptics.impact({ style: ImpactStyle.Heavy });
       return {
         ...state,
         grid: clearedGrid,
+        currentBlock: null,
+        score: newScore,
+        level: newLevel,
+        linesCleared: state.linesCleared + linesCleared,
+        speed: newSpeed,
         gameOver: true
       };
     }

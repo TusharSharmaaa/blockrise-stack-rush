@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Lock, Star, Video, Target, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const LevelSelect = () => {
   const navigate = useNavigate();
   const { progress, watchAdForLevel, selectLevel, isLoading, canWatchAdToday, getScoreRequirement, getLevelBestScore, getStarsForLevel } = useGameProgress();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🎮 LevelSelect progress updated:', {
+      adsWatchedForNextLevel: progress.adsWatchedForNextLevel,
+      adsWatchedForUnlockCountToday: progress.adsWatchedForUnlockCountToday,
+      maxAdsForUnlockPerDay: progress.maxAdsForUnlockPerDay,
+      adsRequiredPerLevel: progress.adsRequiredPerLevel
+    });
+  }, [progress.adsWatchedForNextLevel, progress.adsWatchedForUnlockCountToday, progress.maxAdsForUnlockPerDay, progress.adsRequiredPerLevel]);
   const { showRewardedAd, isRewardedLoading } = useAdMob();
   const { theme, resolvedTheme } = useTheme();
   useBackButton(); // Handle Android back button
@@ -43,8 +53,9 @@ const LevelSelect = () => {
       return;
     }
 
-    if (!canWatchAdToday()) {
-      toast.error('Daily ad limit reached! Come back tomorrow to unlock more levels.');
+    // Check unlock-specific ad limit (6 ads per day for unlocking)
+    if (progress.adsWatchedForUnlockCountToday >= progress.maxAdsForUnlockPerDay) {
+      toast.error('Daily ad limit for unlocking reached! Come back tomorrow.');
       return;
     }
 
@@ -140,7 +151,7 @@ const LevelSelect = () => {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Ads watched today:</span>
                 <Badge variant="outline">
-                  {progress.adsWatchedToday}/{progress.maxAdsPerDay}
+                  {progress.adsWatchedForUnlockCountToday}/{progress.maxAdsForUnlockPerDay}
                 </Badge>
               </div>
             </div>
@@ -150,7 +161,7 @@ const LevelSelect = () => {
               disabled={
                 isRewardedLoading ||
                 isWatchingAd ||
-                !canWatchAdToday() ||
+                progress.adsWatchedForUnlockCountToday >= progress.maxAdsForUnlockPerDay ||
                 !canUnlockLevelToday
               }
               className="w-full gradient-primary"
@@ -162,8 +173,8 @@ const LevelSelect = () => {
                   ? 'Loading Ad...'
                   : !canUnlockLevelToday
                     ? 'Daily Level Unlock Limit Reached (2/2)'
-                    : !canWatchAdToday()
-                      ? 'Daily Ad Limit Reached'
+                    : progress.adsWatchedForUnlockCountToday >= progress.maxAdsForUnlockPerDay
+                      ? 'Daily Ad Limit Reached (6/6)'
                       : `Watch Ad to Unlock (${adsRemaining} remaining)`}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
@@ -243,7 +254,7 @@ const LevelSelect = () => {
             <li>• You can unlock <strong>maximum 2 levels per day</strong> by watching ads</li>
             <li>• Reach target score to complete levels</li>
             <li>• <strong>Star System:</strong></li>
-            <li className="ml-4">  - Complete via ad: Always 3★ (no points awarded)</li>
+            <li className="ml-4">  - Complete via ad: No stars awarded</li>
             <li className="ml-4">  - Complete by score: 1 attempt = 3★, 2 attempts = 2★, 3+ attempts = 1★</li>
             <li>• <strong>Note:</strong> Levels unlocked via ads do not award any points until you finish them normally</li>
           </ul>
