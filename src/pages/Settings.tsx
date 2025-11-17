@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Type } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useSound } from '@/hooks/useSound';
+import { useFontScaling } from '@/hooks/useFontScaling';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -18,6 +19,7 @@ const Settings = () => {
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
   const { formatPrice } = useCurrency();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
+  const { fontScale, setCustomScale } = useFontScaling();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   useEffect(() => {
@@ -43,9 +45,12 @@ const Settings = () => {
   };
 
   return (
-    <ScrollArea className="h-screen">
-      <div className="min-h-screen bg-background pb-20">
-        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+    <ScrollArea className="h-full">
+      <div className="min-h-full bg-background relative overflow-hidden">
+        {/* Animated background gradient */}
+        <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
+        
+        <div className="container-responsive space-y-4 sm:space-y-6 relative z-10 py-4 sm:py-6 pb-20">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
@@ -59,8 +64,8 @@ const Settings = () => {
 
         <div className="space-y-6">
           {/* Appearance Settings */}
-          <div className="bg-card rounded-lg p-6 space-y-4 card-elevated">
-            <h2 className="text-xl font-semibold mb-4">Appearance</h2>
+          <Card variant="glass" className="p-6 space-y-6 shadow-glow">
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Appearance</h2>
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -77,11 +82,69 @@ const Settings = () => {
                 onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
               />
             </div>
-          </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Type className="h-5 w-5" />
+                <div className="flex-1">
+                  <div className="font-medium">Text Size</div>
+                  <div className="text-sm text-muted-foreground">
+                    Adjust for better readability
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={fontScale === 'small' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setCustomScale('small');
+                    toast.success('Text size: Small');
+                  }}
+                  className="flex-1"
+                >
+                  <span className="text-xs">A</span>
+                </Button>
+                <Button
+                  variant={fontScale === 'medium' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setCustomScale('medium');
+                    toast.success('Text size: Medium');
+                  }}
+                  className="flex-1"
+                >
+                  <span className="text-sm">A</span>
+                </Button>
+                <Button
+                  variant={fontScale === 'large' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setCustomScale('large');
+                    toast.success('Text size: Large');
+                  }}
+                  className="flex-1"
+                >
+                  <span className="text-base">A</span>
+                </Button>
+                <Button
+                  variant={fontScale === 'extra-large' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setCustomScale('extra-large');
+                    toast.success('Text size: Extra Large');
+                  }}
+                  className="flex-1"
+                >
+                  <span className="text-lg">A</span>
+                </Button>
+              </div>
+            </div>
+          </Card>
 
           {/* Audio Settings */}
-          <div className="bg-card rounded-lg p-6 space-y-4 card-elevated">
-            <h2 className="text-xl font-semibold mb-4">Audio</h2>
+          <Card variant="glass" className="p-6 space-y-4 shadow-glow">
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Audio</h2>
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -141,11 +204,11 @@ const Settings = () => {
                 onCheckedChange={setVibrationEnabled}
               />
             </div>
-          </div>
+          </Card>
 
           {/* Game Info */}
-          <div className="bg-card rounded-lg p-6 card-elevated">
-            <h2 className="text-xl font-semibold mb-4">About</h2>
+          <Card variant="glass" className="p-6 shadow-glow">
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">About</h2>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex justify-between">
                 <span>Version</span>
@@ -156,18 +219,18 @@ const Settings = () => {
                 <span className="text-foreground">Production</span>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Monetization */}
-          <div className="bg-card rounded-lg p-6 card-elevated">
-            <h2 className="text-xl font-semibold mb-4">Premium</h2>
+          <Card variant="premium" className="p-6 shadow-glow-lg animate-pulse-glow">
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Premium</h2>
             <Button className="w-full gradient-primary">
               Remove Ads - $2.99
             </Button>
             <p className="text-sm text-muted-foreground mt-2">
               One-time purchase, no subscription
             </p>
-          </div>
+          </Card>
 
         </div>
         </div>

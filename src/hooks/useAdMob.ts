@@ -61,8 +61,14 @@ export const useAdMob = () => {
   };
 
   const showInterstitial = async (): Promise<boolean> => {
-    if (!isNative || !isInitialized) {
+    if (!isNative) {
       // For web testing, simulate ad shown
+      return new Promise((resolve) => setTimeout(() => resolve(true), 1000));
+    }
+
+    const ok = await ensureInit();
+    if (!ok) {
+      // If initialization fails, simulate for testing
       return new Promise((resolve) => setTimeout(() => resolve(true), 1000));
     }
 
@@ -80,8 +86,19 @@ export const useAdMob = () => {
   };
 
   const showRewardedAd = async (): Promise<{ success: boolean; reward?: AdMobRewardItem }> => {
-    if (!isNative || !isInitialized) {
+    if (!isNative) {
       // For web testing, simulate reward
+      return new Promise((resolve) => 
+        setTimeout(() => resolve({ 
+          success: true, 
+          reward: { type: 'coin', amount: 1 } 
+        }), 1000)
+      );
+    }
+
+    const ok = await ensureInit();
+    if (!ok) {
+      // If initialization fails, simulate for testing
       return new Promise((resolve) => 
         setTimeout(() => resolve({ 
           success: true, 

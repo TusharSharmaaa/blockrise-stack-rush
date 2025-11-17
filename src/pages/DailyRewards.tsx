@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Gift, Calendar, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,6 +10,7 @@ import { useState } from 'react';
 
 const DailyRewards = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { progress, claimDailyReward } = useGameProgress();
   const [isClaiming, setIsClaiming] = useState(false);
 
@@ -30,9 +32,12 @@ const DailyRewards = () => {
   const streakRewards = [50, 60, 70, 80, 90, 100, 120];
 
   return (
-    <ScrollArea className="h-screen">
-      <div className="min-h-screen bg-background pb-20">
-        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+    <ScrollArea className="h-full">
+      <div className="min-h-full bg-background relative overflow-hidden">
+        {/* Animated background gradient */}
+        <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
+        
+        <div className="container-responsive space-y-4 sm:space-y-6 relative z-10 py-4 sm:py-6 pb-20">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Button

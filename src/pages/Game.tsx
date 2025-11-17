@@ -11,6 +11,7 @@ import { useAdMob } from '@/hooks/useAdMob';
 import { useSound } from '@/hooks/useSound';
 import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
+import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -29,12 +30,13 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement } = useGameProgress();
+  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, selectLevel, completeLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
   const { usePowerUp, loadInventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
+  const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
@@ -58,34 +60,68 @@ const Game = () => {
     return () => stopMusic();
   }, []);
 
-  // Track score changes for achievements
+  // Track score changes for achievements and level completion
   useEffect(() => {
     if (gameState.score > previousScore) {
       playSound('coin');
       
-      // Check score-based achievements
+      // Check score-based achievements and add coin rewards
+      const checkAchievement = async (achievementId: string, progress: number) => {
+        const result = await checkAndUnlock(achievementId, progress);
+        if (result.unlocked && result.achievement) {
+          await addCoins(result.achievement.coinReward);
+          toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`);
+        }
+      };
+
       if (gameState.score >= 1000 && previousScore < 1000) {
-        checkAndUnlock('first_1000', gameState.score);
+        checkAchievement('first_1000', gameState.score);
       }
       if (gameState.score >= 5000 && previousScore < 5000) {
-        checkAndUnlock('score_5000', gameState.score);
+        checkAchievement('score_5000', gameState.score);
       }
       if (gameState.score >= 10000 && previousScore < 10000) {
-        checkAndUnlock('score_10000', gameState.score);
+        checkAchievement('score_10000', gameState.score);
       }
+
+      // Check for level completion and unlock next level
+      const checkLevelCompletion = async () => {
+        if (hasCompletedLevel(progress.currentLevel, gameState.score)) {
+          const nextLevel = progress.currentLevel + 1;
+          if (nextLevel <= 50) {
+            const unlocked = await completeLevel(progress.currentLevel, gameState.score);
+            if (unlocked && !progress.unlockedLevels.includes(nextLevel)) {
+              toast.success(`Level ${progress.currentLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
+            }
+          }
+        }
+      };
+      
+      checkLevelCompletion();
     }
     setPreviousScore(gameState.score);
-  }, [gameState.score]);
+  }, [gameState.score, previousScore, checkAndUnlock, addCoins, hasCompletedLevel, progress.currentLevel, progress.unlockedLevels, completeLevel]);
 
   // Track level achievements
   useEffect(() => {
-    if (gameState.level >= 10) {
-      checkAndUnlock('reach_level_10', gameState.level);
+    const checkLevelAchievement = async (achievementId: string, progress: number) => {
+      const result = await checkAndUnlock(achievementId, progress);
+      if (result.unlocked && result.achievement) {
+        await addCoins(result.achievement.coinReward);
+        toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`);
+      }
+    };
+
+    if (gameState.level >= 10 && progress.currentLevel >= 10) {
+      checkLevelAchievement('reach_level_10', progress.currentLevel);
     }
-    if (gameState.level >= 25) {
-      checkAndUnlock('reach_level_25', gameState.level);
+    if (gameState.level >= 25 && progress.currentLevel >= 25) {
+      checkLevelAchievement('reach_level_25', progress.currentLevel);
     }
-  }, [gameState.level]);
+    if (gameState.level >= 50 && progress.currentLevel >= 50) {
+      checkLevelAchievement('level_50', progress.currentLevel);
+    }
+  }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
     const success = await usePowerUp(type, 30000);
@@ -199,31 +235,79 @@ const Game = () => {
     if (gameState.gameOver && !hasShownGameOverAd) {
       setHasShownGameOverAd(true);
       
-      // Update stats and sync to backend
-      updateGameStats(gameState.score, progress.currentLevel).then(() => {
+      const handleGameOver = async () => {
+        // Check for level completion and unlock next level
+        const levelCompleted = hasCompletedLevel(progress.currentLevel, gameState.score);
+        if (levelCompleted) {
+          const nextLevel = progress.currentLevel + 1;
+          if (nextLevel <= 50) {
+            await completeLevel(progress.currentLevel, gameState.score);
+          }
+        }
+
+        // Update stats and sync to backend
+        await updateGameStats(gameState.score, progress.currentLevel);
+        
         // Trigger sync indicator animation
         window.dispatchEvent(new Event('progressSynced'));
         
+        // Submit score to leaderboard if profile exists
         if (profile?.id) {
+          await submitScore(profile.id, gameState.score, progress.currentLevel);
           toast.success('Progress saved to cloud! ☁️');
         }
-      });
-      
-      playSound('gameOver');
-      stopMusic();
-      
-      // Check achievements on game over
-      checkAndUnlock('play_10_games', progress.totalGamesPlayed);
-      if (gameState.score > progress.highestScore) {
-        checkAndUnlock('new_high_score', gameState.score);
-      }
-      
-      // Show interstitial ad after game over
-      setTimeout(() => {
-        showInterstitial();
-      }, 1000);
+
+        // Check achievements on game over and add coin rewards
+        const checkGameOverAchievements = async () => {
+          // First game achievement
+          if (progress.totalGamesPlayed === 0) {
+            const firstGameResult = await checkAndUnlock('first_game', 1);
+            if (firstGameResult.unlocked && firstGameResult.achievement) {
+              await addCoins(firstGameResult.achievement.coinReward);
+              toast.success(`Achievement Unlocked: ${firstGameResult.achievement.title}! +${firstGameResult.achievement.coinReward} coins! 🎉`);
+            }
+          }
+
+          // Play 10 games achievement
+          const play10GamesResult = await checkAndUnlock('play_10_games', progress.totalGamesPlayed + 1);
+          if (play10GamesResult.unlocked && play10GamesResult.achievement) {
+            await addCoins(play10GamesResult.achievement.coinReward);
+            toast.success(`Achievement Unlocked: ${play10GamesResult.achievement.title}! +${play10GamesResult.achievement.coinReward} coins! 🎉`);
+          }
+
+          // Beat high score achievement
+          if (gameState.score > progress.highestScore) {
+            const highScoreResult = await checkAndUnlock('new_high_score', 1);
+            if (highScoreResult.unlocked && highScoreResult.achievement) {
+              await addCoins(highScoreResult.achievement.coinReward);
+              toast.success(`Achievement Unlocked: ${highScoreResult.achievement.title}! +${highScoreResult.achievement.coinReward} coins! 🎉`);
+            }
+          }
+
+          // Check streak achievement
+          if (progress.dailyStreak >= 7) {
+            const streakResult = await checkAndUnlock('streak_7', progress.dailyStreak);
+            if (streakResult.unlocked && streakResult.achievement) {
+              await addCoins(streakResult.achievement.coinReward);
+              toast.success(`Achievement Unlocked: ${streakResult.achievement.title}! +${streakResult.achievement.coinReward} coins! 🎉`);
+            }
+          }
+        };
+
+        await checkGameOverAchievements();
+        
+        playSound('gameOver');
+        stopMusic();
+        
+        // Show interstitial ad after game over
+        setTimeout(() => {
+          showInterstitial();
+        }, 1000);
+      };
+
+      handleGameOver();
     }
-  }, [gameState.gameOver]);
+  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic]);
 
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();
@@ -246,12 +330,16 @@ const Game = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col relative overflow-hidden">
       {/* Sync Indicator */}
       <div className="absolute top-2 right-2 z-50">
         <SyncIndicator profileId={profile?.id} />
       </div>
       
+      {/* Animated background gradient */}
+      <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
+      
+      <div className="flex-1 flex flex-col relative z-10">
       <GameHUD
         score={gameState.score}
         level={gameState.level}
@@ -260,7 +348,7 @@ const Game = () => {
       />
       
       {/* Score Progress Bar */}
-      <div className="px-4 py-2 glass-card border-t border-glass-border shadow-glow">
+      <div className="container-responsive py-2 glass-card border-t border-glass-border shadow-glow">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between text-xs mb-1">
             <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
@@ -286,7 +374,7 @@ const Game = () => {
           disabled={gameState.gameOver || gameState.paused}
         />
         
-        <div style={{ paddingBottom: 'calc(var(--safe-area-inset-bottom) + 16px)' }}>
+        <div className="safe-bottom pb-4">
           <GameControls
             onRotate={rotate}
             onMoveLeft={moveLeft}
@@ -295,6 +383,7 @@ const Game = () => {
             disabled={gameState.gameOver || gameState.paused}
           />
         </div>
+      </div>
       </div>
 
       {/* Pause Dialog */}

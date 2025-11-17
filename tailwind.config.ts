@@ -12,7 +12,38 @@ export default {
         "2xl": "1400px",
       },
     },
+    screens: {
+      'xs': '375px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
+      spacing: {
+        'safe-top': 'var(--min-safe-top)',
+        'safe-bottom': 'var(--min-safe-bottom)',
+        'safe-left': 'max(var(--safe-left), 1rem)',
+        'safe-right': 'max(var(--safe-right), 1rem)',
+      },
+      fontSize: {
+        'xs': 'calc(var(--font-size-xs) * var(--font-scale-multiplier, 1))',
+        'sm': 'calc(var(--font-size-sm) * var(--font-scale-multiplier, 1))',
+        'base': 'calc(var(--font-size-base) * var(--font-scale-multiplier, 1))',
+        'lg': 'calc(var(--font-size-lg) * var(--font-scale-multiplier, 1))',
+        'xl': 'calc(var(--font-size-xl) * var(--font-scale-multiplier, 1))',
+        '2xl': 'calc(var(--font-size-2xl) * var(--font-scale-multiplier, 1))',
+        '3xl': 'calc(var(--font-size-3xl) * var(--font-scale-multiplier, 1))',
+        '4xl': 'calc(var(--font-size-4xl) * var(--font-scale-multiplier, 1))',
+        '5xl': 'calc(var(--font-size-5xl) * var(--font-scale-multiplier, 1))',
+        '6xl': 'calc(var(--font-size-6xl) * var(--font-scale-multiplier, 1))',
+      },
+      lineHeight: {
+        'tight': 'var(--line-height-tight)',
+        'normal': 'var(--line-height-normal)',
+        'relaxed': 'var(--line-height-relaxed)',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
