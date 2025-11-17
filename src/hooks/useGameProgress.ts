@@ -99,6 +99,7 @@ export const useGameProgress = () => {
       ...INITIAL_PROGRESS,
       ...savedProgress,
       // Ensure new fields exist
+      adsWatchedForNextLevel: savedProgress.adsWatchedForNextLevel ?? 0,
       adsWatchedForUnlockToday: savedProgress.adsWatchedForUnlockToday ?? 0,
       lastAdUnlockDate: savedProgress.lastAdUnlockDate ?? new Date().toDateString(),
       levelCompletionMethod: savedProgress.levelCompletionMethod ?? {},
@@ -159,12 +160,12 @@ export const useGameProgress = () => {
     savedProgress.lastPlayedDate = today;
   };
 
-  const canWatchAdToday = () => {
+  const canWatchAdToday = (adsNeeded: number = 1) => {
     const today = new Date().toDateString();
     if (progress.lastAdWatchDate !== today) {
-      return true; // New day, can watch ads
+      return adsNeeded <= progress.maxAdsPerDay;
     }
-    return progress.adsWatchedToday < progress.maxAdsPerDay;
+    return (progress.adsWatchedToday + adsNeeded) <= progress.maxAdsPerDay;
   };
 
   const watchAdForLevel = async () => {
@@ -180,7 +181,7 @@ export const useGameProgress = () => {
       progress.lastAdUnlockDate = today;
     }
 
-    // Check daily ad limit for watching ads
+    // Check daily ad limit
     if (progress.adsWatchedToday >= progress.maxAdsPerDay) {
       return { success: false, message: 'Daily ad limit reached. Come back tomorrow!' };
     }
@@ -190,36 +191,45 @@ export const useGameProgress = () => {
       return { success: false, message: 'Daily level unlock limit reached! You can only unlock 2 levels per day via ads. Come back tomorrow!' };
     }
 
-    const newAdsWatched = progress.adsWatchedForNextLevel + 1;
     const nextLevel = Math.max(...progress.unlockedLevels) + 1;
+    if (nextLevel > 50) {
+      return { success: false, message: 'All levels are already unlocked!' };
+    }
 
-    if (newAdsWatched >= progress.adsRequiredPerLevel) {
-      // Unlock next level after watching 3 ads
+    const adsWatchedForNextLevel = progress.adsWatchedForNextLevel + 1;
+
+    const baseProgress = {
+      ...progress,
+      adsWatchedForNextLevel,
+      adsWatchedToday: progress.adsWatchedToday + 1,
+      lastAdWatchDate: today,
+      totalAdsWatched: progress.totalAdsWatched + 1,
+      totalCoins: progress.totalCoins + 10
+    };
+
+    if (adsWatchedForNextLevel >= progress.adsRequiredPerLevel) {
+      const updatedUnlockedLevels = Array.from(new Set([...progress.unlockedLevels, nextLevel])).sort((a, b) => a - b);
       const newProgress = {
-        ...progress,
-        unlockedLevels: [...progress.unlockedLevels, nextLevel],
+        ...baseProgress,
+        unlockedLevels: updatedUnlockedLevels,
         adsWatchedForNextLevel: 0,
         adsWatchedForUnlockToday: progress.adsWatchedForUnlockToday + 1,
         lastAdUnlockDate: today,
-        totalCoins: progress.totalCoins + 50,
-        adsWatchedToday: progress.adsWatchedToday + 1,
-        lastAdWatchDate: today,
-        totalAdsWatched: progress.totalAdsWatched + 1
+        totalCoins: baseProgress.totalCoins + 50 // Bonus on unlock
       };
+
       await saveProgress(newProgress);
+      await syncProgressToBackend(newProgress);
       return { success: true, levelUnlocked: true, level: nextLevel };
-    } else {
-      const newProgress = {
-        ...progress,
-        adsWatchedForNextLevel: newAdsWatched,
-        totalCoins: progress.totalCoins + 10,
-        adsWatchedToday: progress.adsWatchedToday + 1,
-        lastAdWatchDate: today,
-        totalAdsWatched: progress.totalAdsWatched + 1
-      };
-      await saveProgress(newProgress);
-      return { success: true, levelUnlocked: false };
     }
+
+    await saveProgress(baseProgress);
+    return { 
+      success: true, 
+      levelUnlocked: false,
+      adsWatched: adsWatchedForNextLevel,
+      adsRemaining: progress.adsRequiredPerLevel - adsWatchedForNextLevel
+    };
   };
 
   const selectLevel = async (level: number) => {
@@ -236,7 +246,8 @@ export const useGameProgress = () => {
     
     const newProgress = {
       ...progress,
-      unlockedLevels: [...progress.unlockedLevels, level].sort((a, b) => a - b)
+      unlockedLevels: [...progress.unlockedLevels, level].sort((a, b) => a - b),
+      adsWatchedForNextLevel: 0
     };
     await saveProgress(newProgress);
     await syncProgressToBackend(newProgress);
@@ -466,7 +477,8 @@ export const useGameProgress = () => {
       adsWatchedForUnlockToday: progress.adsWatchedForUnlockToday + 1,
       lastAdWatchDate: today,
       lastAdUnlockDate: today,
-      totalAdsWatched: progress.totalAdsWatched + 1
+      totalAdsWatched: progress.totalAdsWatched + 1,
+      adsWatchedForNextLevel: 0
     };
 
     await saveProgress(newProgress);
