@@ -13,7 +13,7 @@ import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { Button } from '@/components/ui/button';
-import { Play, Home, Video, Trophy } from 'lucide-react';
+import { Play, Home, Video, Trophy, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock } from '@/utils/blockShapes';
@@ -30,7 +30,7 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, incrementLevelAttempt } = useGameProgress();
+  const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, incrementLevelAttempt, selectLevel, getStarsForLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
@@ -40,7 +40,8 @@ const Game = () => {
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
   const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
-  const scoreRequirement = getScoreRequirement(progress.currentLevel);
+  const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
+  const scoreRequirement = getScoreRequirement(activeLevel);
   const {
     gameState,
     setGameState,
@@ -53,17 +54,32 @@ const Game = () => {
     clearLine,
     clearArea
   } = useGameLoop();
+  const hasMetLevelGoal = hasCompletedLevel(activeLevel, gameState.score);
+  const hasNextLevel = activeLevel < 50;
+  const nextPlayableLevel = hasNextLevel ? activeLevel + 1 : activeLevel;
+  const displayLevelReached = hasMetLevelGoal && hasNextLevel ? nextPlayableLevel : Math.max(activeLevel, gameState.level);
+  const starsEarned = getStarsForLevel(activeLevel);
+  const canStartNextLevel = hasMetLevelGoal && hasNextLevel && progress.unlockedLevels.includes(nextPlayableLevel);
 
   // Track attempts when a level run begins
   useEffect(() => {
     if (isLoading) return;
+    if (gameState.score !== 0 || gameState.gameOver) return;
     if (lastTrackedLevel === progress.currentLevel) return;
     const recordAttempt = async () => {
       await incrementLevelAttempt(progress.currentLevel);
       setLastTrackedLevel(progress.currentLevel);
     };
     recordAttempt();
-  }, [isLoading, progress.currentLevel, incrementLevelAttempt, lastTrackedLevel]);
+  }, [isLoading, progress.currentLevel, incrementLevelAttempt, lastTrackedLevel, gameState.score, gameState.gameOver]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const isFreshRun = !gameState.gameOver && gameState.score === 0;
+    if (isFreshRun && activeLevel !== progress.currentLevel) {
+      setActiveLevel(progress.currentLevel);
+    }
+  }, [isLoading, progress.currentLevel, gameState.gameOver, gameState.score, activeLevel]);
 
   // Load power-up inventory on mount
   useEffect(() => {
@@ -98,12 +114,12 @@ const Game = () => {
 
       // Check for level completion and unlock next level
       const checkLevelCompletion = async () => {
-        if (hasCompletedLevel(progress.currentLevel, gameState.score)) {
-          const nextLevel = progress.currentLevel + 1;
+        if (hasMetLevelGoal) {
+          const nextLevel = activeLevel + 1;
           if (nextLevel <= 50) {
-            const unlocked = await completeLevel(progress.currentLevel, gameState.score);
+            const unlocked = await completeLevel(activeLevel, gameState.score);
             if (unlocked && !progress.unlockedLevels.includes(nextLevel)) {
-              toast.success(`Level ${progress.currentLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
+              toast.success(`Level ${activeLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
             }
           }
         }
@@ -112,7 +128,7 @@ const Game = () => {
       checkLevelCompletion();
     }
     setPreviousScore(gameState.score);
-  }, [gameState.score, previousScore, checkAndUnlock, addCoins, hasCompletedLevel, progress.currentLevel, progress.unlockedLevels, completeLevel]);
+  }, [gameState.score, previousScore, checkAndUnlock, addCoins, hasCompletedLevel, activeLevel, progress.unlockedLevels, completeLevel, hasMetLevelGoal]);
 
   // Track level achievements
   useEffect(() => {
@@ -249,23 +265,23 @@ const Game = () => {
       
       const handleGameOver = async () => {
         // Check for level completion and unlock next level
-        const levelCompleted = hasCompletedLevel(progress.currentLevel, gameState.score);
-        if (levelCompleted) {
-          const nextLevel = progress.currentLevel + 1;
+        if (hasMetLevelGoal) {
+          const nextLevel = activeLevel + 1;
           if (nextLevel <= 50) {
-            await completeLevel(progress.currentLevel, gameState.score);
+            await completeLevel(activeLevel, gameState.score);
           }
         }
 
         // Update stats and sync to backend
-        await updateGameStats(gameState.score, progress.currentLevel);
+        await updateGameStats(gameState.score, activeLevel);
         
         // Trigger sync indicator animation
         window.dispatchEvent(new Event('progressSynced'));
         
         // Submit score to leaderboard if profile exists
-        if (profile?.id) {
-          await submitScore(profile.id, gameState.score, progress.currentLevel);
+        const profileId = profile?.id || localStorage.getItem('profileId');
+        if (profileId) {
+          await submitScore(profileId, gameState.score, progress.currentLevel);
           toast.success('Progress saved to cloud! ☁️');
         }
 
@@ -317,7 +333,7 @@ const Game = () => {
 
       handleGameOver();
     }
-  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic]);
+  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic, activeLevel, hasMetLevelGoal]);
 
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();
@@ -339,6 +355,35 @@ const Game = () => {
     setHasShownGameOverAd(false);
     playMusic();
   };
+
+  const handlePlayNextLevel = async () => {
+    if (!canStartNextLevel) return;
+    await selectLevel(nextPlayableLevel);
+    setLastTrackedLevel(null);
+    setActiveLevel(nextPlayableLevel);
+    resetGame();
+    setHasShownGameOverAd(false);
+    playMusic();
+  };
+
+  const renderStars = (count: number) =>
+    Array.from({ length: 3 }, (_, idx) => (
+      <Star
+        key={idx}
+        className={`h-5 w-5 ${idx < count ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'text-muted-foreground'}`}
+      />
+    ));
+
+  const starMessage = hasMetLevelGoal
+    ? starsEarned === 3
+      ? 'Perfect run! Ready for the next challenge.'
+      : 'Great job! Replay to push for more stars.'
+    : starsEarned === 0
+      ? 'Reach the target to start earning stars for this level.'
+      : 'Current best shown below — beat the target to improve it.';
+  const dialogDescription = hasMetLevelGoal
+    ? `You scored ${gameState.score} points and unlocked level ${displayLevelReached}!`
+    : `You scored ${gameState.score} points. Keep pushing to unlock the next level.`;
 
   return (
     <div className="h-full bg-background flex flex-col relative overflow-hidden">
@@ -362,7 +407,7 @@ const Game = () => {
       <div className="container-responsive py-2 glass-card border-t border-glass-border shadow-glow">
         <div className="max-w-md mx-auto">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-muted-foreground">Level {progress.currentLevel} Target</span>
+            <span className="text-muted-foreground">Level {activeLevel} Target</span>
             <span className="font-semibold text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{gameState.score}/{scoreRequirement}</span>
           </div>
           <div className="h-2 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm border border-primary/20">
@@ -420,29 +465,41 @@ const Game = () => {
       </Dialog>
 
       {/* Game Over Dialog */}
-      <Dialog open={gameState.gameOver} onOpenChange={() => {}}>
+      <Dialog open={gameState.gameOver} onOpenChange={(open) => {
+        if (!open && gameState.gameOver) {
+          handlePlayAgain();
+        }
+      }}>
         <DialogContent className="glass-card border-primary/30 shadow-premium">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
               <Trophy className="h-6 w-6 text-primary drop-shadow-[0_0_12px_hsl(var(--primary))]" />
               <span className="text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]">
-                {hasCompletedLevel(progress.currentLevel, gameState.score) ? 'Level Complete! 🎉' : 'Game Over!'}
+                {hasMetLevelGoal ? 'Level Complete! 🎉' : 'Game Over!'}
               </span>
             </DialogTitle>
             <DialogDescription className="text-base">
-              You scored {gameState.score} points and reached level {gameState.level}!
+              {dialogDescription}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="text-center glass-card p-4 border border-primary/20 shadow-glow">
-              <div className="text-5xl font-bold text-primary drop-shadow-[0_0_12px_hsl(var(--primary))] mb-2">{gameState.score}</div>
-              <div className="text-sm text-muted-foreground uppercase tracking-wider">Final Score</div>
+            <div className="glass-card border border-primary/30 p-3 text-center space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                {renderStars(starsEarned)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {starsEarned}/3 Stars — {starMessage}
+              </p>
+            </div>
+            <div className="text-center glass-card p-3 border border-primary/20 shadow-glow">
+              <div className="text-4xl font-bold text-primary drop-shadow-[0_0_12px_hsl(var(--primary))] mb-1">{gameState.score}</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider">Final Score</div>
             </div>
             
-            {hasCompletedLevel(progress.currentLevel, gameState.score) ? (
+            {hasMetLevelGoal ? (
               <div className="glass-card border border-primary/40 p-4 text-center shadow-neon animate-pulse-glow">
                 <div className="text-lg font-semibold text-primary drop-shadow-[0_0_8px_hsl(var(--primary))] mb-1">
-                  ✨ Level {progress.currentLevel} Completed!
+                  ✨ Level {activeLevel} Completed!
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Target: {scoreRequirement} | Your Score: {gameState.score}
@@ -466,6 +523,16 @@ const Game = () => {
             )}
           </div>
           <DialogFooter className="flex flex-col gap-2">
+            {hasMetLevelGoal && canStartNextLevel && (
+              <Button 
+                onClick={handlePlayNextLevel}
+                className="w-full shadow-glow-lg"
+                variant="neon"
+              >
+                <Play className="mr-2 h-4 w-4" />
+                Start Level {nextPlayableLevel}
+              </Button>
+            )}
             <Button 
               onClick={handleContinueWithAd}
               disabled={isRewardedLoading}
