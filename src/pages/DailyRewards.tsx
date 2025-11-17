@@ -17,19 +17,24 @@ const DailyRewards = () => {
   const { showRewardedAd, isRewardedLoading } = useAdMob();
 
   const handleClaimReward = async () => {
-    if (isClaiming) return;
+    if (isClaiming || progress.hasClaimedDailyReward) return;
     setIsClaiming(true);
     try {
-      const reward = await claimDailyReward();
-      if (reward > 0) {
-        toast.success(`Claimed ${reward} coins! Keep your streak going!`);
-        const adResult = await showRewardedAd();
-        if (!adResult.success) {
-          toast.info('Claimed reward! Ad was skipped or failed to load.');
-        }
-      } else {
-        toast.info('Already claimed today. Come back tomorrow!');
+      const adResult = await showRewardedAd();
+      if (!adResult.success) {
+        toast.error('You must watch the full ad to claim your reward.');
+        return;
       }
+
+      const rewardResult = await claimDailyReward({ adVerified: true });
+      if (rewardResult.success && rewardResult.reward > 0) {
+        toast.success(`Claimed ${rewardResult.reward} coins! Keep your streak going!`);
+      } else {
+        toast.info(rewardResult.message || 'Already claimed today. Come back tomorrow!');
+      }
+    } catch (error) {
+      console.error('Failed to claim daily reward:', error);
+      toast.error('Unable to claim reward. Please try again.');
     } finally {
       setIsClaiming(false);
     }

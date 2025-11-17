@@ -68,7 +68,9 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
                     : hasItem 
                     ? 'hover:scale-110 hover:shadow-glow' 
                     : 'opacity-50'
-                } ${!disabled && hasItem && !activePowerUp ? 'glass-card border-primary/30' : ''}`}
+                } ${hasItem ? 'brightness-110' : ''} ${
+                  !disabled && hasItem && !activePowerUp ? 'glass-card border-primary/30' : ''
+                }`}
               >
                 {powerUp.icon}
               </Button>

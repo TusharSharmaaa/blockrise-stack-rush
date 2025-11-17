@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Preferences } from '@capacitor/preferences';
 
 export interface PowerUpInventory {
@@ -55,6 +55,26 @@ export const usePowerUps = () => {
       console.error('Failed to save power-up inventory:', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    loadInventory();
+
+    const handleInventoryChange = (event: Event) => {
+      const customEvent = event as CustomEvent<PowerUpInventory>;
+      if (customEvent.detail) {
+        setInventory(customEvent.detail);
+      } else {
+        loadInventory();
+      }
+    };
+
+    window.addEventListener('powerUpInventoryChanged', handleInventoryChange);
+    return () => {
+      window.removeEventListener('powerUpInventoryChanged', handleInventoryChange);
+    };
+  }, [loadInventory]);
 
   const addPowerUp = useCallback(async (type: keyof PowerUpInventory, amount: number = 1) => {
     // Reload inventory first to ensure we have the latest state

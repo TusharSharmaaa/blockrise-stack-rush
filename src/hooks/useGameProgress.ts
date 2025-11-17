@@ -25,6 +25,16 @@ export interface LevelProgress {
   totalAdsWatched: number;
 }
 
+type ClaimDailyRewardOptions = {
+  adVerified: boolean;
+};
+
+type ClaimDailyRewardResult = {
+  success: boolean;
+  reward: number;
+  message?: string;
+};
+
 const INITIAL_PROGRESS: LevelProgress = {
   currentLevel: 1,
   unlockedLevels: [1], // Only Level 1 unlocked initially
@@ -286,7 +296,11 @@ export const useGameProgress = () => {
     await syncProgressToBackend(newProgress);
   };
 
-  const claimDailyReward = async () => {
+  const claimDailyReward = async (options?: ClaimDailyRewardOptions): Promise<ClaimDailyRewardResult> => {
+    if (!options?.adVerified) {
+      return { success: false, reward: 0, message: 'Reward ad was not completed' };
+    }
+
     if (!progress.hasClaimedDailyReward) {
       const today = new Date().toDateString();
       const lastPlayed = new Date(progress.lastPlayedDate);
@@ -319,9 +333,9 @@ export const useGameProgress = () => {
       };
       await saveProgress(newProgress);
       await syncProgressToBackend(newProgress);
-      return totalReward;
+      return { success: true, reward: totalReward };
     }
-    return 0;
+    return { success: false, reward: 0, message: 'Daily reward already claimed' };
   };
 
   const updateGameStats = async (score: number, level: number) => {
