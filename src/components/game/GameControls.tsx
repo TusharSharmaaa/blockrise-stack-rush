@@ -17,56 +17,45 @@ const GameControls = ({
   disabled
 }: GameControlsProps) => {
   return (
-    <div 
-      className="flex flex-col gap-0.5 py-0.5 w-full" 
-      style={{ 
-        minHeight: '60px',
-        paddingLeft: 'max(8px, env(safe-area-inset-left, 8px))',
-        paddingRight: 'max(8px, env(safe-area-inset-right, 8px))'
-      }}
-    >
+    <div className="flex flex-col gap-3 p-4">
       <div className="flex justify-center">
         <Button
           variant="outline"
           size="lg"
           onClick={onRotate}
           disabled={disabled}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card border-primary/30 hover:bg-primary/20 active:bg-primary/30 touch-manipulation p-0"
-          style={{ touchAction: 'manipulation' }}
+          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
         >
-          <RotateCw className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <RotateCw className="h-6 w-6" />
         </Button>
       </div>
-      <div className="flex justify-center gap-0.5">
+      <div className="flex justify-center gap-3">
         <Button
           variant="outline"
           size="lg"
           onClick={onMoveLeft}
           disabled={disabled}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card border-primary/30 hover:bg-primary/20 active:bg-primary/30 touch-manipulation p-0"
-          style={{ touchAction: 'manipulation' }}
+          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
         >
-          <ArrowLeft className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <ArrowLeft className="h-6 w-6" />
         </Button>
         <Button
           variant="outline"
           size="lg"
           onClick={onMoveDown}
           disabled={disabled}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card border-primary/30 hover:bg-primary/20 active:bg-primary/30 touch-manipulation p-0"
-          style={{ touchAction: 'manipulation' }}
+          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
         >
-          <ArrowDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <ArrowDown className="h-6 w-6" />
         </Button>
         <Button
           variant="outline"
           size="lg"
           onClick={onMoveRight}
           disabled={disabled}
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-card border-primary/30 hover:bg-primary/20 active:bg-primary/30 touch-manipulation p-0"
-          style={{ touchAction: 'manipulation' }}
+          className="w-16 h-16 rounded-full bg-card border-primary/30 hover:bg-primary/20"
         >
-          <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <ArrowRight className="h-6 w-6" />
         </Button>
       </div>
     </div>
