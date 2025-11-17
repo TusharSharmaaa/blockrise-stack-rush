@@ -1,6 +1,6 @@
-import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, InterstitialAdPluginEvents, RewardAdPluginEvents, AdMobRewardItem } from '@capacitor-community/admob';
+import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, RewardAdPluginEvents, AdMobRewardItem } from '@capacitor-community/admob';
 import { useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { ADMOB_CONFIG } from '@/config/admob';
 
 const isNative = Capacitor.isNativePlatform();
@@ -108,25 +108,38 @@ export const useAdMob = () => {
     }
 
     return new Promise(async (resolve) => {
+      let rewardListener: PluginListenerHandle | undefined;
+      let dismissListener: PluginListenerHandle | undefined;
+      let rewardEarned: AdMobRewardItem | null = null;
+
+      const cleanup = () => {
+        rewardListener?.remove();
+        dismissListener?.remove();
+        rewardListener = undefined;
+        dismissListener = undefined;
+      };
+
       try {
         setIsRewardedLoading(true);
 
-        const rewardListener = await AdMob.addListener(
+        rewardListener = await AdMob.addListener(
           RewardAdPluginEvents.Rewarded,
           (reward: AdMobRewardItem) => {
-            setIsRewardedLoading(false);
-            rewardListener.remove();
-            resolve({ success: true, reward });
+            rewardEarned = reward;
           }
         );
 
-        const dismissListener = await AdMob.addListener(
+        dismissListener = await AdMob.addListener(
           RewardAdPluginEvents.Dismissed,
           () => {
             setIsRewardedLoading(false);
-            dismissListener.remove();
-            rewardListener.remove();
-            resolve({ success: false });
+            cleanup();
+
+            if (rewardEarned) {
+              resolve({ success: true, reward: rewardEarned });
+            } else {
+              resolve({ success: false });
+            }
           }
         );
 
@@ -135,6 +148,7 @@ export const useAdMob = () => {
       } catch (error) {
         console.error('Show rewarded ad failed:', error);
         setIsRewardedLoading(false);
+        cleanup();
         resolve({ success: false });
       }
     });
