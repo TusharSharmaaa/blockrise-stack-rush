@@ -4,6 +4,9 @@ export const ADMOB_CONFIG = {
   // Test Banner Ad Unit ID
   BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
   
+  // Test Native Advanced Ad Unit ID
+  NATIVE_ID: 'ca-app-pub-3940256099942544/2247696110',
+  
   // Test Interstitial Ad Unit ID
   INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
   
