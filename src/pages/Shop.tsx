@@ -5,14 +5,16 @@ import { ArrowLeft, ShoppingBag, Coins, Zap, Shield, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useCurrency } from '@/hooks/useCurrency';
+import { usePowerUps } from '@/hooks/usePowerUps';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const Shop = () => {
   const navigate = useNavigate();
   const { progress, addCoins } = useGameProgress();
   const { formatPrice, isLoading: currencyLoading } = useCurrency();
+  const { addPowerUp, inventory, loadInventory } = usePowerUps();
 
   const coinPacks = [
     { id: 'pack1', coins: 100, priceKey: 'coinPack100' as const, popular: false },
@@ -21,10 +23,10 @@ const Shop = () => {
   ];
 
   const powerUps = [
-    { id: 'slowtime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100 },
-    { id: 'clearline', name: 'Clear Line', description: 'Clear any full line instantly', icon: '✨', price: 150 },
-    { id: 'shuffle', name: 'Block Shuffle', description: 'Change next 3 blocks', icon: '🔄', price: 75 },
-    { id: 'bomb', name: 'Bomb', description: 'Clear 3x3 area', icon: '💣', price: 200 },
+    { id: 'slowTime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100, type: 'slowTime' as const },
+    { id: 'clearLine', name: 'Clear Line', description: 'Clear any full line instantly', icon: '✨', price: 150, type: 'clearLine' as const },
+    { id: 'shuffle', name: 'Block Shuffle', description: 'Change next 3 blocks', icon: '🔄', price: 75, type: 'shuffle' as const },
+    { id: 'bomb', name: 'Bomb', description: 'Clear 3x3 area', icon: '💣', price: 200, type: 'bomb' as const },
   ];
 
   const premiumItems = [
@@ -34,6 +36,11 @@ const Shop = () => {
 
   const [isPurchasing, setIsPurchasing] = useState(false);
 
+  // Load inventory on mount
+  useEffect(() => {
+    loadInventory();
+  }, [loadInventory]);
+
   const handlePurchasePowerUp = async (powerUp: typeof powerUps[0]) => {
     if (isPurchasing) return;
     if (progress.totalCoins < powerUp.price) {
@@ -42,8 +49,14 @@ const Shop = () => {
     }
     setIsPurchasing(true);
     try {
+      // Deduct coins
       await addCoins(-powerUp.price);
-      toast.success(`${powerUp.name} purchased! (Coming soon in gameplay)`);
+      // Add power-up to inventory
+      await addPowerUp(powerUp.type, 1);
+      toast.success(`${powerUp.name} purchased! Added to inventory.`);
+    } catch (error) {
+      console.error('Failed to purchase power-up:', error);
+      toast.error('Failed to purchase power-up. Please try again.');
     } finally {
       setIsPurchasing(false);
     }
@@ -156,24 +169,32 @@ const Shop = () => {
             Power-ups
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {powerUps.map((powerUp) => (
-              <Card key={powerUp.id} className="p-4 text-center space-y-3">
-                <div className="text-4xl">{powerUp.icon}</div>
-                <div>
-                  <h3 className="font-semibold">{powerUp.name}</h3>
-                  <p className="text-xs text-muted-foreground">{powerUp.description}</p>
-                </div>
-                    <Button
-                      onClick={() => handlePurchasePowerUp(powerUp)}
-                      className="w-full"
-                      variant="outline"
-                      disabled={progress.totalCoins < powerUp.price || isPurchasing}
-                    >
-                  <Coins className="h-4 w-4 mr-1" />
-                  {powerUp.price}
-                </Button>
-              </Card>
-            ))}
+            {powerUps.map((powerUp) => {
+              const quantity = inventory[powerUp.type] || 0;
+              return (
+                <Card key={powerUp.id} className="p-4 text-center space-y-3">
+                  <div className="text-4xl">{powerUp.icon}</div>
+                  <div>
+                    <h3 className="font-semibold">{powerUp.name}</h3>
+                    <p className="text-xs text-muted-foreground">{powerUp.description}</p>
+                    {quantity > 0 && (
+                      <Badge variant="secondary" className="mt-1">
+                        Owned: {quantity}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    onClick={() => handlePurchasePowerUp(powerUp)}
+                    className="w-full"
+                    variant="outline"
+                    disabled={progress.totalCoins < powerUp.price || isPurchasing}
+                  >
+                    <Coins className="h-4 w-4 mr-1" />
+                    {powerUp.price}
+                  </Button>
+                </Card>
+              );
+            })}
           </div>
         </section>
       </div>

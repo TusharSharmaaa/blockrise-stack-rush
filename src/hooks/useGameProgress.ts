@@ -173,6 +173,31 @@ export const useGameProgress = () => {
     }
   };
 
+  const unlockLevel = async (level: number) => {
+    if (level < 1 || level > 50) return;
+    if (progress.unlockedLevels.includes(level)) return; // Already unlocked
+    
+    const newProgress = {
+      ...progress,
+      unlockedLevels: [...progress.unlockedLevels, level].sort((a, b) => a - b)
+    };
+    await saveProgress(newProgress);
+    await syncProgressToBackend(newProgress);
+    return true;
+  };
+
+  const completeLevel = async (level: number, score: number) => {
+    const requirement = getScoreRequirement(level);
+    if (score >= requirement) {
+      const nextLevel = level + 1;
+      if (nextLevel <= 50 && !progress.unlockedLevels.includes(nextLevel)) {
+        await unlockLevel(nextLevel);
+      }
+      return true;
+    }
+    return false;
+  };
+
   const addCoins = async (amount: number) => {
     const newProgress = { ...progress, totalCoins: progress.totalCoins + amount };
     await saveProgress(newProgress);
@@ -181,14 +206,34 @@ export const useGameProgress = () => {
 
   const claimDailyReward = async () => {
     if (!progress.hasClaimedDailyReward) {
+      const today = new Date().toDateString();
+      const lastPlayed = new Date(progress.lastPlayedDate);
+      const todayDate = new Date(today);
+      const diffTime = todayDate.getTime() - lastPlayed.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      let newStreak = progress.dailyStreak;
+      if (diffDays === 1) {
+        // Consecutive day - increment streak
+        newStreak = progress.dailyStreak + 1;
+      } else if (diffDays > 1) {
+        // Streak broken - reset to 1 (today counts as day 1)
+        newStreak = 1;
+      } else if (diffDays === 0 && progress.dailyStreak === 0) {
+        // First time claiming today, start streak at 1
+        newStreak = 1;
+      }
+
       const baseReward = 50;
-      const streakBonus = progress.dailyStreak * 10;
+      const streakBonus = newStreak * 10;
       const totalReward = baseReward + streakBonus;
 
       const newProgress = {
         ...progress,
         totalCoins: progress.totalCoins + totalReward,
-        hasClaimedDailyReward: true
+        hasClaimedDailyReward: true,
+        dailyStreak: newStreak,
+        lastPlayedDate: today
       };
       await saveProgress(newProgress);
       await syncProgressToBackend(newProgress);
@@ -258,6 +303,8 @@ export const useGameProgress = () => {
     isLoading,
     watchAdForLevel,
     selectLevel,
+    unlockLevel,
+    completeLevel,
     addCoins,
     claimDailyReward,
     updateGameStats,
