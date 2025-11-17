@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
+import { useAdMob } from '@/hooks/useAdMob';
 
 const DailyRewards = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
   const { progress, claimDailyReward } = useGameProgress();
   const [isClaiming, setIsClaiming] = useState(false);
+  const { showRewardedAd, isRewardedLoading } = useAdMob();
 
   const handleClaimReward = async () => {
     if (isClaiming) return;
@@ -21,6 +23,10 @@ const DailyRewards = () => {
       const reward = await claimDailyReward();
       if (reward > 0) {
         toast.success(`Claimed ${reward} coins! Keep your streak going!`);
+        const adResult = await showRewardedAd();
+        if (!adResult.success) {
+          toast.info('Claimed reward! Ad was skipped or failed to load.');
+        }
       } else {
         toast.info('Already claimed today. Come back tomorrow!');
       }
@@ -64,11 +70,15 @@ const DailyRewards = () => {
         {/* Claim Button */}
         <Button
           onClick={handleClaimReward}
-          disabled={progress.hasClaimedDailyReward || isClaiming}
+          disabled={progress.hasClaimedDailyReward || isClaiming || isRewardedLoading}
           className="w-full h-16 text-lg gradient-primary"
         >
           <Gift className="mr-2 h-5 w-5" />
-          {progress.hasClaimedDailyReward ? 'Claimed Today' : 'Claim Daily Reward'}
+          {progress.hasClaimedDailyReward
+            ? 'Claimed Today'
+            : isRewardedLoading
+            ? 'Loading reward ad...'
+            : 'Claim Daily Reward'}
         </Button>
 
         {/* Streak Rewards */}

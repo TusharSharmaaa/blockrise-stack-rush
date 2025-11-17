@@ -145,19 +145,27 @@ export const useGameProgress = () => {
 
   const updateDailyStreak = (savedProgress: LevelProgress) => {
     const today = new Date().toDateString();
-    const lastPlayed = new Date(savedProgress.lastPlayedDate);
+    const lastPlayedRef = savedProgress.lastPlayedDate || today;
+    const lastPlayed = new Date(lastPlayedRef);
     const todayDate = new Date(today);
-    const diffTime = todayDate.getTime() - lastPlayed.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const lastPlayedTime = lastPlayed.getTime();
 
-    if (diffDays === 1) {
-      savedProgress.dailyStreak += 1;
-      savedProgress.hasClaimedDailyReward = false;
-    } else if (diffDays > 1) {
+    if (Number.isNaN(lastPlayedTime)) {
+      savedProgress.lastPlayedDate = today;
       savedProgress.dailyStreak = 0;
       savedProgress.hasClaimedDailyReward = false;
+      return;
     }
-    savedProgress.lastPlayedDate = today;
+
+    const diffTime = todayDate.getTime() - lastPlayedTime;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays >= 1) {
+      savedProgress.hasClaimedDailyReward = false;
+      if (diffDays > 1) {
+        savedProgress.dailyStreak = 0;
+      }
+    }
   };
 
   const canWatchAdToday = (adsNeeded: number = 1) => {
