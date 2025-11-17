@@ -33,6 +33,11 @@ const LevelSelect = () => {
   const handleWatchAdToUnlock = async () => {
     if (isWatchingAd) return;
 
+    if (nextLevelToUnlock <= 2) {
+      toast.info('Complete Level 1 to unlock Level 2 without watching ads.');
+      return;
+    }
+
     if (!canUnlockLevelToday) {
       toast.error('Daily level unlock limit reached! Come back tomorrow.');
       return;
@@ -79,7 +84,7 @@ const LevelSelect = () => {
   
   // Check if user can unlock more levels via ads today
   const canUnlockLevelToday = progress.adsWatchedForUnlockToday < 2;
-  const previousLevel = Math.max(1, nextLevelToUnlock - 1);
+  const canUseAdUnlock = nextLevelToUnlock >= 3;
 
   if (isLoading) {
     return <div className="h-full bg-background flex items-center justify-center">
@@ -110,8 +115,18 @@ const LevelSelect = () => {
           </Badge>
         </div>
 
+        {/* Level 2 reminder */}
+        {nextLevelToUnlock === 2 && (
+          <div className="bg-card rounded-lg p-6 card-elevated space-y-3">
+            <h2 className="text-xl font-semibold">Unlock Level 2</h2>
+            <p className="text-muted-foreground text-sm">
+              Beat Level 1&apos;s target score ({getScoreRequirement(1)} points) to unlock Level 2 automatically. Ads are only needed for Level 3 and above.
+            </p>
+          </div>
+        )}
+
         {/* Next Level Unlock Card */}
-        {nextLevelToUnlock <= 50 && (
+        {canUseAdUnlock && nextLevelToUnlock <= 50 && (
           <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Unlock Level {nextLevelToUnlock}</h2>

@@ -30,7 +30,7 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
-  const { progress, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, selectLevel, completeLevel } = useGameProgress();
+  const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, incrementLevelAttempt } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
@@ -39,6 +39,7 @@ const Game = () => {
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
+  const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
   const scoreRequirement = getScoreRequirement(progress.currentLevel);
   const {
     gameState,
@@ -52,6 +53,17 @@ const Game = () => {
     clearLine,
     clearArea
   } = useGameLoop();
+
+  // Track attempts when a level run begins
+  useEffect(() => {
+    if (isLoading) return;
+    if (lastTrackedLevel === progress.currentLevel) return;
+    const recordAttempt = async () => {
+      await incrementLevelAttempt(progress.currentLevel);
+      setLastTrackedLevel(progress.currentLevel);
+    };
+    recordAttempt();
+  }, [isLoading, progress.currentLevel, incrementLevelAttempt, lastTrackedLevel]);
 
   // Load power-up inventory on mount
   useEffect(() => {
@@ -323,7 +335,8 @@ const Game = () => {
     }
   };
 
-  const handlePlayAgain = () => {
+  const handlePlayAgain = async () => {
+    await incrementLevelAttempt(progress.currentLevel);
     resetGame();
     setHasShownGameOverAd(false);
     playMusic();

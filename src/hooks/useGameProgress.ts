@@ -200,6 +200,12 @@ export const useGameProgress = () => {
     }
 
     const nextLevel = Math.max(...progress.unlockedLevels) + 1;
+    if (nextLevel <= 2) {
+      return {
+        success: false,
+        message: 'Complete Level 1 to unlock Level 2. Ads are only for Level 3 and above.'
+      };
+    }
     if (nextLevel > 50) {
       return { success: false, message: 'All levels are already unlocked!' };
     }
@@ -454,7 +460,7 @@ export const useGameProgress = () => {
     const requirement = getScoreRequirement(level);
     const newLevelScores = {
       ...progress.levelScores,
-      [level]: Math.max(progress.levelScores[level] || 0, requirement) // Mark as completed with requirement score
+      [level]: Math.max(progress.levelScores[level] || 0, currentScore) // Keep actual score; no bonus points
     };
 
     // Set completion method to ad and give 3 stars
