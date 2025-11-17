@@ -311,42 +311,69 @@ export const useUserProfile = () => {
     }
   };
 
-  const canChangeUsername = (currentLevel: number): { canChange: boolean; reason?: string; changeNumber?: number } => {
-    const changeAtLevel5 = localStorage.getItem('username_change_level_5') === 'true';
-    const changeAtLevel15 = localStorage.getItem('username_change_level_15') === 'true';
-    
-    // Check if user can use their first change (level 5)
-    if (currentLevel >= 5 && !changeAtLevel5) {
-      return { canChange: true, reason: 'You can change your username once at level 5', changeNumber: 1 };
-    }
-    
-    // Check if user can use their second change (level 15)
-    if (currentLevel >= 15 && !changeAtLevel15) {
-      return { canChange: true, reason: 'You can change your username once at level 15', changeNumber: 2 };
-    }
-    
-    // User has used both changes
-    if (changeAtLevel5 && changeAtLevel15) {
-      return { canChange: false, reason: 'You have used both username changes (at level 5 and 15)' };
-    }
-    
-    // User hasn't reached the required level yet
-    if (currentLevel < 5) {
-      return { canChange: false, reason: `Reach level 5 to change your username (Current: ${currentLevel})` };
-    }
-    
-    if (currentLevel < 15 && changeAtLevel5) {
-      return { canChange: false, reason: `Reach level 15 to change your username again (Current: ${currentLevel})` };
-    }
-    
-    return { canChange: false, reason: 'Cannot change username at this time' };
-  };
+  const canChangeUsername = (
+    currentLevel: number
+  ): { canChange: boolean; reason?: string; changeNumber?: number } => {
+    const firstChangeUsed = localStorage.getItem('username_change_level_5') === 'true';
+    const legacySecondChange = localStorage.getItem('username_change_level_15') === 'true';
+    const secondChangeUsed =
+      legacySecondChange || localStorage.getItem('username_change_level_20') === 'true';
 
+    // Migrate legacy flag to new storage key if needed
+    if (legacySecondChange && !localStorage.getItem('username_change_level_20')) {
+      localStorage.setItem('username_change_level_20', 'true');
+    }
+
+    if (currentLevel >= 5 && !firstChangeUsed) {
+      return {
+        canChange: true,
+        reason: 'Level 5 reached — you can update your username once (change 1 of 2).',
+        changeNumber: 1,
+      };
+    }
+
+    if (currentLevel >= 20 && !secondChangeUsed) {
+      return {
+        canChange: true,
+        reason: 'Level 20 reached — final username change unlocked (change 2 of 2).',
+        changeNumber: 2,
+      };
+    }
+
+    if (!firstChangeUsed && currentLevel < 5) {
+      return {
+        canChange: false,
+        reason: `Reach level 5 to unlock your first name change (current level: ${currentLevel}).`,
+      };
+    }
+
+    if (firstChangeUsed && !secondChangeUsed) {
+      if (currentLevel < 20) {
+        return {
+          canChange: false,
+          reason: `Reach level 20 to unlock your final name change (current level: ${currentLevel}).`,
+        };
+      }
+    }
+
+    return {
+      canChange: false,
+      reason: 'You have used all available username changes.',
+    };
+  };
+  
   const recordUsernameChange = (level: number) => {
-    if (level >= 5 && level < 15) {
+    const firstChangeUsed = localStorage.getItem('username_change_level_5') === 'true';
+    const secondChangeUsed = localStorage.getItem('username_change_level_20') === 'true';
+
+    if (!firstChangeUsed && level >= 5) {
       localStorage.setItem('username_change_level_5', 'true');
-    } else if (level >= 15) {
-      localStorage.setItem('username_change_level_15', 'true');
+      return;
+    }
+
+    if (!secondChangeUsed && level >= 20) {
+      localStorage.setItem('username_change_level_20', 'true');
+      localStorage.removeItem('username_change_level_15');
     }
   };
 

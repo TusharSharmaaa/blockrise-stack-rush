@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,7 @@ import Fuse from 'fuse.js';
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, updateProfile, checkNameUnique } = useUserProfile();
+  const { profile, updateProfile, checkNameUnique, canChangeUsername, recordUsernameChange } = useUserProfile();
   const { progress } = useGameProgress();
   const { countries, isLoading: countriesLoading } = useCountries();
   const isOnline = useOnlineStatus();
@@ -30,6 +30,15 @@ const Profile = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    if (profile?.username) {
+      setName(profile.username);
+    }
+    if (profile?.country) {
+      setCountry(profile.country);
+    }
+  }, [profile?.username, profile?.country]);
 
   // Configure Fuse.js for fuzzy search
   const fuse = new Fuse(countries, {
@@ -42,6 +51,10 @@ const Profile = () => {
   const filteredCountries = searchQuery
     ? fuse.search(searchQuery).map(result => result.item)
     : countries;
+
+  const nameChangeInfo = canChangeUsername(progress.currentLevel || 1);
+  const canEditName = !profile?.username || nameChangeInfo.canChange;
+  const countryLocked = Boolean(profile?.country);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,11 +73,19 @@ const Profile = () => {
       // Validate and sanitize inputs
       const validatedData = validateProfileData({
         name,
-        country,
+        country: countryLocked ? (profile?.country || '') : country,
       });
 
+      const isNameChange = profile?.username && validatedData.name !== profile.username;
+
+      if (isNameChange && !nameChangeInfo.canChange) {
+        setError(nameChangeInfo.reason || 'You cannot change your name yet.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Check name uniqueness only if name changed
-      if (validatedData.name !== profile?.username) {
+      if (isNameChange) {
         const isUnique = await checkNameUnique(validatedData.name, profile?.user_id);
         if (!isUnique) {
           setError('Name already taken — please choose a different name.');
@@ -79,6 +100,9 @@ const Profile = () => {
           city: '',
           country: validatedData.country 
         });
+        if (isNameChange) {
+          recordUsernameChange(progress.currentLevel || 1);
+        }
         toast.success('Profile updated!');
       }
       navigate('/leaderboard');
@@ -161,9 +185,17 @@ const Profile = () => {
                 }}
                 maxLength={30}
                 required
+                disabled={isSubmitting || !canEditName}
               />
-              <p className="text-xs text-muted-foreground">
-                This will be shown on the leaderboard
+              <p
+                className={cn(
+                  "text-xs",
+                  nameChangeInfo.canChange ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                )}
+              >
+                {profile?.username
+                  ? nameChangeInfo.reason
+                  : 'This will be shown on the leaderboard'}
               </p>
             </div>
 
@@ -179,7 +211,7 @@ const Profile = () => {
                     role="combobox"
                     aria-expanded={comboboxOpen}
                     className="w-full justify-between"
-                    disabled={isSubmitting || countriesLoading}
+                    disabled={isSubmitting || countriesLoading || countryLocked}
                   >
                     {country || "Type or select your country"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -220,6 +252,16 @@ const Profile = () => {
                   </Command>
                 </PopoverContent>
               </Popover>
+              <p
+                className={cn(
+                  "text-xs",
+                  countryLocked ? "text-muted-foreground" : "text-emerald-600 dark:text-emerald-400"
+                )}
+              >
+                {countryLocked
+                  ? "Country is locked after initial setup."
+                  : "You can set your country only once."}
+              </p>
             </div>
 
             <Button
