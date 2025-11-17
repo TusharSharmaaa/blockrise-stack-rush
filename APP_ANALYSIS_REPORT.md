@@ -294,6 +294,14 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 - [ ] Performance monitoring
 - [ ] Crash reporting
 
+#### 12.6 Level System Refinement
+- [ ] Progressive level unlocking (Level 1 initially, Level 2 via eligibility, Level 3+ via ads)
+- [ ] Ad-based level unlocking (3 ads per level, 2 levels per day limit)
+- [ ] Star rating system (3 stars for ad completion, based on attempts for score completion)
+- [ ] Attempt tracking per level
+- [ ] Level completion method tracking (ad vs score)
+- [ ] Daily ad unlock limit tracking and reset
+
 ---
 
 ## 🔧 WHAT NEEDS TO BE CHANGED/UPDATED
@@ -447,32 +455,134 @@ export const GAME_CONSTANTS = {
 
 **Create**: Shared form component or hook
 
+### 18. Level System Updates
+
+#### 18.1 Update Level Progress Data Structure
+**File**: `src/hooks/useGameProgress.ts`
+
+**Changes Required**:
+- Update `LevelProgress` interface to include:
+  - `adsWatchedForUnlockToday: number` (0-2 daily limit)
+  - `lastAdUnlockDate: string` (for daily reset)
+  - `levelCompletionMethod: { [level: number]: 'score' | 'ad' }`
+  - `levelStars: { [level: number]: number }` (1-3 stars)
+  - `levelAttempts: { [level: number]: number }` (track attempts per level)
+- Update `INITIAL_PROGRESS` to have only Level 1 unlocked: `unlockedLevels: [1]`
+
+#### 18.2 Implement Level 2 Eligibility Unlock
+**File**: `src/hooks/useGameProgress.ts`
+
+**Add Function**: `checkAndUnlockLevel2(level: number, score: number)`
+- Check if Level 1 is completed (score >= requirement)
+- If yes, automatically unlock Level 2
+- Call this in `updateGameStats()` when Level 1 is completed
+
+#### 18.3 Update Ad-Based Level Unlocking
+**File**: `src/hooks/useGameProgress.ts`
+
+**Update `watchAdForLevel()`**:
+- Check daily limit: `adsWatchedForUnlockToday < 2`
+- Reset daily counter if new day
+- Increment `adsWatchedForNextLevel` (0-3)
+- When 3 ads watched:
+  - Unlock next level
+  - Increment `adsWatchedForUnlockToday`
+  - Reset `adsWatchedForNextLevel` to 0
+  - Update `lastAdUnlockDate`
+- Return appropriate success/error messages
+
+#### 18.4 Implement Star Rating System
+**File**: `src/hooks/useGameProgress.ts`
+
+**Update `updateGameStats()`**:
+- Track attempts: Increment `levelAttempts[level]` when game starts
+- On level completion:
+  - If score >= requirement:
+    - Set `levelCompletionMethod[level] = "score"`
+    - Calculate stars: 1 attempt = 3 stars, 2 attempts = 2 stars, 3+ attempts = 1 star
+    - Set `levelStars[level]`
+  - Update `levelScores[level]`
+
+**Update `watchAdToCompleteLevel()`**:
+- Check daily limit: `adsWatchedForUnlockToday < 2`
+- Set `levelCompletionMethod[level] = "ad"`
+- Set `levelStars[level] = 3` (always 3 stars for ad completion)
+- Mark level as completed
+- Unlock next level
+- Increment `adsWatchedForUnlockToday`
+- Update `lastAdUnlockDate`
+
+**Update `getStarsForLevel()`**:
+- Return `levelStars[level]` or 0 if not completed
+- Use this in UI to display stars
+
+#### 18.5 Track Attempts Per Level
+**File**: `src/pages/Game.tsx`
+
+**Add Attempt Tracking**:
+- Increment attempt counter when game starts for current level
+- Track in `useGameProgress` hook
+- Update attempt count in `levelAttempts[level]`
+
+#### 18.6 Update Level Select UI
+**File**: `src/pages/LevelSelect.tsx`
+
+**Changes Required**:
+- Update star display to use `getStarsForLevel()` from progress
+- Show ad unlock progress (X/3 ads watched)
+- Show daily ad unlock limit (X/2 levels unlocked today)
+- Disable ad unlock button if daily limit reached (2 levels unlocked today)
+- Show different messaging:
+  - Level 2: "Complete Level 1 to unlock"
+  - Level 3+: "Watch 3 ads to unlock"
+- Update info card with new level system rules
+
+#### 18.7 Update Game Over Dialog
+**File**: `src/pages/Game.tsx`
+
+**Changes Required**:
+- Show star rating when level is completed
+- Differentiate between ad completion and score completion
+- Show completion method (ad vs score)
+- Display number of attempts used (for score completion)
+
+#### 18.8 Update Info Card
+**File**: `src/pages/LevelSelect.tsx`
+
+**Update Description**:
+- Explain Level 1 → Level 2 eligibility requirement
+- Explain 3 ads per level unlock for Level 3+
+- Explain 2 levels per day limit via ads
+- Explain star system:
+  - Ad completion = 3 stars
+  - Score completion = based on attempts (1 attempt = 3 stars, 2 attempts = 2 stars, 3+ attempts = 1 star)
+
 ---
 
 ## 📱 ANDROID-SPECIFIC ISSUES
 
-### 18. Android Configuration
+### 19. Android Configuration
 
-#### 18.1 Missing Permissions
+#### 19.1 Missing Permissions
 **File**: `android/app/src/main/AndroidManifest.xml`
 
 **Add** (if needed):
 - Network state permission (for offline detection)
 - Wake lock (optional, for keeping screen on during game)
 
-#### 18.2 AdMob Configuration
+#### 19.2 AdMob Configuration
 **File**: `capacitor.config.json`, `src/hooks/useAdMob.ts`
 
 **Issue**: Using test ad IDs
 **Action**: Replace with production ad IDs before release
 
-#### 18.3 App Icons
+#### 19.3 App Icons
 **File**: `android/app/src/main/res/`
 
 **Issue**: Need proper app icons for all densities
 **Action**: Generate and add icons (see PLAYSTORE_CHECKLIST.md)
 
-#### 18.4 ProGuard Rules
+#### 19.4 ProGuard Rules
 **File**: `android/app/proguard-rules.pro`
 
 **Issue**: May need rules for Capacitor plugins
@@ -597,12 +707,215 @@ ALTER TABLE leaderboard
 
 ---
 
+## 🎮 LEVEL SYSTEM REFINEMENT REQUIREMENTS
+
+### Level Unlocking System
+
+#### Initial State
+- **Level 1**: Initially unlocked and playable
+- **Level 2+**: All other levels are locked by default
+
+#### Level Progression Rules
+
+1. **Level 2 Unlock (Eligibility-Based)**
+   - Level 2 unlocks automatically when user completes Level 1 by achieving the required score
+   - User must meet all eligibility requirements (score requirement) to unlock Level 2
+   - No ads required for Level 2 unlock if eligibility is met
+
+2. **Level 3+ Unlock (Ad-Based)**
+   - User can watch 3 ads back-to-back to unlock the next level
+   - After watching 3 ads, the next level immediately unlocks
+   - User can then watch another 3 ads to unlock the following level
+   - **Daily Limit**: User can only unlock a maximum of 2 levels per day by watching ads
+   - Example:
+     - Day 1: Watch 3 ads → Level 3 unlocked
+     - Day 1: Watch 3 more ads → Level 4 unlocked
+     - Day 1: Cannot unlock Level 5 via ads (daily limit reached)
+     - Day 2: Watch 3 ads → Level 5 unlocked
+     - Day 2: Watch 3 more ads → Level 6 unlocked
+
+3. **Ad Unlock Tracking**
+   - Track `adsWatchedForUnlockToday`: Number of ad unlocks used today (0-2)
+   - Track `lastAdUnlockDate`: Date of last ad unlock usage
+   - Reset daily counter when new day starts
+   - Each ad unlock session requires 3 consecutive ads
+   - After 3 ads watched, immediately unlock next level and reset counter for next unlock
+
+### Star Rating System
+
+#### Star Calculation Rules
+
+1. **Level Completed via Ad**
+   - **3 Stars**: Automatically awarded when user completes level by watching an ad
+   - This applies regardless of actual score achieved
+
+2. **Level Completed by Score**
+   - Stars are awarded based on the number of chances (attempts) used to complete the level
+   - **3 Stars**: Completed on first attempt (1 chance)
+   - **2 Stars**: Completed on second attempt (2 chances)
+   - **1 Star**: Completed on third or more attempts (3+ chances)
+   - Track `levelAttempts`: Object storing number of attempts for each level
+   - Example:
+     - Level 1: User fails first attempt → `levelAttempts[1] = 1`
+     - Level 1: User completes on second attempt → `levelAttempts[1] = 2` → Award 2 stars
+     - Level 2: User completes on first attempt → `levelAttempts[2] = 1` → Award 3 stars
+
+3. **Level Completion Tracking**
+   - Track `levelCompletionMethod`: Object storing how each level was completed
+     - Values: `"score"` or `"ad"`
+   - Track `levelStars`: Object storing star rating for each completed level (1-3)
+   - Track `levelAttempts`: Object storing number of attempts for each level
+
+### Implementation Requirements
+
+#### Data Structure Updates
+
+```typescript
+export interface LevelProgress {
+  currentLevel: number;
+  unlockedLevels: number[]; // Initially [1]
+  adsWatchedForNextLevel: number; // 0-3 (resets after unlock)
+  adsRequiredPerLevel: number; // Fixed at 3
+  adsWatchedForUnlockToday: number; // 0-2 (daily limit)
+  lastAdUnlockDate: string; // Reset tracking
+  totalCoins: number;
+  dailyStreak: number;
+  lastPlayedDate: string;
+  hasClaimedDailyReward: boolean;
+  totalGamesPlayed: number;
+  highestScore: number;
+  lastAdWatchDate: string;
+  adsWatchedToday: number;
+  maxAdsPerDay: number;
+  levelScores: { [level: number]: number };
+  levelCompletionMethod: { [level: number]: 'score' | 'ad' }; // New
+  levelStars: { [level: number]: number }; // New (1-3)
+  levelAttempts: { [level: number]: number }; // New
+  totalAdsWatched: number;
+}
+```
+
+#### Initial Progress State
+
+```typescript
+const INITIAL_PROGRESS: LevelProgress = {
+  currentLevel: 1,
+  unlockedLevels: [1], // Only Level 1 unlocked initially
+  adsWatchedForNextLevel: 0,
+  adsRequiredPerLevel: 3,
+  adsWatchedForUnlockToday: 0, // New
+  lastAdUnlockDate: new Date().toDateString(), // New
+  totalCoins: 100,
+  dailyStreak: 0,
+  lastPlayedDate: new Date().toDateString(),
+  hasClaimedDailyReward: false,
+  totalGamesPlayed: 0,
+  highestScore: 0,
+  lastAdWatchDate: new Date().toDateString(),
+  adsWatchedToday: 0,
+  maxAdsPerDay: 10,
+  levelScores: {},
+  levelCompletionMethod: {}, // New
+  levelStars: {}, // New
+  levelAttempts: {}, // New
+  totalAdsWatched: 0
+};
+```
+
+#### Required Function Updates
+
+1. **`watchAdForLevel()`**
+   - Check if `adsWatchedForUnlockToday < 2` (daily limit)
+   - Increment `adsWatchedForNextLevel` (0-3)
+   - When `adsWatchedForNextLevel === 3`:
+     - Unlock next level
+     - Increment `adsWatchedForUnlockToday`
+     - Reset `adsWatchedForNextLevel` to 0
+     - Update `lastAdUnlockDate`
+   - Reset daily counter if new day
+
+2. **`updateGameStats()`**
+   - Track attempts: Increment `levelAttempts[level]` on each game start
+   - On level completion:
+     - If score >= requirement:
+       - Set `levelCompletionMethod[level] = "score"`
+       - Calculate stars based on `levelAttempts[level]`
+       - Set `levelStars[level]` accordingly
+       - Unlock next level if eligible (Level 2 unlock)
+     - Update `levelScores[level]`
+
+3. **`watchAdToCompleteLevel()`**
+   - Check if `adsWatchedForUnlockToday < 2` (daily limit)
+   - Set `levelCompletionMethod[level] = "ad"`
+   - Set `levelStars[level] = 3` (always 3 stars for ad completion)
+   - Mark level as completed
+   - Unlock next level
+   - Increment `adsWatchedForUnlockToday`
+   - Update `lastAdUnlockDate`
+
+4. **`getStarsForLevel()`**
+   - Return `levelStars[level]` or 0 if level not completed
+   - Display stars based on completion method
+
+5. **Level 2 Eligibility Check**
+   - New function: `checkLevel2Eligibility()`
+   - Check if Level 1 is completed with score >= requirement
+   - If eligible, unlock Level 2 automatically
+   - This happens in `updateGameStats()` when Level 1 is completed
+
+#### UI Updates Required
+
+1. **LevelSelect.tsx**
+   - Update star display to use `getStarsForLevel()` from progress
+   - Show ad unlock progress (X/3 ads watched)
+   - Show daily ad unlock limit (X/2 levels unlocked today)
+   - Disable ad unlock button if daily limit reached
+   - Show different messaging for Level 2 (eligibility-based) vs Level 3+ (ad-based)
+
+2. **Game.tsx**
+   - Track attempts on game start
+   - On level completion, update completion method and stars
+   - Show star rating in game over dialog
+   - Differentiate between ad completion and score completion
+
+3. **Info Card Updates**
+   - Update level system description
+   - Explain Level 1 → Level 2 eligibility requirement
+   - Explain 3 ads per level unlock for Level 3+
+   - Explain 2 levels per day limit via ads
+   - Explain star system (ad = 3 stars, score = based on attempts)
+
+### Testing Requirements
+
+1. **Level Unlock Testing**
+   - Verify only Level 1 is unlocked initially
+   - Verify Level 2 unlocks when Level 1 is completed
+   - Verify Level 3+ requires 3 ads to unlock
+   - Verify daily limit of 2 level unlocks via ads
+   - Verify daily counter resets at midnight
+
+2. **Star System Testing**
+   - Verify 3 stars for ad completion
+   - Verify 3 stars for first attempt completion
+   - Verify 2 stars for second attempt completion
+   - Verify 1 star for third+ attempt completion
+   - Verify stars are saved and displayed correctly
+
+3. **Attempt Tracking Testing**
+   - Verify attempts are tracked per level
+   - Verify attempts increment on each game start
+   - Verify attempts reset when level is completed
+   - Verify attempts persist across app restarts
+
+---
+
 ## 📝 NOTES
 
 - The app has a solid foundation with good component structure
 - The game logic is well-implemented
 - UI/UX is modern and responsive
 - Main gaps are in security, error handling, and missing features
+- **Level system refinement**: New requirements for progressive unlocking and star system based on completion method
 - Estimated time to production-ready: 2-3 weeks of focused development
 
 ---

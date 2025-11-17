@@ -14,7 +14,6 @@ import { useCountries } from '@/hooks/useCountries';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
-import Fuse from 'fuse.js';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const ProfileSetupDialog = () => {
@@ -43,16 +42,12 @@ const ProfileSetupDialog = () => {
     checkNameUniqueRef.current = checkNameUnique;
   }, [checkNameUnique]);
 
-  // Configure Fuse.js for fuzzy search
-  const fuse = new Fuse(countries, {
-    keys: ['name', 'code'],
-    threshold: 0.4, // Lower = stricter matching, Higher = more fuzzy
-    includeScore: true,
-  });
-
-  // Filter countries using fuzzy search
+  // Filter countries using prefix matching (starts with search query)
   const filteredCountries = searchQuery
-    ? fuse.search(searchQuery).map(result => result.item)
+    ? countries.filter(c => 
+        c.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
+        c.code.toLowerCase().startsWith(searchQuery.toLowerCase())
+      )
     : countries;
 
   useEffect(() => {

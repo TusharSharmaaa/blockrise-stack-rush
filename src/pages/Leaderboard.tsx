@@ -1,15 +1,19 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Medal, MapPin, User } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, MapPin, User, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useEffect, useRef } from 'react';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { profile } = useUserProfile();
-  const { entries, isLoading } = useLeaderboard(profile?.id);
+  const { entries, userPosition, isLoading } = useLeaderboard(profile?.id);
+  const userEntryRef = useRef<HTMLDivElement>(null);
 
   const getCountryFlag = (country: string) => {
     const flags: { [key: string]: string } = {
@@ -29,6 +33,18 @@ const Leaderboard = () => {
     if (rank === 3) return <Medal className="h-6 w-6 text-amber-700" />;
     return <span className="text-lg font-bold text-muted-foreground">#{rank}</span>;
   };
+
+  // Auto-scroll to user's position when leaderboard loads
+  useEffect(() => {
+    if (userEntryRef.current && !isLoading) {
+      setTimeout(() => {
+        userEntryRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 300);
+    }
+  }, [entries, isLoading, userPosition]);
 
   if (isLoading) {
     return (
@@ -71,6 +87,42 @@ const Leaderboard = () => {
           </div>
         )}
 
+        {/* Your Position Section - Always visible if user has profile */}
+        {profile && userPosition && (
+          <div className="bg-gradient-to-r from-primary/20 via-primary/10 to-accent/10 border-2 border-primary/50 rounded-lg p-4 sm:p-5 shadow-lg mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-5 w-5 text-primary" />
+              <h2 className="text-lg sm:text-xl font-bold text-primary">Your Position</h2>
+            </div>
+            <div className="bg-background/80 rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+              <div className="w-12 sm:w-16 flex items-center justify-center flex-shrink-0">
+                {getRankIcon(userPosition.rank)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xl sm:text-2xl">{getCountryFlag(userPosition.entry?.country || '')}</span>
+                  <div className="font-bold text-base sm:text-lg truncate">
+                    {userPosition.entry?.username}
+                    <Badge className="ml-2 text-xs bg-primary text-primary-foreground">You</Badge>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                  <span className="truncate">{userPosition.entry?.city}, {userPosition.entry?.country}</span>
+                  <span className="mx-1">•</span>
+                  <span className="whitespace-nowrap">Lvl {userPosition.entry?.level}</span>
+                  <span className="mx-1">•</span>
+                  <span className="whitespace-nowrap">#{userPosition.rank} of {userPosition.totalPlayers}</span>
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-xl sm:text-2xl font-bold text-primary">{userPosition.entry?.score.toLocaleString()}</div>
+                <div className="text-[10px] sm:text-xs text-muted-foreground">points</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           {entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -81,9 +133,12 @@ const Leaderboard = () => {
             entries.map((entry, idx) => (
               <div
                 key={entry.id}
-                className={`bg-card rounded-lg p-3 sm:p-4 flex items-center gap-2 sm:gap-3 transition-all ${
-                  entry.isCurrentUser ? 'border-2 border-primary shadow-lg' : 'card-elevated'
-                } ${idx < 3 ? 'bg-gradient-to-r from-primary/5 to-accent/5' : ''}`}
+                ref={entry.isCurrentUser ? userEntryRef : null}
+                className={`bg-card rounded-lg p-3 sm:p-4 flex items-center gap-2 sm:gap-3 transition-all border ${
+                  entry.isCurrentUser 
+                    ? 'border-4 border-primary shadow-xl bg-gradient-to-r from-primary/20 via-primary/10 to-accent/10 ring-2 ring-primary/30' 
+                    : 'card-elevated border-border'
+                } ${idx < 3 && !entry.isCurrentUser ? 'bg-gradient-to-r from-primary/5 to-accent/5' : ''}`}
               >
                 <div className="w-10 sm:w-14 flex items-center justify-center flex-shrink-0">
                   {getRankIcon(entry.rank)}
@@ -117,9 +172,9 @@ const Leaderboard = () => {
         <div className="mt-8 p-6 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border border-border/50 text-center space-y-3">
           <Trophy className="h-10 w-10 text-primary mx-auto" />
           <div>
-            <p className="font-semibold text-lg">Compete Globally</p>
+            <p className="font-semibold text-lg">Real-Time Global Leaderboard</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Real-time global leaderboards coming soon with Cloud integration
+              Rankings update in real-time as players achieve new high scores!
             </p>
           </div>
         </div>
