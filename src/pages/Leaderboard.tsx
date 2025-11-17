@@ -1,26 +1,19 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Medal, MapPin, User, Target, Video } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, MapPin, User, Target } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
-import { useAdMob } from '@/hooks/useAdMob';
-import { useGameProgress } from '@/hooks/useGameProgress';
 import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { NativeAdCard } from '@/components/ads/NativeAdCard';
+import { useEffect, useRef } from 'react';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
   const { profile } = useUserProfile();
   const { entries, userPosition, isLoading } = useLeaderboard(profile?.id);
-  const { showRewardedAd, isRewardedLoading } = useAdMob();
-  const { addCoins, progress } = useGameProgress();
   const userEntryRef = useRef<HTMLDivElement>(null);
-  const [isWatchingAd, setIsWatchingAd] = useState(false);
 
   const getCountryFlag = (country: string) => {
     const flags: { [key: string]: string } = {
@@ -52,27 +45,6 @@ const Leaderboard = () => {
       }, 300);
     }
   }, [entries, isLoading, userPosition]);
-
-  const handleWatchAdForCoins = async () => {
-    if (isWatchingAd || isRewardedLoading) return;
-
-    setIsWatchingAd(true);
-    try {
-      const result = await showRewardedAd();
-      if (result.success) {
-        const coinsEarned = 25; // Reward amount
-        await addCoins(coinsEarned);
-        toast.success(`🎉 You earned ${coinsEarned} coins!`);
-      } else {
-        toast.error('Ad was not completed. Please try again.');
-      }
-    } catch (error) {
-      console.error('Failed to watch ad:', error);
-      toast.error('Failed to load ad. Please try again.');
-    } finally {
-      setIsWatchingAd(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -197,27 +169,6 @@ const Leaderboard = () => {
           )}
         </div>
 
-        <NativeAdCard
-          className="mt-8"
-          footer={
-            <div className="space-y-3 text-center">
-              <Button
-                onClick={handleWatchAdForCoins}
-                disabled={isRewardedLoading || isWatchingAd}
-                className="w-full gradient-primary shadow-glow-lg"
-                size="lg"
-              >
-                <Video className="mr-2 h-5 w-5" />
-                {isWatchingAd || isRewardedLoading
-                  ? 'Loading Ad...'
-                  : 'Watch Ad & Earn 25 Coins'}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                💰 Current Balance: {progress.totalCoins} coins
-              </p>
-            </div>
-          }
-        />
         </div>
       </div>
     </ScrollArea>

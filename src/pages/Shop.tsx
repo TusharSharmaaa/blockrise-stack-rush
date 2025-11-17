@@ -1,18 +1,22 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ShoppingBag, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Star, Video } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { usePowerUps } from '@/hooks/usePowerUps';
+import { useAdMob } from '@/hooks/useAdMob';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, useEffect } from 'react';
+import { NativeAdCard } from '@/components/ads/NativeAdCard';
 
 const Shop = () => {
   const navigate = useNavigate();
   const { progress, addCoins } = useGameProgress();
   const { addPowerUp, inventory, loadInventory } = usePowerUps();
+  const { showRewardedAd, isRewardedLoading } = useAdMob();
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
 
   const powerPacks = [
     { id: 'slowTime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100, type: 'slowTime' as const },
@@ -27,6 +31,27 @@ const Shop = () => {
   useEffect(() => {
     loadInventory();
   }, [loadInventory]);
+
+  const handleWatchAdForCoins = async () => {
+    if (isWatchingAd || isRewardedLoading) return;
+
+    setIsWatchingAd(true);
+    try {
+      const result = await showRewardedAd();
+      if (result.success) {
+        const coinsEarned = 25; // Reward amount
+        await addCoins(coinsEarned);
+        toast.success(`🎉 You earned ${coinsEarned} coins!`);
+      } else {
+        toast.error('Ad was not completed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to watch ad:', error);
+      toast.error('Failed to load ad. Please try again.');
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
 
   const handlePurchasePowerPack = async (powerPack: typeof powerPacks[0]) => {
     if (isPurchasing) return;
@@ -70,6 +95,29 @@ const Shop = () => {
             💰 {progress.totalCoins}
           </Badge>
         </div>
+
+        {/* Watch Ad Section */}
+        <NativeAdCard
+          className="sticky top-4 z-20 mb-6"
+          footer={
+            <div className="space-y-3 text-center">
+              <Button
+                onClick={handleWatchAdForCoins}
+                disabled={isRewardedLoading || isWatchingAd}
+                className="w-full gradient-primary shadow-glow-lg"
+                size="lg"
+              >
+                <Video className="mr-2 h-5 w-5" />
+                {isWatchingAd || isRewardedLoading
+                  ? 'Loading Ad...'
+                  : 'Watch Ad & Earn 25 Coins'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                💰 Current Balance: {progress.totalCoins} coins
+              </p>
+            </div>
+          }
+        />
 
         {/* Power Packs */}
         <section className="space-y-4">

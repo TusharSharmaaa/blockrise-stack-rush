@@ -94,22 +94,43 @@ export const useAdMob = () => {
   };
 
   const showBanner = async () => {
-    if (!isNative) return;
+    if (!isNative) {
+      console.log('[useAdMob] showBanner: Not native platform, skipping');
+      return;
+    }
+    
     if (!isInitialized) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      if (!isInitialized) return;
+      console.log('[useAdMob] showBanner: AdMob not initialized yet, waiting...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!isInitialized) {
+        console.error('[useAdMob] showBanner: AdMob still not initialized');
+        return;
+      }
     }
 
     try {
+      // Hide any existing banner first to avoid conflicts
+      try {
+        await AdMob.hideBanner();
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (err) {
+        // Ignore error if banner doesn't exist
+        console.log('[useAdMob] showBanner: No existing banner to hide');
+      }
+
       const options: BannerAdOptions = {
         adId: AD_UNITS.banner,
         adSize: BannerAdSize.BANNER,
         position: BannerAdPosition.BOTTOM_CENTER,
         margin: 0
       };
+      
+      console.log('[useAdMob] showBanner: Showing banner with options:', options);
       await AdMob.showBanner(options);
+      console.log('[useAdMob] showBanner: Banner shown successfully');
     } catch (error) {
-      console.error('Show banner failed:', error);
+      console.error('[useAdMob] showBanner: Failed to show banner:', error);
+      throw error; // Re-throw to allow component to handle retry
     }
   };
 
