@@ -1,19 +1,25 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Trophy, Medal, MapPin, User, Target } from 'lucide-react';
+import { ArrowLeft, Trophy, Medal, MapPin, User, Target, Video, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useAdMob } from '@/hooks/useAdMob';
+import { useGameProgress } from '@/hooks/useGameProgress';
 import { useBackButton } from '@/hooks/useBackButton';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 const Leaderboard = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
   const { profile } = useUserProfile();
   const { entries, userPosition, isLoading } = useLeaderboard(profile?.id);
+  const { showRewardedAd, isRewardedLoading, showBanner, hideBanner } = useAdMob();
+  const { addCoins, progress } = useGameProgress();
   const userEntryRef = useRef<HTMLDivElement>(null);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
 
   const getCountryFlag = (country: string) => {
     const flags: { [key: string]: string } = {
@@ -45,6 +51,36 @@ const Leaderboard = () => {
       }, 300);
     }
   }, [entries, isLoading, userPosition]);
+
+  // Show banner ad when component mounts
+  useEffect(() => {
+    showBanner();
+    return () => {
+      hideBanner();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount/unmount
+
+  const handleWatchAdForCoins = async () => {
+    if (isWatchingAd || isRewardedLoading) return;
+
+    setIsWatchingAd(true);
+    try {
+      const result = await showRewardedAd();
+      if (result.success) {
+        const coinsEarned = 25; // Reward amount
+        await addCoins(coinsEarned);
+        toast.success(`🎉 You earned ${coinsEarned} coins!`);
+      } else {
+        toast.error('Ad was not completed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to watch ad:', error);
+      toast.error('Failed to load ad. Please try again.');
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -169,14 +205,32 @@ const Leaderboard = () => {
           )}
         </div>
 
-        <div className="mt-8 p-6 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg border border-border/50 text-center space-y-3">
-          <Trophy className="h-10 w-10 text-primary mx-auto" />
+        {/* Rewarded Ad Opportunity Card */}
+        <div className="mt-8 p-6 bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 rounded-lg border-2 border-primary/30 shadow-lg text-center space-y-4">
+          <div className="flex items-center justify-center gap-2">
+            <Coins className="h-8 w-8 text-primary" />
+            <Video className="h-8 w-8 text-accent" />
+          </div>
           <div>
-            <p className="font-semibold text-lg">Real-Time Global Leaderboard</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Rankings update in real-time as players achieve new high scores!
+            <p className="font-bold text-xl text-primary mb-2">Earn Free Coins!</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Watch a short video ad and earn 25 coins instantly!
             </p>
           </div>
+          <Button 
+            onClick={handleWatchAdForCoins}
+            disabled={isRewardedLoading || isWatchingAd}
+            className="w-full gradient-primary shadow-glow-lg"
+            size="lg"
+          >
+            <Video className="mr-2 h-5 w-5" />
+            {isWatchingAd || isRewardedLoading 
+              ? 'Loading Ad...' 
+              : 'Watch Ad & Earn 25 Coins'}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            💰 Current Balance: {progress.totalCoins} coins
+          </p>
         </div>
         </div>
       </div>

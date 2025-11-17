@@ -311,10 +311,8 @@ const Game = () => {
         playSound('gameOver');
         stopMusic();
         
-        // Show interstitial ad after game over
-        setTimeout(() => {
-          showInterstitial();
-        }, 1000);
+        // Show interstitial ad immediately after game over
+        showInterstitial();
       };
 
       handleGameOver();
