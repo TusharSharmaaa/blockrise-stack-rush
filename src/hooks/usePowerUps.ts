@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Preferences } from '@capacitor/preferences';
 
 export interface PowerUpInventory {
@@ -14,6 +14,8 @@ export interface ActivePowerUp {
   startTime: number;
 }
 
+type ActivePowerUpMap = Partial<Record<keyof PowerUpInventory, ActivePowerUp>>;
+
 const INITIAL_INVENTORY: PowerUpInventory = {
   slowTime: 0,
   clearLine: 0,
@@ -23,7 +25,33 @@ const INITIAL_INVENTORY: PowerUpInventory = {
 
 export const usePowerUps = () => {
   const [inventory, setInventory] = useState<PowerUpInventory>(INITIAL_INVENTORY);
-  const [activePowerUp, setActivePowerUp] = useState<ActivePowerUp | null>(null);
+  const [activePowerUps, setActivePowerUps] = useState<ActivePowerUpMap>({});
+  const timeoutRefs = useRef<number[]>([]);
+
+  const schedulePowerUpExpiration = useCallback((type: keyof PowerUpInventory, duration: number, startTime: number) => {
+    if (typeof window === 'undefined') return;
+
+    const timeoutId = window.setTimeout(() => {
+      setActivePowerUps(prev => {
+        const current = prev[type];
+        if (!current || current.startTime !== startTime) {
+          return prev;
+        }
+        const { [type]: _, ...rest } = prev;
+        return rest;
+      });
+    }, duration);
+
+    timeoutRefs.current.push(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      timeoutRefs.current.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, []);
 
   const loadInventory = useCallback(async () => {
     try {
@@ -99,10 +127,6 @@ export const usePowerUps = () => {
   }, [inventory, saveInventory]);
 
   const usePowerUp = useCallback(async (type: keyof PowerUpInventory, duration: number = 30000): Promise<boolean> => {
-    if (activePowerUp) {
-      return false; // Can't use power-up while another is active
-    }
-
     // Reload inventory first to ensure we have the latest state
     try {
       const { value } = await Preferences.get({ key: 'powerUpInventory' });
@@ -118,16 +142,18 @@ export const usePowerUps = () => {
       };
       await saveInventory(newInventory);
 
-      setActivePowerUp({
+      const startTime = Date.now();
+      const instance: ActivePowerUp = {
         type,
         duration,
-        startTime: Date.now()
-      });
+        startTime
+      };
+      setActivePowerUps(prev => ({
+        ...prev,
+        [type]: instance
+      }));
 
-      // Auto-deactivate after duration
-      setTimeout(() => {
-        setActivePowerUp(null);
-      }, duration);
+      schedulePowerUpExpiration(type, duration, startTime);
 
       return true;
     } catch (error) {
@@ -143,23 +169,27 @@ export const usePowerUps = () => {
       };
       await saveInventory(newInventory);
 
-      setActivePowerUp({
+      const startTime = Date.now();
+      const instance: ActivePowerUp = {
         type,
         duration,
-        startTime: Date.now()
-      });
+        startTime
+      };
+      setActivePowerUps(prev => ({
+        ...prev,
+        [type]: instance
+      }));
 
-      // Auto-deactivate after duration
-      setTimeout(() => {
-        setActivePowerUp(null);
-      }, duration);
+      schedulePowerUpExpiration(type, duration, startTime);
 
       return true;
     }
-  }, [inventory, activePowerUp, saveInventory]);
+  }, [inventory, saveInventory, schedulePowerUpExpiration]);
 
   const clearActivePowerUp = useCallback(() => {
-    setActivePowerUp(null);
+    timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
+    timeoutRefs.current = [];
+    setActivePowerUps({});
   }, []);
 
   const hasPowerUp = useCallback((type: keyof PowerUpInventory): boolean => {
@@ -167,18 +197,19 @@ export const usePowerUps = () => {
   }, [inventory]);
 
   const isActive = useCallback((type: keyof PowerUpInventory): boolean => {
-    return activePowerUp?.type === type;
-  }, [activePowerUp]);
+    return Boolean(activePowerUps[type]);
+  }, [activePowerUps]);
 
-  const getRemainingTime = useCallback((): number => {
+  const getRemainingTime = useCallback((type: keyof PowerUpInventory): number => {
+    const activePowerUp = activePowerUps[type];
     if (!activePowerUp) return 0;
     const elapsed = Date.now() - activePowerUp.startTime;
     return Math.max(0, activePowerUp.duration - elapsed);
-  }, [activePowerUp]);
+  }, [activePowerUps]);
 
   return {
     inventory,
-    activePowerUp,
+    activePowerUps,
     loadInventory,
     addPowerUp,
     usePowerUp,

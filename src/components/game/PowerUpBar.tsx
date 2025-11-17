@@ -10,21 +10,16 @@ interface PowerUpBarProps {
 }
 
 const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
-  const { inventory, activePowerUp, getRemainingTime, hasPowerUp } = usePowerUps();
-  const [remainingTime, setRemainingTime] = useState(0);
+  const { inventory, activePowerUps, getRemainingTime } = usePowerUps();
+  const [, forceRefresh] = useState(0);
 
   useEffect(() => {
-    if (activePowerUp) {
-      const interval = setInterval(() => {
-        const time = getRemainingTime();
-        setRemainingTime(time);
-        if (time <= 0) {
-          clearInterval(interval);
-        }
-      }, 100);
-      return () => clearInterval(interval);
-    }
-  }, [activePowerUp, getRemainingTime]);
+    if (Object.keys(activePowerUps).length === 0) return;
+    const interval = setInterval(() => {
+      forceRefresh(Date.now());
+    }, 100);
+    return () => clearInterval(interval);
+  }, [activePowerUps]);
 
   const powerUps = [
     { id: 'slowTime' as const, icon: '⏱️', name: 'Slow Time', color: 'bg-blue-500' },
@@ -36,15 +31,25 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
   return (
     <div className="glass-card p-3 space-y-3 shadow-glow">
       {/* Active Power-Up Display */}
-      {activePowerUp && (
+      {Object.entries(activePowerUps).length > 0 && (
         <div className="space-y-2 animate-fade-in glass-card p-3 border border-primary/40 shadow-neon">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">
-              {powerUps.find(p => p.id === activePowerUp.type)?.icon} {powerUps.find(p => p.id === activePowerUp.type)?.name} Active
-            </span>
-            <span className="text-muted-foreground font-mono">{Math.ceil(remainingTime / 1000)}s</span>
-          </div>
-          <Progress value={(remainingTime / activePowerUp.duration) * 100} className="h-2 shadow-neon" />
+          {Object.entries(activePowerUps).map(([type, active]) => {
+            if (!active) return null;
+            const remainingTime = getRemainingTime(type as keyof typeof inventory);
+            const powerUpMeta = powerUps.find(p => p.id === type);
+            if (!powerUpMeta) return null;
+            return (
+              <div key={`${type}-${active.startTime}`} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">
+                    {powerUpMeta.icon} {powerUpMeta.name} Active
+                  </span>
+                  <span className="text-muted-foreground font-mono">{Math.max(0, Math.ceil(remainingTime / 1000))}s</span>
+                </div>
+                <Progress value={(remainingTime / active.duration) * 100} className="h-2 shadow-neon" />
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -53,13 +58,13 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
         {powerUps.map((powerUp) => {
           const count = inventory[powerUp.id];
           const hasItem = count > 0;
-          const isActiveType = activePowerUp?.type === powerUp.id;
+          const isActiveType = Boolean(activePowerUps[powerUp.id]);
 
           return (
             <div key={powerUp.id} className="relative">
               <Button
                 onClick={() => onUsePowerUp(powerUp.id)}
-                disabled={disabled || !hasItem || !!activePowerUp}
+                disabled={disabled || !hasItem || isActiveType}
                 variant={isActiveType ? "neon" : "outline"}
                 size="sm"
                 className={`w-full h-12 text-xl transition-all duration-200 ${
@@ -69,7 +74,7 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
                     ? 'hover:scale-110 hover:shadow-glow' 
                     : 'opacity-50'
                 } ${hasItem ? 'brightness-110' : ''} ${
-                  !disabled && hasItem && !activePowerUp ? 'glass-card border-primary/30' : ''
+                  !disabled && hasItem && !isActiveType ? 'glass-card border-primary/30' : ''
                 }`}
               >
                 {powerUp.icon}

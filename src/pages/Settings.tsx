@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Type } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Type } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
@@ -7,10 +7,8 @@ import { Slider } from '@/components/ui/slider';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useCurrency } from '@/hooks/useCurrency';
 import { useSound } from '@/hooks/useSound';
 import { useFontScaling } from '@/hooks/useFontScaling';
-import { usePremium } from '@/hooks/usePremium';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -18,10 +16,8 @@ const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
-  const { formatPrice } = useCurrency();
   const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const { fontScale, setCustomScale } = useFontScaling();
-  const { isPremium } = usePremium();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   useEffect(() => {
@@ -29,22 +25,6 @@ const Settings = () => {
       requestPermissions();
     }
   }, []);
-
-  const handleNotificationToggle = async (enabled: boolean) => {
-    if (enabled && !permissionGranted) {
-      const granted = await requestPermissions();
-      if (!granted) {
-        toast.error('Notification permission denied');
-        return;
-      }
-    }
-    await toggleNotifications(enabled);
-    toast.success(enabled ? 'Notifications enabled' : 'Notifications disabled');
-  };
-
-  const handleRemoveAds = () => {
-    toast.info('Opening payment...');
-  };
 
   return (
     <ScrollArea className="h-full">
@@ -222,19 +202,6 @@ const Settings = () => {
               </div>
             </div>
           </Card>
-
-          {/* Monetization - Only show if user is not premium */}
-          {!isPremium && (
-            <Card variant="premium" className="p-6 shadow-glow-lg animate-pulse-glow">
-              <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Premium</h2>
-              <Button className="w-full gradient-primary" onClick={handleRemoveAds}>
-                Remove Ads - $2.99
-              </Button>
-              <p className="text-sm text-muted-foreground mt-2">
-                One-time purchase, no subscription
-              </p>
-            </Card>
-          )}
 
         </div>
         </div>
