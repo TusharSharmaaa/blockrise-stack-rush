@@ -45,17 +45,8 @@ All colors MUST be HSL.
     
     --gradient-primary: linear-gradient(135deg, hsl(195 100% 50%), hsl(240 100% 60%));
     --gradient-accent: linear-gradient(135deg, hsl(280 60% 55%), hsl(320 80% 50%));
-    --gradient-hero: linear-gradient(135deg, hsl(195 100% 50% / 0.2), hsl(240 100% 60% / 0.2));
-    --gradient-glass: linear-gradient(135deg, hsl(220 20% 12% / 0.7), hsl(220 20% 12% / 0.5));
-    
     --shadow-glow: 0 0 30px hsl(195 100% 50% / 0.3);
-    --shadow-glow-lg: 0 0 60px hsl(195 100% 50% / 0.4), 0 0 100px hsl(240 100% 60% / 0.2);
-    --shadow-neon: 0 0 20px hsl(195 100% 50% / 0.6), 0 0 40px hsl(195 100% 50% / 0.3);
     --shadow-card: 0 8px 32px hsl(220 26% 4% / 0.5);
-    --shadow-premium: 0 20px 60px hsl(220 26% 4% / 0.7), 0 0 40px hsl(195 100% 50% / 0.1);
-    
-    --glass-bg: hsl(220 20% 12% / 0.4);
-    --glass-border: hsl(195 100% 50% / 0.2);
 
     --sidebar-background: 0 0% 98%;
 
@@ -75,52 +66,43 @@ All colors MUST be HSL.
   }
 
   .light {
-    --background: 210 40% 98%;
-    --foreground: 220 26% 14%;
+    --background: 0 0% 100%;
+    --foreground: 220 26% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 26% 14%;
+    --card: 0 0% 98%;
+    --card-foreground: 220 26% 8%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 26% 14%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 220 26% 8%;
 
-    --primary: 195 100% 42%;
+    --primary: 195 100% 45%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 280 60% 48%;
+    --secondary: 280 60% 50%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 10% 35%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 40%;
 
-    --accent: 45 100% 50%;
-    --accent-foreground: 220 26% 14%;
+    --accent: 45 100% 55%;
+    --accent-foreground: 220 26% 8%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 86%;
-    --input: 220 15% 90%;
-    --ring: 195 100% 42%;
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 195 100% 45%;
     
-    --game-grid: 220 20% 96%;
-    --game-border: 220 15% 82%;
-    --success: 142 76% 38%;
-    --warning: 38 92% 45%;
+    --game-grid: 0 0% 95%;
+    --game-border: 220 15% 85%;
+    --success: 142 76% 45%;
+    --warning: 38 92% 50%;
     
-    --gradient-primary: linear-gradient(135deg, hsl(195 100% 42%), hsl(240 100% 50%));
-    --gradient-accent: linear-gradient(135deg, hsl(280 60% 48%), hsl(320 80% 42%));
-    --gradient-hero: linear-gradient(135deg, hsl(195 100% 42% / 0.08), hsl(240 100% 50% / 0.08));
-    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.6));
-    
-    --shadow-glow: 0 0 30px hsl(195 100% 42% / 0.3);
-    --shadow-glow-lg: 0 0 60px hsl(195 100% 42% / 0.4), 0 0 100px hsl(240 100% 50% / 0.15);
-    --shadow-neon: 0 0 20px hsl(195 100% 42% / 0.6), 0 0 40px hsl(195 100% 42% / 0.3);
-    --shadow-card: 0 8px 32px hsl(220 26% 14% / 0.12);
-    --shadow-premium: 0 20px 60px hsl(220 26% 14% / 0.15), 0 0 40px hsl(195 100% 42% / 0.12);
-    
-    --glass-bg: hsl(0 0% 100% / 0.7);
-    --glass-border: hsl(195 100% 42% / 0.25);
+    --gradient-primary: linear-gradient(135deg, hsl(195 100% 45%), hsl(240 100% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(280 60% 50%), hsl(320 80% 45%));
+    --shadow-glow: 0 0 30px hsl(195 100% 45% / 0.2);
+    --shadow-card: 0 8px 32px hsl(220 26% 4% / 0.1);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -133,52 +115,10 @@ All colors MUST be HSL.
   }
 
   :root {
-    /* Safe area insets for mobile devices */
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --safe-left: env(safe-area-inset-left, 0px);
-    --safe-right: env(safe-area-inset-right, 0px);
-    
-    /* Minimum safe areas with 16px fallback for devices without notches */
-    --min-safe-top: max(env(safe-area-inset-top, 0px), 16px);
-    --min-safe-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
-    
-    /* Dynamic viewport height for mobile */
-    --vh: 1vh;
-    
-    /* Responsive typography scale */
-    --font-size-xs: clamp(0.75rem, 1.5vw, 0.875rem);
-    --font-size-sm: clamp(0.875rem, 2vw, 1rem);
-    --font-size-base: clamp(1rem, 2.5vw, 1.125rem);
-    --font-size-lg: clamp(1.125rem, 3vw, 1.25rem);
-    --font-size-xl: clamp(1.25rem, 3.5vw, 1.5rem);
-    --font-size-2xl: clamp(1.5rem, 4vw, 2rem);
-    --font-size-3xl: clamp(1.875rem, 5vw, 2.5rem);
-    --font-size-4xl: clamp(2.25rem, 6vw, 3rem);
-    --font-size-5xl: clamp(3rem, 8vw, 4rem);
-    --font-size-6xl: clamp(3.75rem, 10vw, 5rem);
-    
-    /* Line heights for readability */
-    --line-height-tight: 1.25;
-    --line-height-normal: 1.5;
-    --line-height-relaxed: 1.75;
-  }
-  
-  /* Font scale adjustments based on user preference */
-  [data-font-scale="small"] {
-    --font-scale-multiplier: 0.875;
-  }
-  
-  [data-font-scale="medium"] {
-    --font-scale-multiplier: 1;
-  }
-  
-  [data-font-scale="large"] {
-    --font-scale-multiplier: 1.125;
-  }
-  
-  [data-font-scale="extra-large"] {
-    --font-scale-multiplier: 1.25;
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
   }
 }
 
@@ -187,154 +127,24 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html {
-    height: 100%;
-    /* Account for dynamic viewport height on mobile */
-    height: 100dvh;
-  }
-
   body {
     @apply bg-background text-foreground;
-    height: 100%;
-    overflow: hidden;
     overscroll-behavior: none;
     touch-action: pan-x pan-y;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
-    /* Ensure content respects safe areas with minimum padding */
-    padding-top: var(--min-safe-top);
-    padding-bottom: var(--safe-bottom);
-    padding-left: var(--safe-left);
-    padding-right: var(--safe-right);
-    /* Responsive and accessible font sizing */
-    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
+    padding-top: var(--safe-area-inset-top);
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
   }
   
-  /* Typography classes with responsive scaling */
-  h1, .text-h1 {
-    font-size: calc(var(--font-size-4xl) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-tight);
-    font-weight: 700;
-  }
-  
-  h2, .text-h2 {
-    font-size: calc(var(--font-size-3xl) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-tight);
-    font-weight: 600;
-  }
-  
-  h3, .text-h3 {
-    font-size: calc(var(--font-size-2xl) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-tight);
-    font-weight: 600;
-  }
-  
-  h4, .text-h4 {
-    font-size: calc(var(--font-size-xl) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
-    font-weight: 600;
-  }
-  
-  h5, .text-h5 {
-    font-size: calc(var(--font-size-lg) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
-    font-weight: 600;
-  }
-  
-  h6, .text-h6 {
-    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
-    font-weight: 600;
-  }
-  
-  p, .text-body {
-    font-size: calc(var(--font-size-base) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-relaxed);
-  }
-  
-  .text-small {
-    font-size: calc(var(--font-size-sm) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
-  }
-  
-  .text-tiny {
-    font-size: calc(var(--font-size-xs) * var(--font-scale-multiplier, 1));
-    line-height: var(--line-height-normal);
-  }
-  
-  /* Ensure buttons and inputs respect font scaling */
-  button, input, select, textarea {
-    font-size: inherit;
-  }
-  
-  #root {
+  html, body, #root {
     height: 100%;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
   }
 }
 
 @layer utilities {
-  /* Safe area utilities for responsive layout */
-  .safe-top {
-    padding-top: var(--min-safe-top);
-  }
-  
-  .safe-bottom {
-    padding-bottom: var(--min-safe-bottom);
-  }
-  
-  .safe-left {
-    padding-left: max(var(--safe-left), 1rem);
-  }
-  
-  .safe-right {
-    padding-right: max(var(--safe-right), 1rem);
-  }
-  
-  .safe-all {
-    padding-top: var(--min-safe-top);
-    padding-bottom: var(--min-safe-bottom);
-    padding-left: max(var(--safe-left), 1rem);
-    padding-right: max(var(--safe-right), 1rem);
-  }
-  
-  /* Responsive container with safe areas */
-  .container-responsive {
-    width: 100%;
-    max-width: 100%;
-    padding-left: max(var(--safe-left), 1rem);
-    padding-right: max(var(--safe-right), 1rem);
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  @media (min-width: 640px) {
-    .container-responsive {
-      max-width: 640px;
-    }
-  }
-  
-  @media (min-width: 768px) {
-    .container-responsive {
-      max-width: 768px;
-    }
-  }
-  
-  @media (min-width: 1024px) {
-    .container-responsive {
-      max-width: 1024px;
-    }
-  }
-  
-  @media (min-width: 1280px) {
-    .container-responsive {
-      max-width: 1280px;
-    }
-  }
-
   .game-glow {
     box-shadow: var(--shadow-glow);
   }
@@ -351,37 +161,8 @@ All colors MUST be HSL.
     background: var(--gradient-accent);
   }
   
-  .gradient-hero {
-    background: var(--gradient-hero);
-  }
-  
-  .glass-card {
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-  }
-  
-  .neon-glow {
-    box-shadow: var(--shadow-neon);
-  }
-  
-  .premium-shadow {
-    box-shadow: var(--shadow-premium);
-  }
-  
   .animate-float {
     animation: float 3s ease-in-out infinite;
-  }
-  
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-shift 8s ease infinite;
-  }
-  
-  @keyframes gradient-shift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
   }
   
   @keyframes float {

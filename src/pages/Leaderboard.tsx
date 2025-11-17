@@ -32,19 +32,16 @@ const Leaderboard = () => {
 
   if (isLoading) {
     return (
-      <div className="h-full bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="min-h-full bg-background relative overflow-hidden">
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
-        
-        <div className="container-responsive space-y-4 sm:space-y-6 relative z-10 py-4 sm:py-6 pb-20">
+    <ScrollArea className="h-screen">
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
