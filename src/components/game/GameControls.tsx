@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCw, ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
 
@@ -16,6 +17,42 @@ const GameControls = ({
   onMoveDown,
   disabled
 }: GameControlsProps) => {
+  const fastDownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDownPress = () => {
+    if (disabled) return;
+    onMoveDown();
+    
+    // Clear any existing interval
+    if (fastDownIntervalRef.current) {
+      clearInterval(fastDownIntervalRef.current);
+    }
+    
+    // Start fast continuous movement
+    fastDownIntervalRef.current = setInterval(() => {
+      if (!disabled) {
+        onMoveDown();
+      }
+    }, 50);
+  };
+
+  const handleDownRelease = () => {
+    if (fastDownIntervalRef.current) {
+      clearInterval(fastDownIntervalRef.current);
+      fastDownIntervalRef.current = null;
+    }
+  };
+
+  // Cleanup on unmount or when disabled
+  useEffect(() => {
+    if (disabled) {
+      handleDownRelease();
+    }
+    return () => {
+      handleDownRelease();
+    };
+  }, [disabled]);
+
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex justify-center">
@@ -43,6 +80,11 @@ const GameControls = ({
           variant="neon"
           size="lg"
           onClick={onMoveDown}
+          onMouseDown={handleDownPress}
+          onMouseUp={handleDownRelease}
+          onMouseLeave={handleDownRelease}
+          onTouchStart={handleDownPress}
+          onTouchEnd={handleDownRelease}
           disabled={disabled}
           className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
