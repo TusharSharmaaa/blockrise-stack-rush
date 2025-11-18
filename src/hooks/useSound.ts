@@ -35,12 +35,24 @@ const SOUND_FREQUENCIES: Record<SoundName, number> = {
   bgMusic: 220
 };
 
+const AUDIO_DISABLED = true;
+
+const getDisabledSettings = (): SoundSettings => ({
+  soundEnabled: false,
+  musicEnabled: false,
+  volume: 0
+});
+
 export const useSound = () => {
-  const [settings, setSettings] = useState<SoundSettings>({
-    soundEnabled: true,
-    musicEnabled: true,
-    volume: 0.7
-  });
+  const [settings, setSettings] = useState<SoundSettings>(() =>
+    AUDIO_DISABLED
+      ? getDisabledSettings()
+      : {
+          soundEnabled: true,
+          musicEnabled: true,
+          volume: 0.7
+        }
+  );
 
   const soundsRef = useRef<Partial<Record<SoundName, HTMLAudioElement>>>({});
   const musicRef = useRef<HTMLAudioElement | null>(null);
@@ -49,6 +61,11 @@ export const useSound = () => {
   const fallbackMusicGainRef = useRef<GainNode | null>(null);
 
   useEffect(() => {
+    if (AUDIO_DISABLED) {
+      setSettings(getDisabledSettings());
+      return;
+    }
+
     let isMounted = true;
 
     const loadSettingsFromStorage = async () => {
@@ -151,6 +168,9 @@ export const useSound = () => {
   };
 
   const playFallbackTone = (soundName: SoundName) => {
+    if (AUDIO_DISABLED) {
+      return;
+    }
     const ctx = getAudioContext();
     if (!ctx) return;
 
@@ -170,6 +190,9 @@ export const useSound = () => {
   };
 
   const startFallbackMusic = () => {
+    if (AUDIO_DISABLED) {
+      return;
+    }
     const ctx = getAudioContext();
     if (!ctx) return;
 
@@ -201,7 +224,7 @@ export const useSound = () => {
   };
 
   const playSound = (soundName: keyof typeof SOUND_URLS) => {
-    if (!settings.soundEnabled || soundName === 'bgMusic') return;
+    if (AUDIO_DISABLED || !settings.soundEnabled || soundName === 'bgMusic') return;
 
     const sound = soundsRef.current[soundName];
     if (sound) {
@@ -217,7 +240,7 @@ export const useSound = () => {
   };
 
   const playMusic = () => {
-    if (!settings.musicEnabled) return;
+    if (AUDIO_DISABLED || !settings.musicEnabled) return;
 
     if (musicRef.current) {
       musicRef.current.volume = settings.volume * 0.3;
@@ -239,11 +262,21 @@ export const useSound = () => {
   };
 
   const toggleSound = async (enabled: boolean) => {
+    if (AUDIO_DISABLED) {
+      setSettings(getDisabledSettings());
+      await Preferences.set({ key: 'soundEnabled', value: 'false' });
+      return;
+    }
     setSettings(prev => ({ ...prev, soundEnabled: enabled }));
     await Preferences.set({ key: 'soundEnabled', value: String(enabled) });
   };
 
   const toggleMusic = async (enabled: boolean) => {
+    if (AUDIO_DISABLED) {
+      setSettings(getDisabledSettings());
+      await Preferences.set({ key: 'musicEnabled', value: 'false' });
+      return;
+    }
     setSettings(prev => ({ ...prev, musicEnabled: enabled }));
     await Preferences.set({ key: 'musicEnabled', value: String(enabled) });
     
@@ -255,6 +288,12 @@ export const useSound = () => {
   };
 
   const setVolume = async (volume: number) => {
+    if (AUDIO_DISABLED) {
+      const disabledSettings = getDisabledSettings();
+      setSettings(disabledSettings);
+      await Preferences.set({ key: 'volume', value: String(disabledSettings.volume) });
+      return;
+    }
     setSettings(prev => ({ ...prev, volume }));
     await Preferences.set({ key: 'volume', value: String(volume) });
 

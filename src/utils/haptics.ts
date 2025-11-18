@@ -2,9 +2,12 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 
 const isNative = Capacitor.isNativePlatform();
+const HAPTICS_ENABLED = false;
+
+const canUseHaptics = () => HAPTICS_ENABLED && isNative;
 
 export const hapticImpact = async (style: ImpactStyle = ImpactStyle.Light) => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.impact({ style });
   } catch (error) {
@@ -13,7 +16,7 @@ export const hapticImpact = async (style: ImpactStyle = ImpactStyle.Light) => {
 };
 
 export const hapticNotification = async (type: NotificationType = NotificationType.Success) => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.notification({ type });
   } catch (error) {
@@ -22,7 +25,7 @@ export const hapticNotification = async (type: NotificationType = NotificationTy
 };
 
 export const hapticVibrate = async (duration: number = 100) => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.vibrate({ duration });
   } catch (error) {
@@ -31,7 +34,7 @@ export const hapticVibrate = async (duration: number = 100) => {
 };
 
 export const hapticSelectionStart = async () => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.selectionStart();
   } catch (error) {
@@ -40,7 +43,7 @@ export const hapticSelectionStart = async () => {
 };
 
 export const hapticSelectionChanged = async () => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.selectionChanged();
   } catch (error) {
@@ -49,7 +52,7 @@ export const hapticSelectionChanged = async () => {
 };
 
 export const hapticSelectionEnd = async () => {
-  if (!isNative) return;
+  if (!canUseHaptics()) return;
   try {
     await Haptics.selectionEnd();
   } catch (error) {

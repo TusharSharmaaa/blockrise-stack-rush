@@ -7,9 +7,10 @@ import {
   GRID_WIDTH,
   GRID_HEIGHT
 } from '@/utils/blockShapes';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { ImpactStyle } from '@capacitor/haptics';
 import { Preferences } from '@capacitor/preferences';
 import { GAME_CONSTANTS } from '@/utils/gameConstants';
+import { hapticImpact } from '@/utils/haptics';
 
 const BASE_SPEED = GAME_CONSTANTS.BASE_SPEED;
 const SPEED_INCREASE_PER_LEVEL = GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL;
@@ -181,13 +182,13 @@ export const useGameLoop = () => {
 
     // Haptic feedback on line clear
     if (linesCleared > 0) {
-      Haptics.impact({ style: ImpactStyle.Medium });
+      hapticImpact(ImpactStyle.Medium);
     }
 
     // Check if top row has any blocks (game over condition)
     const topRowHasBlocks = clearedGrid[0]?.some(cell => cell !== null);
     if (topRowHasBlocks) {
-      Haptics.impact({ style: ImpactStyle.Heavy });
+      hapticImpact(ImpactStyle.Heavy);
       return {
         ...state,
         grid: clearedGrid,
@@ -210,7 +211,7 @@ export const useGameLoop = () => {
 
     // Check if game over (next block can't be placed)
     if (checkCollision(newCurrentBlock, clearedGrid)) {
-      Haptics.impact({ style: ImpactStyle.Heavy });
+      hapticImpact(ImpactStyle.Heavy);
       return {
         ...state,
         grid: clearedGrid,
@@ -260,7 +261,7 @@ export const useGameLoop = () => {
   }, [checkCollision, placeBlock]);
 
   const moveLeft = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
+    hapticImpact(ImpactStyle.Light);
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, -1, 0)) {
@@ -277,7 +278,7 @@ export const useGameLoop = () => {
   }, [checkCollision]);
 
   const moveRight = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
+    hapticImpact(ImpactStyle.Light);
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, 1, 0)) {
@@ -294,7 +295,7 @@ export const useGameLoop = () => {
   }, [checkCollision]);
 
   const rotate = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
+    hapticImpact(ImpactStyle.Light);
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       const rotated = rotateShape(state.currentBlock.shape);
