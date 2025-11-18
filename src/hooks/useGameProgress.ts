@@ -470,20 +470,14 @@ export const useGameProgress = () => {
     const newLevelStars = { ...currentProgress.levelStars };
     const newUnlockedLevels = [...currentProgress.unlockedLevels];
 
-    // If level is completed by score (not by ad)
-    if (isLevelCompleted && newLevelCompletionMethod[level] !== 'ad') {
-      // Set completion method to score
+    // If level is completed by score (regardless of previous ad unlocks)
+    if (isLevelCompleted) {
       newLevelCompletionMethod[level] = 'score';
-      
-      // Calculate stars based on attempts
+
       const attempts = currentProgress.levelAttempts[level] || 1;
-      if (attempts === 1) {
-        newLevelStars[level] = 3; // 3 stars for first attempt
-      } else if (attempts === 2) {
-        newLevelStars[level] = 2; // 2 stars for second attempt
-      } else {
-        newLevelStars[level] = 1; // 1 star for 3+ attempts
-      }
+      const starsThisRun = attempts === 1 ? 3 : attempts === 2 ? 2 : 1;
+      const previousStars = newLevelStars[level] || 0;
+      newLevelStars[level] = Math.max(previousStars, starsThisRun);
 
       // Unlock next level when current level is completed
       const nextLevel = level + 1;
@@ -606,14 +600,14 @@ export const useGameProgress = () => {
       [level]: Math.max(updatedProgress.levelScores[level] || 0, currentScore) // Keep actual score; no bonus points
     };
 
-    // Set completion method to ad and give 3 stars (always 3 stars for ad completion)
+    // Set completion method to ad and give 0 stars until player clears it normally
     const newLevelCompletionMethod = {
       ...updatedProgress.levelCompletionMethod,
       [level]: 'ad' as const
     };
     const newLevelStars = {
       ...updatedProgress.levelStars,
-      [level]: 3 // Always 3 stars for ad completion
+      [level]: 0
     };
 
     // Unlock next level if not already unlocked

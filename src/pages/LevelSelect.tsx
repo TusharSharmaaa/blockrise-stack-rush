@@ -245,19 +245,43 @@ const LevelSelect = () => {
         </div>
 
         {/* Info Card */}
-        <div className="bg-card rounded-lg p-6 card-elevated space-y-3">
-          <h3 className="font-semibold mb-2">💡 Level System</h3>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• <strong>Level 1</strong> is unlocked initially</li>
-            <li>• <strong>Level 2</strong> unlocks automatically when you complete Level 1</li>
-            <li>• <strong>Level 3+</strong>: Watch {progress.adsRequiredPerLevel} video ads (one per tap) to unlock each level</li>
-            <li>• You can unlock <strong>maximum 2 levels per day</strong> by watching ads</li>
-            <li>• Reach target score to complete levels</li>
-            <li>• <strong>Star System:</strong></li>
-            <li className="ml-4">  - Complete via ad: Always 3★</li>
-            <li className="ml-4">  - Complete by score: 1 attempt = 3★, 2 attempts = 2★, 3+ attempts = 1★</li>
-            <li>• <strong>Note:</strong> Levels unlocked via ads do not award any points until you finish them normally</li>
-          </ul>
+        <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Level System</p>
+              <h3 className="text-lg font-semibold mt-1">Know the basics</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="text-xs font-semibold">Max 2 unlocks/day</Badge>
+              <Badge variant="outline" className="text-xs font-semibold">{progress.adsRequiredPerLevel} ads / level</Badge>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 text-sm text-muted-foreground">
+            <div className="space-y-2">
+              <p className="text-foreground font-semibold flex items-center gap-2">
+                <Video className="h-4 w-4 text-primary" />
+                Unlocking
+              </p>
+              <ul className="space-y-1">
+                <li>Level 1 is open. Beat Level 1 to auto-unlock Level 2.</li>
+                <li>Level 3+ need {progress.adsRequiredPerLevel} rewarded ads (limit two unlocks a day).</li>
+                <li>Ad progress saves—pick up where you left off.</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-foreground font-semibold flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                Finishing & stars
+              </p>
+              <ul className="space-y-1">
+                <li>Hit the target score shown on each tile to clear it.</li>
+                <li>Unlock via ad: 0★ and no points until you win normally.</li>
+                <li>Score clear: 1 try = 3★, 2 tries = 2★, 3+ tries = 1★.</li>
+              </ul>
+            </div>
+          </div>
         </div>
         </div>
       </div>
