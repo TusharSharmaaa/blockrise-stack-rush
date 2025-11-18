@@ -9,3 +9,4 @@ CREATE POLICY "Countries are viewable by everyone"
 
 
 
+
