@@ -26,7 +26,7 @@ const INITIAL_INVENTORY: PowerUpInventory = {
 export const usePowerUps = () => {
   const [inventory, setInventory] = useState<PowerUpInventory>(INITIAL_INVENTORY);
   const [activePowerUps, setActivePowerUps] = useState<ActivePowerUpMap>({});
-  const timeoutRefs = useRef<number[]>([]);
+  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const schedulePowerUpExpiration = useCallback((type: keyof PowerUpInventory, duration: number, startTime: number) => {
     if (typeof window === 'undefined') return;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
@@ -41,6 +41,7 @@ const Game = () => {
   const [previousScore, setPreviousScore] = useState(0);
   const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
   const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
+  const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scoreRequirement = getScoreRequirement(activeLevel);
   const {
     gameState,
@@ -85,7 +86,14 @@ const Game = () => {
   useEffect(() => {
     loadInventory();
     playMusic();
-    return () => stopMusic();
+    return () => {
+      stopMusic();
+      // Clean up slowTime timeout on unmount
+      if (slowTimeTimeoutRef.current) {
+        clearTimeout(slowTimeTimeoutRef.current);
+        slowTimeTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   // Track score changes for achievements and level completion
@@ -114,7 +122,9 @@ const Game = () => {
 
       // Check for level completion and unlock next level
       const checkLevelCompletion = async () => {
-        if (hasMetLevelGoal) {
+        const requirement = getScoreRequirement(activeLevel);
+        const hasMetGoal = gameState.score >= requirement;
+        if (hasMetGoal) {
           const nextLevel = activeLevel + 1;
           if (nextLevel <= 50) {
             const unlocked = await completeLevel(activeLevel, gameState.score);
@@ -128,7 +138,7 @@ const Game = () => {
       checkLevelCompletion();
     }
     setPreviousScore(gameState.score);
-  }, [gameState.score, previousScore, checkAndUnlock, addCoins, hasCompletedLevel, activeLevel, progress.unlockedLevels, completeLevel, hasMetLevelGoal]);
+  }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, playSound]);
 
   // Track level achievements
   useEffect(() => {
@@ -207,17 +217,29 @@ const Game = () => {
         toast.success('Next blocks shuffled!');
         break;
       case 'slowTime':
+        // Clear any existing slowTime timeout
+        if (slowTimeTimeoutRef.current) {
+          clearTimeout(slowTimeTimeoutRef.current);
+          slowTimeTimeoutRef.current = null;
+        }
         // Slow down game speed
         setGameState(prevState => ({
           ...prevState,
           speed: prevState.speed * 2
         }));
-        // Reset speed after duration
-        setTimeout(() => {
-          setGameState(prevState => ({
-            ...prevState,
-            speed: Math.max(100, 1000 - (prevState.level - 1) * 100)
-          }));
+        // Reset speed after duration using the same formula as game loop
+        slowTimeTimeoutRef.current = setTimeout(() => {
+          setGameState(prevState => {
+            const BASE_SPEED = 1000;
+            const SPEED_INCREASE_PER_LEVEL = 100;
+            const MIN_SPEED = 100;
+            const calculatedSpeed = Math.max(MIN_SPEED, BASE_SPEED - (prevState.level - 1) * SPEED_INCREASE_PER_LEVEL);
+            return {
+              ...prevState,
+              speed: calculatedSpeed
+            };
+          });
+          slowTimeTimeoutRef.current = null;
         }, 30000);
         toast.success('Time slowed for 30s!');
         break;
@@ -265,7 +287,9 @@ const Game = () => {
       
       const handleGameOver = async () => {
         // Check for level completion and unlock next level
-        if (hasMetLevelGoal) {
+        const requirement = getScoreRequirement(activeLevel);
+        const hasMetGoal = gameState.score >= requirement;
+        if (hasMetGoal) {
           const nextLevel = activeLevel + 1;
           if (nextLevel <= 50) {
             await completeLevel(activeLevel, gameState.score);
@@ -333,7 +357,7 @@ const Game = () => {
 
       handleGameOver();
     }
-  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic, activeLevel, hasMetLevelGoal]);
+  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic, activeLevel, getScoreRequirement, completeLevel]);
 
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();

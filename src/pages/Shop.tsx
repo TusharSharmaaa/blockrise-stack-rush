@@ -13,7 +13,7 @@ import { NativeAdCard } from '@/components/ads/NativeAdCard';
 
 const Shop = () => {
   const navigate = useNavigate();
-  const { progress, addCoins } = useGameProgress();
+  const { progress, addCoins, watchAdForCoins } = useGameProgress();
   const { addPowerUp, inventory, loadInventory } = usePowerUps();
   const { showRewardedAd, isRewardedLoading } = useAdMob();
   const [isWatchingAd, setIsWatchingAd] = useState(false);
@@ -39,9 +39,12 @@ const Shop = () => {
     try {
       const result = await showRewardedAd();
       if (result.success) {
-        const coinsEarned = 25; // Reward amount
-        await addCoins(coinsEarned);
-        toast.success(`🎉 You earned ${coinsEarned} coins!`);
+        const rewardResult = await watchAdForCoins(50); // Use hook function with 50 coins reward
+        if (rewardResult.success) {
+          toast.success(`🎉 You earned ${rewardResult.coinsEarned} coins!`);
+        } else {
+          toast.error(rewardResult.message || 'Failed to claim coins');
+        }
       } else {
         toast.error('Ad was not completed. Please try again.');
       }
@@ -110,7 +113,7 @@ const Shop = () => {
                 <Video className="mr-2 h-5 w-5" />
                 {isWatchingAd || isRewardedLoading
                   ? 'Loading Ad...'
-                  : 'Watch Ad & Earn 25 Coins'}
+                  : 'Watch Ad & Earn 50 Coins'}
               </Button>
               <p className="text-xs text-muted-foreground">
                 💰 Current Balance: {progress.totalCoins} coins

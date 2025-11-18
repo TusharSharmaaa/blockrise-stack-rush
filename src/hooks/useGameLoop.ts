@@ -345,14 +345,17 @@ export const useGameLoop = () => {
   }, []);
 
   useEffect(() => {
+    // Clear any existing interval first
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+
     if (gameState.gameOver || gameState.paused) {
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current);
-        gameLoopRef.current = null;
-      }
       return;
     }
 
+    // Create new interval
     gameLoopRef.current = setInterval(() => {
       moveDown();
     }, gameState.speed);
@@ -360,6 +363,7 @@ export const useGameLoop = () => {
     return () => {
       if (gameLoopRef.current) {
         clearInterval(gameLoopRef.current);
+        gameLoopRef.current = null;
       }
     };
   }, [gameState.speed, gameState.gameOver, gameState.paused, moveDown]);
