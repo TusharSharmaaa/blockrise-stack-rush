@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,8 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const USERNAME_CACHE_DURATION_MS = 5 * 60 * 1000;
 
 const ProfileSetupDialog = () => {
   const { profile, isLoading: profileLoading, createProfile, checkNameUnique } = useUserProfile();
@@ -35,7 +37,63 @@ const ProfileSetupDialog = () => {
   const skipButtonTimerRef = useRef<NodeJS.Timeout | null>(null);
   const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
   const checkNameUniqueRef = useRef(checkNameUnique);
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  const generateUsernameSuggestions = useCallback(async (baseName: string) => {
+    const suggestions: string[] = [];
+    
+    // Get country code if available
+    const selectedCountry = countries.find(c => c.name === country);
+    const countryCode = selectedCountry?.code?.slice(0, 2).toUpperCase() || '';
+    const countryName = country.toLowerCase().replace(/\s+/g, '');
+    
+    // Generate different types of suggestions
+    const candidates = [
+      `${baseName}_${countryCode}`,           // username_IN
+      `${baseName}_${countryName}`,           // username_india
+      `${baseName}${countryCode}`,            // usernameIN
+      `${baseName}2`,                         // username2
+      `${baseName}_2`,                        // username_2
+      `${baseName}3`,                         // username3
+      `${baseName}_${Math.floor(Math.random() * 100)}`, // username_42
+    ];
+    
+    // Check availability of each suggestion
+    for (const candidate of candidates) {
+      if (suggestions.length >= 3) break; // Limit to 3 suggestions
+      
+      try {
+        const candidateLower = candidate.toLowerCase();
+        
+        // Check cache first
+        const cached = usernameCheckCacheRef.current.get(candidateLower);
+        const now = Date.now();
+        
+        let isAvailable: boolean;
+        
+        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
+          // Use cached result
+          isAvailable = cached.available;
+        } else {
+          // Make API call
+          isAvailable = await checkNameUniqueRef.current(candidate);
+          
+          // Cache the result
+          usernameCheckCacheRef.current.set(candidateLower, {
+            available: isAvailable,
+            timestamp: now
+          });
+        }
+        
+        if (isAvailable) {
+          suggestions.push(candidate);
+        }
+      } catch (error) {
+        console.error('Error checking suggestion:', candidate, error);
+      }
+    }
+    
+    setUsernameSuggestions(suggestions);
+  }, [countries, country]);
 
   // Keep ref updated with latest function
   useEffect(() => {
@@ -142,7 +200,7 @@ const ProfileSetupDialog = () => {
         const cached = usernameCheckCacheRef.current.get(trimmedName);
         const now = Date.now();
         
-        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
           // Use cached result
           console.log('[ProfileSetup] Using cached result for:', trimmedName);
           if (timeoutId) clearTimeout(timeoutId);
@@ -226,64 +284,7 @@ const ProfileSetupDialog = () => {
       // Reset loading state on cleanup to prevent stuck spinner
       setIsCheckingUsername(false);
     };
-  }, [name, isOnline]); // Removed checkNameUnique from dependencies to prevent unnecessary re-runs
-
-  const generateUsernameSuggestions = async (baseName: string) => {
-    const suggestions: string[] = [];
-    
-    // Get country code if available
-    const selectedCountry = countries.find(c => c.name === country);
-    const countryCode = selectedCountry?.code?.slice(0, 2).toUpperCase() || '';
-    const countryName = country.toLowerCase().replace(/\s+/g, '');
-    
-    // Generate different types of suggestions
-    const candidates = [
-      `${baseName}_${countryCode}`,           // username_IN
-      `${baseName}_${countryName}`,           // username_india
-      `${baseName}${countryCode}`,            // usernameIN
-      `${baseName}2`,                         // username2
-      `${baseName}_2`,                        // username_2
-      `${baseName}3`,                         // username3
-      `${baseName}_${Math.floor(Math.random() * 100)}`, // username_42
-    ];
-    
-    // Check availability of each suggestion
-    for (const candidate of candidates) {
-      if (suggestions.length >= 3) break; // Limit to 3 suggestions
-      
-      try {
-        const candidateLower = candidate.toLowerCase();
-        
-        // Check cache first
-        const cached = usernameCheckCacheRef.current.get(candidateLower);
-        const now = Date.now();
-        
-        let isAvailable: boolean;
-        
-        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-          // Use cached result
-          isAvailable = cached.available;
-        } else {
-          // Make API call
-          isAvailable = await checkNameUniqueRef.current(candidate);
-          
-          // Cache the result
-          usernameCheckCacheRef.current.set(candidateLower, {
-            available: isAvailable,
-            timestamp: now
-          });
-        }
-        
-        if (isAvailable) {
-          suggestions.push(candidate);
-        }
-      } catch (error) {
-        console.error('Error checking suggestion:', candidate, error);
-      }
-    }
-    
-    setUsernameSuggestions(suggestions);
-  };
+  }, [name, isOnline, generateUsernameSuggestions]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setName(suggestion);
@@ -384,9 +385,10 @@ const ProfileSetupDialog = () => {
       setOpen(false);
       
       toast.success('Profile created! Welcome to BlockRise! 🎉');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ProfileSetup] Error during submission:', error);
-      const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Saving failed. Check your connection and try again.';
       
       // Handle username conflict specifically
       if (errorMessage === 'USERNAME_TAKEN' || 

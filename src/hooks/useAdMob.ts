@@ -1,5 +1,5 @@
 import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, RewardAdPluginEvents, AdMobRewardItem, InterstitialAdPluginEvents } from '@capacitor-community/admob';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { ADMOB_CONFIG } from '@/config/admob';
 
@@ -23,6 +23,44 @@ export const useAdMob = () => {
   const [isRewardedLoading, setIsRewardedLoading] = useState(false);
   const [isInterstitialLoading, setIsInterstitialLoading] = useState(false);
   const [initialized, setInitialized] = useState(isInitialized);
+
+  const preloadInterstitial = useCallback(async () => {
+    if (!isNative || !isInitialized) return;
+    if (isInterstitialReady) return;
+
+    try {
+      // Setup dismiss listener once
+      if (!interstitialDismissListener) {
+        interstitialDismissListener = await AdMob.addListener(
+          InterstitialAdPluginEvents.Dismissed,
+          () => {
+            isInterstitialReady = false;
+            // Immediately preload next interstitial (don't await to avoid blocking)
+            preloadInterstitial().catch(err => console.error('Failed to preload interstitial after dismiss:', err));
+          }
+        );
+      }
+
+      await AdMob.prepareInterstitial({ adId: AD_UNITS.interstitial });
+      isInterstitialReady = true;
+    } catch (error) {
+      console.error('Preload interstitial failed:', error);
+      isInterstitialReady = false;
+    }
+  }, []);
+
+  const preloadRewarded = useCallback(async () => {
+    if (!isNative || !isInitialized) return;
+    if (isRewardedReady) return;
+
+    try {
+      await AdMob.prepareRewardVideoAd({ adId: AD_UNITS.rewarded });
+      isRewardedReady = true;
+    } catch (error) {
+      console.error('Preload rewarded failed:', error);
+      isRewardedReady = false;
+    }
+  }, []);
 
   // Initialize AdMob on mount and preload ads
   useEffect(() => {
@@ -53,45 +91,7 @@ export const useAdMob = () => {
     };
 
     initAndPreload();
-  }, []);
-
-  const preloadInterstitial = async () => {
-    if (!isNative || !isInitialized) return;
-    if (isInterstitialReady) return;
-
-    try {
-      // Setup dismiss listener once
-      if (!interstitialDismissListener) {
-        interstitialDismissListener = await AdMob.addListener(
-          InterstitialAdPluginEvents.Dismissed,
-          () => {
-            isInterstitialReady = false;
-            // Immediately preload next interstitial (don't await to avoid blocking)
-            preloadInterstitial().catch(err => console.error('Failed to preload interstitial after dismiss:', err));
-          }
-        );
-      }
-
-      await AdMob.prepareInterstitial({ adId: AD_UNITS.interstitial });
-      isInterstitialReady = true;
-    } catch (error) {
-      console.error('Preload interstitial failed:', error);
-      isInterstitialReady = false;
-    }
-  };
-
-  const preloadRewarded = async () => {
-    if (!isNative || !isInitialized) return;
-    if (isRewardedReady) return;
-
-    try {
-      await AdMob.prepareRewardVideoAd({ adId: AD_UNITS.rewarded });
-      isRewardedReady = true;
-    } catch (error) {
-      console.error('Preload rewarded failed:', error);
-      isRewardedReady = false;
-    }
-  };
+  }, [preloadInterstitial, preloadRewarded]);
 
   const showBanner = async () => {
     if (!isNative) {
@@ -232,7 +232,8 @@ export const useAdMob = () => {
       }
     }
 
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
+      const run = async () => {
       let rewardListener: PluginListenerHandle | undefined;
       let dismissListener: PluginListenerHandle | undefined;
       let rewardEarned: AdMobRewardItem | null = null;
@@ -244,54 +245,57 @@ export const useAdMob = () => {
         dismissListener = undefined;
       };
 
-      try {
-        setIsRewardedLoading(true);
+        try {
+          setIsRewardedLoading(true);
 
-        rewardListener = await AdMob.addListener(
-          RewardAdPluginEvents.Rewarded,
-          (reward: AdMobRewardItem) => {
-            rewardEarned = reward;
-          }
-        );
-
-        dismissListener = await AdMob.addListener(
-          RewardAdPluginEvents.Dismissed,
-          () => {
-            setIsRewardedLoading(false);
-            isRewardedReady = false;
-            cleanup();
-
-            if (rewardEarned) {
-              resolve({ success: true, reward: rewardEarned });
-            } else {
-              resolve({ success: false });
+          rewardListener = await AdMob.addListener(
+            RewardAdPluginEvents.Rewarded,
+            (reward: AdMobRewardItem) => {
+              rewardEarned = reward;
             }
-            
-            // Immediately preload next rewarded ad (don't await to avoid blocking)
-            preloadRewarded().catch(err => console.error('Failed to preload rewarded after dismiss:', err));
-          }
-        );
+          );
 
-        // If ad is ready, show immediately
-        if (isRewardedReady) {
+          dismissListener = await AdMob.addListener(
+            RewardAdPluginEvents.Dismissed,
+            () => {
+              setIsRewardedLoading(false);
+              isRewardedReady = false;
+              cleanup();
+
+              if (rewardEarned) {
+                resolve({ success: true, reward: rewardEarned });
+              } else {
+                resolve({ success: false });
+              }
+              
+              // Immediately preload next rewarded ad (don't await to avoid blocking)
+              preloadRewarded().catch(err => console.error('Failed to preload rewarded after dismiss:', err));
+            }
+          );
+
+          // If ad is ready, show immediately
+          if (isRewardedReady) {
+            await AdMob.showRewardVideoAd();
+            isRewardedReady = false;
+            return; // Listener will handle cleanup
+          }
+
+          // If not ready, prepare and show immediately
+          await AdMob.prepareRewardVideoAd({ adId: AD_UNITS.rewarded });
           await AdMob.showRewardVideoAd();
           isRewardedReady = false;
-          return; // Listener will handle cleanup
+        } catch (error) {
+          console.error('Show rewarded ad failed:', error);
+          setIsRewardedLoading(false);
+          isRewardedReady = false;
+          cleanup();
+          resolve({ success: false });
+          // Try to preload for next time (don't await to avoid blocking)
+          preloadRewarded().catch(err => console.error('Failed to preload rewarded after error:', err));
         }
+      };
 
-        // If not ready, prepare and show immediately
-        await AdMob.prepareRewardVideoAd({ adId: AD_UNITS.rewarded });
-        await AdMob.showRewardVideoAd();
-        isRewardedReady = false;
-      } catch (error) {
-        console.error('Show rewarded ad failed:', error);
-        setIsRewardedLoading(false);
-        isRewardedReady = false;
-        cleanup();
-        resolve({ success: false });
-        // Try to preload for next time (don't await to avoid blocking)
-        preloadRewarded().catch(err => console.error('Failed to preload rewarded after error:', err));
-      }
+      run();
     });
   };
 

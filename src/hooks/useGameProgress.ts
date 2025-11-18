@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Preferences } from '@capacitor/preferences';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -110,16 +110,12 @@ export const useGameProgress = () => {
     progressRef.current = progress;
   }, [progress]);
 
-  useEffect(() => {
-    loadProgress();
-  }, []);
-
-  const migrateProgress = (savedProgress: any): LevelProgress => {
+  const migrateProgress = (savedProgress: Partial<LevelProgress>): LevelProgress => {
     // Migrate old progress format to new format
-    // IMPORTANT: Spread savedProgress FIRST, then INITIAL_PROGRESS to preserve existing values
+    // IMPORTANT: Spread INITIAL_PROGRESS first, then savedProgress to keep existing data
     const migrated: LevelProgress = {
-      ...savedProgress,
       ...INITIAL_PROGRESS,
+      ...savedProgress,
       // Override with saved values (preserve existing data)
       currentLevel: savedProgress.currentLevel ?? INITIAL_PROGRESS.currentLevel,
       unlockedLevels: savedProgress.unlockedLevels && savedProgress.unlockedLevels.length > 0 
@@ -152,11 +148,32 @@ export const useGameProgress = () => {
     return migrated;
   };
 
-  const loadProgress = async () => {
+  const saveProgress = useCallback(async (newProgress: LevelProgress) => {
+    // Update ref first
+    progressRef.current = newProgress;
+    // Update local state immediately so UI reflects changes in real time
+    setProgress(newProgress);
+
+    try {
+      await Preferences.set({
+        key: 'gameProgress',
+        value: JSON.stringify(newProgress)
+      });
+      console.log('✅ Progress saved:', {
+        adsWatchedForNextLevel: newProgress.adsWatchedForNextLevel,
+        adsWatchedForUnlockCountToday: newProgress.adsWatchedForUnlockCountToday,
+        maxAdsForUnlockPerDay: newProgress.maxAdsForUnlockPerDay
+      });
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
+  }, []);
+
+  const loadProgress = useCallback(async () => {
     try {
       const { value } = await Preferences.get({ key: 'gameProgress' });
       if (value) {
-        const savedProgress = JSON.parse(value);
+        const savedProgress = JSON.parse(value) as Partial<LevelProgress>;
         console.log('📂 Loaded saved progress:', {
           hasAdsWatchedForUnlockCountToday: 'adsWatchedForUnlockCountToday' in savedProgress,
           hasMaxAdsForUnlockPerDay: 'maxAdsForUnlockPerDay' in savedProgress,
@@ -184,28 +201,11 @@ export const useGameProgress = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [saveProgress]);
 
-  const saveProgress = async (newProgress: LevelProgress) => {
-    // Update ref first
-    progressRef.current = newProgress;
-    // Update local state immediately so UI reflects changes in real time
-    setProgress(newProgress);
-
-    try {
-      await Preferences.set({
-        key: 'gameProgress',
-        value: JSON.stringify(newProgress)
-      });
-      console.log('✅ Progress saved:', {
-        adsWatchedForNextLevel: newProgress.adsWatchedForNextLevel,
-        adsWatchedForUnlockCountToday: newProgress.adsWatchedForUnlockCountToday,
-        maxAdsForUnlockPerDay: newProgress.maxAdsForUnlockPerDay
-      });
-    } catch (error) {
-      console.error('Failed to save progress:', error);
-    }
-  };
+  useEffect(() => {
+    loadProgress();
+  }, [loadProgress]);
 
   const updateDailyStreak = (savedProgress: LevelProgress) => {
     const today = new Date().toDateString();
@@ -466,9 +466,9 @@ export const useGameProgress = () => {
     const requirement = getScoreRequirement(level);
     const isLevelCompleted = score >= requirement;
     
-    let newLevelCompletionMethod = { ...currentProgress.levelCompletionMethod };
-    let newLevelStars = { ...currentProgress.levelStars };
-    let newUnlockedLevels = [...currentProgress.unlockedLevels];
+    const newLevelCompletionMethod = { ...currentProgress.levelCompletionMethod };
+    const newLevelStars = { ...currentProgress.levelStars };
+    const newUnlockedLevels = [...currentProgress.unlockedLevels];
 
     // If level is completed by score (not by ad)
     if (isLevelCompleted && newLevelCompletionMethod[level] !== 'ad') {

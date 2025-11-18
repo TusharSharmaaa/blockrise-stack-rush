@@ -36,7 +36,7 @@ const Game = () => {
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
-  const { usePowerUp, loadInventory } = usePowerUps();
+  const { usePowerUp: activatePowerUp, loadInventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
@@ -164,7 +164,7 @@ const Game = () => {
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
-    const success = await usePowerUp(type, 30000);
+    const success = await activatePowerUp(type, 30000);
     if (!success) {
       toast.error('Power-up not available');
       return;

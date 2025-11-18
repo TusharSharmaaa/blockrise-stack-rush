@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, User, MapPin, Globe, Check, ChevronsUpDown, WifiOff } from 'lucide-react';
+import { ArrowLeft, User, Globe, Check, ChevronsUpDown, WifiOff, Loader2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ import Fuse from 'fuse.js';
 const Profile = () => {
   const navigate = useNavigate();
   const { profile, updateProfile, checkNameUnique, canChangeUsername, recordUsernameChange } = useUserProfile();
-  const { progress } = useGameProgress();
+  const { progress, isLoading } = useGameProgress();
   const { countries, isLoading: countriesLoading } = useCountries();
   const isOnline = useOnlineStatus();
   const [comboboxOpen, setComboboxOpen] = useState(false);
@@ -135,20 +135,26 @@ const Profile = () => {
         {/* Stats Card */}
         <Card className="p-6 space-y-4 bg-gradient-to-br from-primary/10 to-accent/10">
           <h2 className="text-xl font-semibold">Your Stats</h2>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-primary">{progress.highestScore}</div>
-              <div className="text-xs text-muted-foreground">Best Score</div>
+          {isLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">{progress.currentLevel}</div>
-              <div className="text-xs text-muted-foreground">Current Level</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-primary">{progress.highestScore.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Best Score</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{progress.currentLevel}</div>
+                <div className="text-xs text-muted-foreground">Current Level</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{progress.totalGamesPlayed.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground">Games Played</div>
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-primary">{progress.totalGamesPlayed}</div>
-              <div className="text-xs text-muted-foreground">Games Played</div>
-            </div>
-          </div>
+          )}
         </Card>
 
         {/* Profile Form */}

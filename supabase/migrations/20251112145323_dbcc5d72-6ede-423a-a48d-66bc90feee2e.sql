@@ -33,11 +33,21 @@ CREATE POLICY "Profiles are viewable by everyone"
 
 CREATE POLICY "Users can insert their own profile"
   ON public.profiles FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (
+    auth.uid() IS NOT NULL
+    AND (user_id = auth.uid() OR id = auth.uid())
+  );
 
 CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
-  USING (true);
+  USING (
+    auth.uid() IS NOT NULL
+    AND (user_id = auth.uid() OR id = auth.uid())
+  )
+  WITH CHECK (
+    auth.uid() IS NOT NULL
+    AND (user_id = auth.uid() OR id = auth.uid())
+  );
 
 -- RLS Policies for leaderboard (everyone can read, users can insert their own scores)
 CREATE POLICY "Leaderboard is viewable by everyone"
@@ -46,7 +56,33 @@ CREATE POLICY "Leaderboard is viewable by everyone"
 
 CREATE POLICY "Users can insert their own scores"
   ON public.leaderboard FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles p
+      WHERE p.id = leaderboard.profile_id
+        AND (p.user_id = auth.uid() OR p.id = auth.uid())
+    )
+  );
+
+CREATE POLICY "Users can update their own scores"
+  ON public.leaderboard FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles p
+      WHERE p.id = leaderboard.profile_id
+        AND (p.user_id = auth.uid() OR p.id = auth.uid())
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles p
+      WHERE p.id = leaderboard.profile_id
+        AND (p.user_id = auth.uid() OR p.id = auth.uid())
+    )
+  );
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_profiles_username ON public.profiles(username);
