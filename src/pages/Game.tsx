@@ -14,7 +14,7 @@ import { useAchievements } from '@/hooks/useAchievements';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { useBackButton } from '@/hooks/useBackButton';
 import { Button } from '@/components/ui/button';
-import { Play, Home, Video, Trophy, Star } from 'lucide-react';
+import { Play, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock } from '@/utils/blockShapes';
@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import GameOverPanel from '@/components/game/GameOverPanel';
 
 const Game = () => {
   const navigate = useNavigate();
@@ -392,14 +393,6 @@ const Game = () => {
     playMusic();
   };
 
-  const renderStars = (count: number) =>
-    Array.from({ length: 3 }, (_, idx) => (
-      <Star
-        key={idx}
-        className={`h-5 w-5 ${idx < count ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' : 'text-muted-foreground'}`}
-      />
-    ));
-
   const starMessage = hasMetLevelGoal
     ? starsEarned === 3
       ? 'Perfect run! Ready for the next challenge.'
@@ -490,97 +483,30 @@ const Game = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Game Over Dialog */}
-      <Dialog open={gameState.gameOver} onOpenChange={(open) => {
-        if (!open && gameState.gameOver) {
-          handlePlayAgain();
-        }
-      }}>
-        <DialogContent className="glass-card border-primary/30 shadow-premium">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl">
-              <Trophy className="h-6 w-6 text-primary drop-shadow-[0_0_12px_hsl(var(--primary))]" />
-              <span className="text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]">
-                {hasMetLevelGoal ? 'Level Complete! 🎉' : 'Game Over!'}
-              </span>
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              {dialogDescription}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="glass-card border border-primary/30 p-3 text-center space-y-2">
-              <div className="flex items-center justify-center gap-2">
-                {renderStars(starsEarned)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {starsEarned}/3 Stars — {starMessage}
-              </p>
-            </div>
-            <div className="text-center glass-card p-3 border border-primary/20 shadow-glow">
-              <div className="text-4xl font-bold text-primary drop-shadow-[0_0_12px_hsl(var(--primary))] mb-1">{gameState.score}</div>
-              <div className="text-xs text-muted-foreground uppercase tracking-wider">Final Score</div>
-            </div>
-            
-            {hasMetLevelGoal ? (
-              <div className="glass-card border border-primary/40 p-4 text-center shadow-neon animate-pulse-glow">
-                <div className="text-lg font-semibold text-primary drop-shadow-[0_0_8px_hsl(var(--primary))] mb-1">
-                  ✨ Level {activeLevel} Completed!
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Target: {scoreRequirement} | Your Score: {gameState.score}
-                </div>
-              </div>
-            ) : (
-              <div className="glass-card border border-muted/30 p-4 text-center">
-                <div className="text-sm font-semibold mb-1">
-                  Keep trying!
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Target: {scoreRequirement} | Your Score: {gameState.score}
-                </div>
-              </div>
-            )}
-
-            {gameState.score > progress.highestScore && (
-              <div className="text-center text-sm font-semibold text-primary drop-shadow-[0_0_8px_hsl(var(--primary))] animate-pulse">
-                🎉 New Personal Best!
-              </div>
-            )}
+      {/* Game Over Overlay */}
+      {gameState.gameOver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-lg">
+            <GameOverPanel
+              hasMetLevelGoal={hasMetLevelGoal}
+              dialogDescription={dialogDescription}
+              starsEarned={starsEarned}
+              starMessage={starMessage}
+              score={gameState.score}
+              scoreRequirement={scoreRequirement}
+              hasNewHighScore={gameState.score > progress.highestScore}
+              canStartNextLevel={canStartNextLevel}
+              nextPlayableLevel={nextPlayableLevel}
+              onPlayNextLevel={handlePlayNextLevel}
+              onContinueWithAd={handleContinueWithAd}
+              onGoHome={() => navigate('/')}
+              onPlayAgain={handlePlayAgain}
+              isRewardedLoading={isRewardedLoading}
+            />
           </div>
-          <DialogFooter className="flex flex-col gap-2">
-            {hasMetLevelGoal && canStartNextLevel && (
-              <Button 
-                onClick={handlePlayNextLevel}
-                className="w-full shadow-glow-lg"
-                variant="neon"
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Start Level {nextPlayableLevel}
-              </Button>
-            )}
-            <Button 
-              onClick={handleContinueWithAd}
-              disabled={isRewardedLoading}
-              className="w-full shadow-glow-lg"
-              variant="premium"
-            >
-              <Video className="mr-2 h-4 w-4" />
-              {isRewardedLoading ? 'Loading...' : 'Watch Ad & Continue (+50 Coins)'}
-            </Button>
-            <div className="flex gap-2 w-full">
-              <Button onClick={() => navigate('/')} variant="outline" className="flex-1 glass-card border-primary/20 hover:shadow-glow">
-                <Home className="mr-2 h-4 w-4" />
-                Home
-              </Button>
-              <Button onClick={handlePlayAgain} variant="neon" className="flex-1">
-                <Play className="mr-2 h-4 w-4" />
-                Play Again
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 };
