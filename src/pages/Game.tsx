@@ -12,6 +12,7 @@ import { useSound } from '@/hooks/useSound';
 import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
+import { useBackButton } from '@/hooks/useBackButton';
 import { Button } from '@/components/ui/button';
 import { Play, Home, Video, Trophy, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +31,7 @@ import {
 
 const Game = () => {
   const navigate = useNavigate();
+  useBackButton(); // Handle Android back button
   const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, incrementLevelAttempt, selectLevel, getStarsForLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
@@ -365,7 +367,7 @@ const Game = () => {
       toast.success('Continue playing! You got 50 bonus coins!');
       await addCoins(50);
       playSound('coin');
-      resetGame();
+      await resetGame(activeLevel);
       setHasShownGameOverAd(false);
       playMusic();
     } else {
@@ -375,7 +377,7 @@ const Game = () => {
 
   const handlePlayAgain = async () => {
     await incrementLevelAttempt(progress.currentLevel);
-    resetGame();
+    await resetGame(activeLevel);
     setHasShownGameOverAd(false);
     playMusic();
   };
@@ -385,7 +387,7 @@ const Game = () => {
     await selectLevel(nextPlayableLevel);
     setLastTrackedLevel(null);
     setActiveLevel(nextPlayableLevel);
-    resetGame();
+    await resetGame(nextPlayableLevel);
     setHasShownGameOverAd(false);
     playMusic();
   };

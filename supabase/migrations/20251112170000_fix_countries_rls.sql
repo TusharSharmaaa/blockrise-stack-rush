@@ -8,3 +8,4 @@ CREATE POLICY "Countries are viewable by everyone"
   USING (true);
 
 
+

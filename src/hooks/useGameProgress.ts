@@ -606,14 +606,14 @@ export const useGameProgress = () => {
       [level]: Math.max(updatedProgress.levelScores[level] || 0, currentScore) // Keep actual score; no bonus points
     };
 
-    // Set completion method to ad and give 0 stars (no stars for ad completion)
+    // Set completion method to ad and give 3 stars (always 3 stars for ad completion)
     const newLevelCompletionMethod = {
       ...updatedProgress.levelCompletionMethod,
       [level]: 'ad' as const
     };
     const newLevelStars = {
       ...updatedProgress.levelStars,
-      [level]: 0 // No stars for ad completion
+      [level]: 3 // Always 3 stars for ad completion
     };
 
     // Unlock next level if not already unlocked

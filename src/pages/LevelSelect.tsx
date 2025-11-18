@@ -254,7 +254,7 @@ const LevelSelect = () => {
             <li>• You can unlock <strong>maximum 2 levels per day</strong> by watching ads</li>
             <li>• Reach target score to complete levels</li>
             <li>• <strong>Star System:</strong></li>
-            <li className="ml-4">  - Complete via ad: No stars awarded</li>
+            <li className="ml-4">  - Complete via ad: Always 3★</li>
             <li className="ml-4">  - Complete by score: 1 attempt = 3★, 2 attempts = 2★, 3+ attempts = 1★</li>
             <li>• <strong>Note:</strong> Levels unlocked via ads do not award any points until you finish them normally</li>
           </ul>

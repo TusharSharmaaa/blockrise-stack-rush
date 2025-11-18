@@ -316,7 +316,25 @@ export const useGameLoop = () => {
     }));
   }, []);
 
-  const resetGame = useCallback(() => {
+  const resetGame = useCallback(async (selectedLevel?: number) => {
+    // Load selected level if not provided
+    let level = selectedLevel;
+    if (level === undefined) {
+      try {
+        const { value } = await Preferences.get({ key: 'gameProgress' });
+        if (value) {
+          const progress = JSON.parse(value);
+          level = progress.currentLevel || 1;
+        } else {
+          level = 1;
+        }
+      } catch (error) {
+        console.error('Failed to load level:', error);
+        level = 1;
+      }
+    }
+    
+    const levelSpeed = Math.max(100, BASE_SPEED - (level - 1) * SPEED_INCREASE_PER_LEVEL);
     const { shape, color } = getRandomBlock();
     const nextBlockData = getRandomBlock();
     setGameState({
@@ -336,11 +354,11 @@ export const useGameLoop = () => {
         id: Math.random().toString()
       },
       score: 0,
-      level: 1,
+      level: level,
       linesCleared: 0,
       gameOver: false,
       paused: false,
-      speed: BASE_SPEED
+      speed: levelSpeed
     });
   }, []);
 
