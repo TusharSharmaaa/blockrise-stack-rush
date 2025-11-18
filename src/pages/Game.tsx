@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
@@ -18,8 +18,7 @@ import { Play, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock } from '@/utils/blockShapes';
-import { hapticNotification } from '@/utils/haptics';
-import { NotificationType } from '@capacitor/haptics';
+import { hapticVibrate } from '@/utils/haptics';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +44,7 @@ const Game = () => {
   const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
   const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
   const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const downHapticCooldownRef = useRef(0);
   const scoreRequirement = getScoreRequirement(activeLevel);
   const {
     gameState,
@@ -164,6 +164,32 @@ const Game = () => {
     }
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
+  const triggerMovePulse = useCallback(() => {
+    void hapticVibrate(12);
+  }, []);
+
+  const triggerDownPulse = useCallback(() => {
+    const now = Date.now();
+    if (now - downHapticCooldownRef.current < 150) return;
+    downHapticCooldownRef.current = now;
+    void hapticVibrate(18);
+  }, []);
+
+  const handleMoveLeft = useCallback(() => {
+    triggerMovePulse();
+    moveLeft();
+  }, [moveLeft, triggerMovePulse]);
+
+  const handleMoveRight = useCallback(() => {
+    triggerMovePulse();
+    moveRight();
+  }, [moveRight, triggerMovePulse]);
+
+  const handleMoveDown = useCallback(() => {
+    triggerDownPulse();
+    moveDown();
+  }, [moveDown, triggerDownPulse]);
+
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
     const success = await activatePowerUp(type, 30000);
     if (!success) {
@@ -172,8 +198,6 @@ const Game = () => {
     }
 
     playSound('powerup');
-    await hapticNotification(NotificationType.Success);
-
     switch (type) {
       case 'clearLine':
         // Find the lowest full or nearly-full line and clear it
@@ -256,15 +280,15 @@ const Game = () => {
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
-          moveLeft();
+          handleMoveLeft();
           break;
         case 'ArrowRight':
           e.preventDefault();
-          moveRight();
+          handleMoveRight();
           break;
         case 'ArrowDown':
           e.preventDefault();
-          moveDown();
+          handleMoveDown();
           break;
         case 'ArrowUp':
         case ' ':
@@ -281,7 +305,7 @@ const Game = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState.gameOver, gameState.paused, moveLeft, moveRight, moveDown, rotate, togglePause]);
+  }, [gameState.gameOver, gameState.paused, handleMoveLeft, handleMoveRight, handleMoveDown, rotate, togglePause]);
 
   // Show ad when game ends
   useEffect(() => {
@@ -452,9 +476,9 @@ const Game = () => {
         <div className="safe-bottom pb-4">
           <GameControls
             onRotate={rotate}
-            onMoveLeft={moveLeft}
-            onMoveRight={moveRight}
-            onMoveDown={moveDown}
+            onMoveLeft={handleMoveLeft}
+            onMoveRight={handleMoveRight}
+            onMoveDown={handleMoveDown}
             disabled={gameState.gameOver || gameState.paused}
           />
         </div>
