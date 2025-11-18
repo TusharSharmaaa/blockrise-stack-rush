@@ -30,8 +30,25 @@ export const BLOCK_COLORS = [
 export const GRID_WIDTH = 10;
 export const GRID_HEIGHT = 20;
 
+let shapeBag: BlockShape[] = [];
+
+function refillShapeBag() {
+  shapeBag = [...BLOCK_SHAPES];
+  for (let i = shapeBag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shapeBag[i], shapeBag[j]] = [shapeBag[j], shapeBag[i]];
+  }
+}
+
+function getNextShape(): BlockShape {
+  if (shapeBag.length === 0) {
+    refillShapeBag();
+  }
+  return shapeBag.pop()!;
+}
+
 export function getRandomBlock(): { shape: BlockShape; color: string } {
-  const shape = BLOCK_SHAPES[Math.floor(Math.random() * BLOCK_SHAPES.length)];
+  const shape = getNextShape();
   const color = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
   return { shape, color };
 }
