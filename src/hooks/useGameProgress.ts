@@ -454,7 +454,7 @@ export const useGameProgress = () => {
     return { success: false, reward: 0, message: 'Daily reward already claimed' };
   };
 
-  const updateGameStats = async (score: number, level: number) => {
+  const updateGameStats = async (score: number, level: number, sessionAttempts: number = 1) => {
     // Use ref to get latest state (avoids stale closure issues)
     const currentProgress = progressRef.current;
     const currentLevelBest = currentProgress.levelScores[level] || 0;
@@ -474,9 +474,11 @@ export const useGameProgress = () => {
     if (isLevelCompleted) {
       newLevelCompletionMethod[level] = 'score';
 
-      const attempts = currentProgress.levelAttempts[level] || 1;
-      const starsThisRun = attempts === 1 ? 3 : attempts === 2 ? 2 : 1;
+      // Calculate stars based on session attempts (consecutive attempts in current session)
+      // 1st attempt = 3 stars, 2nd attempt = 2 stars, 3+ attempts = 1 star
+      const starsThisRun = sessionAttempts === 1 ? 3 : sessionAttempts === 2 ? 2 : 1;
       const previousStars = newLevelStars[level] || 0;
+      // Only update stars if new value is higher (never downgrade)
       newLevelStars[level] = Math.max(previousStars, starsThisRun);
 
       // Unlock next level when current level is completed
@@ -548,19 +550,9 @@ export const useGameProgress = () => {
     return progress.levelStars[level] || 0;
   };
 
-  const incrementLevelAttempt = async (level: number) => {
-    // Use ref to get latest state (avoids stale closure issues)
-    const currentProgress = progressRef.current;
-    const newLevelAttempts = {
-      ...currentProgress.levelAttempts,
-      [level]: (currentProgress.levelAttempts[level] || 0) + 1
-    };
-    const newProgress = {
-      ...currentProgress,
-      levelAttempts: newLevelAttempts
-    };
-    await saveProgress(newProgress);
-  };
+  // Note: levelAttempts is kept in the interface for backward compatibility
+  // but is no longer used for star calculation. Stars are now based on
+  // session-based consecutive attempts tracked in the Game component.
 
   const watchAdToCompleteLevel = async (level: number, currentScore: number) => {
     // Use ref to get latest state (avoids stale closure issues)
@@ -700,7 +692,6 @@ export const useGameProgress = () => {
     hasCompletedLevel,
     getLevelBestScore,
     getScoreRequirement,
-    getStarsForLevel,
-    incrementLevelAttempt
+    getStarsForLevel
   };
 };

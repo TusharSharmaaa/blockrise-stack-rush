@@ -33,7 +33,7 @@ import GameOverPanel from '@/components/game/GameOverPanel';
 const Game = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
-  const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, incrementLevelAttempt, selectLevel, getStarsForLevel } = useGameProgress();
+  const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, selectLevel, getStarsForLevel } = useGameProgress();
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
   const { playSound, playMusic, stopMusic } = useSound();
@@ -42,10 +42,13 @@ const Game = () => {
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
-  const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
   const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
   const [hasShownLevelCompleteToast, setHasShownLevelCompleteToast] = useState(false);
   const [hasForcedLevelCompletion, setHasForcedLevelCompletion] = useState(false);
+  // Session-based attempt counter: tracks consecutive attempts for the current level session
+  // Resets when level changes or when navigating away
+  const [sessionAttemptCount, setSessionAttemptCount] = useState<{ [level: number]: number }>({});
+  const [currentSessionLevel, setCurrentSessionLevel] = useState<number | null>(null);
   const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const levelCompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downHapticCooldownRef = useRef(0);
@@ -69,23 +72,35 @@ const Game = () => {
   const starsEarned = getStarsForLevel(activeLevel);
   const canStartNextLevel = hasMetLevelGoal && hasNextLevel && progress.unlockedLevels.includes(nextPlayableLevel);
 
-  // Track attempts when a level run begins
+  // Reset session attempt counter when level changes or when navigating to game
   useEffect(() => {
     if (isLoading) return;
-    if (gameState.score !== 0 || gameState.gameOver) return;
-    if (lastTrackedLevel === progress.currentLevel) return;
-    const recordAttempt = async () => {
-      await incrementLevelAttempt(progress.currentLevel);
-      setLastTrackedLevel(progress.currentLevel);
-    };
-    recordAttempt();
-  }, [isLoading, progress.currentLevel, incrementLevelAttempt, lastTrackedLevel, gameState.score, gameState.gameOver]);
+    
+    // If level changed, reset the session counter for the new level and start at attempt 1
+    if (currentSessionLevel !== null && currentSessionLevel !== progress.currentLevel) {
+      setSessionAttemptCount({
+        [progress.currentLevel]: 1 // Start new level session at attempt 1
+      });
+      setCurrentSessionLevel(progress.currentLevel);
+    } else if (currentSessionLevel === null) {
+      // First time entering game, set the current level and start at attempt 1
+      setCurrentSessionLevel(progress.currentLevel);
+      setSessionAttemptCount({
+        [progress.currentLevel]: 1 // First attempt when opening level
+      });
+    }
+  }, [isLoading, progress.currentLevel, currentSessionLevel]);
 
   useEffect(() => {
     if (isLoading) return;
     const isFreshRun = !gameState.gameOver && gameState.score === 0;
     if (isFreshRun && activeLevel !== progress.currentLevel) {
       setActiveLevel(progress.currentLevel);
+      // Reset session counter when switching to a different level and start at attempt 1
+      setSessionAttemptCount({
+        [progress.currentLevel]: 1
+      });
+      setCurrentSessionLevel(progress.currentLevel);
     }
   }, [isLoading, progress.currentLevel, gameState.gameOver, gameState.score, activeLevel]);
 
@@ -104,6 +119,9 @@ const Game = () => {
         clearTimeout(levelCompleteTimeoutRef.current);
         levelCompleteTimeoutRef.current = null;
       }
+      // Reset session counter when leaving the game (navigating away)
+      setSessionAttemptCount({});
+      setCurrentSessionLevel(null);
     };
   }, []);
 
@@ -126,6 +144,11 @@ const Game = () => {
       clearTimeout(levelCompleteTimeoutRef.current);
       levelCompleteTimeoutRef.current = null;
     }
+    // Reset session counter when level changes and start at attempt 1
+    setSessionAttemptCount({
+      [activeLevel]: 1
+    });
+    setCurrentSessionLevel(activeLevel);
   }, [activeLevel]);
 
   // Track score changes for achievements and level completion
@@ -389,8 +412,11 @@ const Game = () => {
           }
         }
 
+        // Get session attempt count for star calculation
+        const attempts = sessionAttemptCount[activeLevel] || 1;
+        
         // Update stats and sync to backend
-        await updateGameStats(gameState.score, activeLevel);
+        await updateGameStats(gameState.score, activeLevel, attempts);
         
         // Trigger sync indicator animation
         window.dispatchEvent(new Event('progressSynced'));
@@ -467,7 +493,11 @@ const Game = () => {
   };
 
   const handlePlayAgain = async () => {
-    await incrementLevelAttempt(progress.currentLevel);
+    // Increment session attempt counter for retry (this will be attempt 2, 3, etc.)
+    setSessionAttemptCount(prev => ({
+      ...prev,
+      [activeLevel]: (prev[activeLevel] || 1) + 1
+    }));
     await resetGame(activeLevel);
     setHasShownGameOverAd(false);
     playMusic();
@@ -476,7 +506,11 @@ const Game = () => {
   const handlePlayNextLevel = async () => {
     if (!canStartNextLevel) return;
     await selectLevel(nextPlayableLevel);
-    setLastTrackedLevel(null);
+    // Reset session counter when switching to next level and start at attempt 1
+    setSessionAttemptCount({
+      [nextPlayableLevel]: 1
+    });
+    setCurrentSessionLevel(nextPlayableLevel);
     setActiveLevel(nextPlayableLevel);
     await resetGame(nextPlayableLevel);
     setHasShownGameOverAd(false);
