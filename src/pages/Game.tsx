@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock } from '@/utils/blockShapes';
 import { hapticVibrate } from '@/utils/haptics';
+import { calculateLevelSpeed } from '@/utils/gameConstants';
 import {
   Dialog,
   DialogContent,
@@ -256,16 +257,10 @@ const Game = () => {
         }));
         // Reset speed after duration using the same formula as game loop
         slowTimeTimeoutRef.current = setTimeout(() => {
-          setGameState(prevState => {
-            const BASE_SPEED = 1000;
-            const SPEED_INCREASE_PER_LEVEL = 100;
-            const MIN_SPEED = 100;
-            const calculatedSpeed = Math.max(MIN_SPEED, BASE_SPEED - (prevState.level - 1) * SPEED_INCREASE_PER_LEVEL);
-            return {
-              ...prevState,
-              speed: calculatedSpeed
-            };
-          });
+          setGameState(prevState => ({
+            ...prevState,
+            speed: calculateLevelSpeed(prevState.level)
+          }));
           slowTimeTimeoutRef.current = null;
         }, 30000);
         toast.success('Time slowed for 30s!');

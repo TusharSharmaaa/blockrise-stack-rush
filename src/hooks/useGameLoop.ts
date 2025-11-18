@@ -8,10 +8,7 @@ import {
   GRID_HEIGHT
 } from '@/utils/blockShapes';
 import { Preferences } from '@capacitor/preferences';
-import { GAME_CONSTANTS } from '@/utils/gameConstants';
-
-const BASE_SPEED = GAME_CONSTANTS.BASE_SPEED;
-const SPEED_INCREASE_PER_LEVEL = GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL;
+import { GAME_CONSTANTS, calculateLevelSpeed } from '@/utils/gameConstants';
 
 export const useGameLoop = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -38,7 +35,7 @@ export const useGameLoop = () => {
       linesCleared: 0,
       gameOver: false,
       paused: false,
-      speed: BASE_SPEED
+      speed: calculateLevelSpeed(GAME_CONSTANTS.MIN_LEVEL)
     };
   });
 
@@ -54,8 +51,8 @@ export const useGameLoop = () => {
       const { value } = await Preferences.get({ key: 'gameProgress' });
       if (value) {
         const progress = JSON.parse(value);
-        const selectedLevel = progress.currentLevel || 1;
-        const levelSpeed = Math.max(100, BASE_SPEED - (selectedLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+        const selectedLevel = progress.currentLevel || GAME_CONSTANTS.MIN_LEVEL;
+        const levelSpeed = calculateLevelSpeed(selectedLevel);
         
         setGameState(prevState => ({
           ...prevState,
@@ -91,7 +88,7 @@ export const useGameLoop = () => {
     
     const newScore = state.score + (GAME_CONSTANTS.POINTS_PER_LINE * state.level);
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
     
     return {
       ...state,
@@ -134,7 +131,7 @@ export const useGameLoop = () => {
     const bonusScore = cellsCleared * 10 * state.level;
     const newScore = state.score + bonusScore;
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
     
     return {
       ...state,
@@ -176,7 +173,7 @@ export const useGameLoop = () => {
 
     const newScore = state.score + (linesCleared * GAME_CONSTANTS.POINTS_PER_LINE * state.level);
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
 
     // Haptic feedback on line clear
     // Check if top row has any blocks (game over condition)
@@ -324,7 +321,7 @@ export const useGameLoop = () => {
       }
     }
     
-    const levelSpeed = Math.max(100, BASE_SPEED - (level - 1) * SPEED_INCREASE_PER_LEVEL);
+    const levelSpeed = calculateLevelSpeed(level);
     const { shape, color } = getRandomBlock();
     const nextBlockData = getRandomBlock();
     setGameState({

@@ -1,9 +1,9 @@
 // Game configuration constants
 export const GAME_CONSTANTS = {
   // Speed
-  BASE_SPEED: 1000,
-  SPEED_INCREASE_PER_LEVEL: 100,
-  MIN_SPEED: 100,
+  BASE_SPEED: 1350,
+  SPEED_INCREASE_PER_LEVEL: 40,
+  MIN_SPEED: 350,
   
   // Scoring
   POINTS_PER_LINE: 100,
@@ -34,3 +34,13 @@ export const GAME_CONSTANTS = {
 } as const;
 
 export type GameConstants = typeof GAME_CONSTANTS;
+
+export const calculateLevelSpeed = (level: number): number => {
+  const normalizedLevel = Math.max(GAME_CONSTANTS.MIN_LEVEL, level);
+  const clampedLevel = Math.min(normalizedLevel, GAME_CONSTANTS.MAX_LEVEL);
+  const rawSpeed =
+    GAME_CONSTANTS.BASE_SPEED -
+    (clampedLevel - GAME_CONSTANTS.MIN_LEVEL) * GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL;
+
+  return Math.max(GAME_CONSTANTS.MIN_SPEED, rawSpeed);
+};
