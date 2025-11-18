@@ -309,6 +309,8 @@ All colors MUST be HSL.
     padding-right: max(var(--safe-right), 1rem);
     margin-left: auto;
     margin-right: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
   
   @media (min-width: 640px) {
