@@ -44,7 +44,10 @@ const Game = () => {
   const [previousScore, setPreviousScore] = useState(0);
   const [lastTrackedLevel, setLastTrackedLevel] = useState<number | null>(null);
   const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
+  const [hasShownLevelCompleteToast, setHasShownLevelCompleteToast] = useState(false);
+  const [hasForcedLevelCompletion, setHasForcedLevelCompletion] = useState(false);
   const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const levelCompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downHapticCooldownRef = useRef(0);
   const scoreRequirement = getScoreRequirement(activeLevel);
   const {
@@ -97,8 +100,33 @@ const Game = () => {
         clearTimeout(slowTimeTimeoutRef.current);
         slowTimeTimeoutRef.current = null;
       }
+      if (levelCompleteTimeoutRef.current) {
+        clearTimeout(levelCompleteTimeoutRef.current);
+        levelCompleteTimeoutRef.current = null;
+      }
     };
   }, []);
+
+  // Reset level completion helpers when starting a fresh run or switching levels
+  useEffect(() => {
+    if (!gameState.gameOver && gameState.score === 0) {
+      setHasShownLevelCompleteToast(false);
+      setHasForcedLevelCompletion(false);
+      if (levelCompleteTimeoutRef.current) {
+        clearTimeout(levelCompleteTimeoutRef.current);
+        levelCompleteTimeoutRef.current = null;
+      }
+    }
+  }, [gameState.gameOver, gameState.score]);
+
+  useEffect(() => {
+    setHasShownLevelCompleteToast(false);
+    setHasForcedLevelCompletion(false);
+    if (levelCompleteTimeoutRef.current) {
+      clearTimeout(levelCompleteTimeoutRef.current);
+      levelCompleteTimeoutRef.current = null;
+    }
+  }, [activeLevel]);
 
   // Track score changes for achievements and level completion
   useEffect(() => {
@@ -140,9 +168,52 @@ const Game = () => {
       };
       
       checkLevelCompletion();
+
+      const requirement = getScoreRequirement(activeLevel);
+      if (gameState.score >= requirement && !hasShownLevelCompleteToast) {
+        const nextLevel = Math.min(activeLevel + 1, 50);
+        const alreadyUnlocked = progress.unlockedLevels.includes(nextLevel);
+        const message = alreadyUnlocked
+          ? `Level ${activeLevel} target reached!`
+          : `Level ${activeLevel} completed! Level ${nextLevel} unlocked! 🎉`;
+        toast.success(message, {
+          duration: 1500,
+          position: 'top-center'
+        });
+        setHasShownLevelCompleteToast(true);
+      }
     }
     setPreviousScore(gameState.score);
-  }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, playSound]);
+  }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, playSound, hasShownLevelCompleteToast]);
+
+  // Automatically wrap up the level once the target score is reached
+  useEffect(() => {
+    if (hasMetLevelGoal && !gameState.gameOver && !hasForcedLevelCompletion) {
+      if (levelCompleteTimeoutRef.current) {
+        clearTimeout(levelCompleteTimeoutRef.current);
+      }
+      levelCompleteTimeoutRef.current = setTimeout(() => {
+        setGameState(prev => ({
+          ...prev,
+          gameOver: true,
+          paused: false
+        }));
+        setHasForcedLevelCompletion(true);
+        levelCompleteTimeoutRef.current = null;
+      }, 1200);
+      return () => {
+        if (levelCompleteTimeoutRef.current) {
+          clearTimeout(levelCompleteTimeoutRef.current);
+          levelCompleteTimeoutRef.current = null;
+        }
+      };
+    }
+
+    if ((!hasMetLevelGoal || gameState.gameOver) && levelCompleteTimeoutRef.current) {
+      clearTimeout(levelCompleteTimeoutRef.current);
+      levelCompleteTimeoutRef.current = null;
+    }
+  }, [hasMetLevelGoal, gameState.gameOver, hasForcedLevelCompletion, setGameState]);
 
   // Track level achievements
   useEffect(() => {
