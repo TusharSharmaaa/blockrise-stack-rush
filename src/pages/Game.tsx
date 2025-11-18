@@ -547,13 +547,13 @@ const Game = () => {
       />
       
       {/* Score Progress Bar */}
-      <div className="container-responsive py-2 glass-card border-t border-glass-border shadow-glow">
+      <div className="container-responsive py-1 glass-card border-t border-glass-border shadow-glow">
         <div className="max-w-md mx-auto">
-          <div className="flex justify-between text-xs mb-1">
+          <div className="flex justify-between text-xs mb-0.5">
             <span className="text-muted-foreground">Level {activeLevel} Target</span>
             <span className="font-semibold text-primary drop-shadow-[0_0_6px_hsl(var(--primary))]">{gameState.score}/{scoreRequirement}</span>
           </div>
-          <div className="h-2 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm border border-primary/20">
+          <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm border border-primary/20">
             <div 
               className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300 shadow-glow"
               style={{ width: `${Math.min(100, (gameState.score / scoreRequirement) * 100)}%` }}
@@ -562,18 +562,20 @@ const Game = () => {
         </div>
       </div>
       
-      <div className="flex-1 flex flex-col justify-center">
-        <GameBoard
-          grid={gameState.grid}
-          currentBlock={gameState.currentBlock}
-        />
+      <div className="flex-1 flex flex-col py-1">
+        <div className="flex-1 min-h-0">
+          <GameBoard
+            grid={gameState.grid}
+            currentBlock={gameState.currentBlock}
+          />
+        </div>
 
         <PowerUpBar
           onUsePowerUp={handleUsePowerUp}
           disabled={gameState.gameOver || gameState.paused}
         />
         
-        <div className="safe-bottom pb-4">
+        <div className="safe-bottom pb-2">
           <GameControls
             onRotate={rotate}
             onMoveLeft={handleMoveLeft}

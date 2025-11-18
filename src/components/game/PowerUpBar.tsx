@@ -29,10 +29,10 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
   ];
 
   return (
-    <div className="glass-card p-3 space-y-3 shadow-glow">
+    <div className="glass-card py-2 px-3 space-y-2 shadow-glow">
       {/* Active Power-Up Display */}
       {Object.entries(activePowerUps).length > 0 && (
-        <div className="space-y-2 animate-fade-in glass-card p-3 border border-primary/40 shadow-neon">
+        <div className="space-y-1.5 animate-fade-in glass-card p-2 border border-primary/40 shadow-neon">
           {Object.entries(activePowerUps).map(([type, active]) => {
             if (!active) return null;
             const remainingTime = getRemainingTime(type as keyof typeof inventory);

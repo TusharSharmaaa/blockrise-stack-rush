@@ -18,25 +18,41 @@ const GameControls = ({
   disabled
 }: GameControlsProps) => {
   const fastDownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isHoldingRef = useRef(false);
 
   const handleDownPress = () => {
     if (disabled) return;
-    onMoveDown();
+    
+    isHoldingRef.current = true;
     
     // Clear any existing interval
     if (fastDownIntervalRef.current) {
       clearInterval(fastDownIntervalRef.current);
+      fastDownIntervalRef.current = null;
     }
     
-    // Start fast continuous movement
-    fastDownIntervalRef.current = setInterval(() => {
-      if (!disabled) {
-        onMoveDown();
+    // Delay before starting continuous movement (to distinguish tap from hold)
+    holdTimeoutRef.current = setTimeout(() => {
+      if (isHoldingRef.current && !disabled) {
+        // Start fast continuous movement only if still holding
+        fastDownIntervalRef.current = setInterval(() => {
+          if (!disabled) {
+            onMoveDown();
+          }
+        }, 65);
       }
-    }, 50);
+    }, 200); // 200ms delay before starting continuous movement
   };
 
   const handleDownRelease = () => {
+    isHoldingRef.current = false;
+    
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    
     if (fastDownIntervalRef.current) {
       clearInterval(fastDownIntervalRef.current);
       fastDownIntervalRef.current = null;
@@ -53,28 +69,40 @@ const GameControls = ({
     };
   }, [disabled]);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+      }
+      if (fastDownIntervalRef.current) {
+        clearInterval(fastDownIntervalRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-2 py-2 px-4">
       <div className="flex justify-center">
         <Button
           variant="neon"
           size="lg"
           onClick={onRotate}
           disabled={disabled}
-          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
+          className="w-14 h-12 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
-          <RotateCw className="h-6 w-6" />
+          <RotateCw className="h-5 w-5" />
         </Button>
       </div>
-      <div className="flex justify-center gap-3">
+      <div className="flex justify-center gap-2">
         <Button
           variant="neon"
           size="lg"
           onClick={onMoveLeft}
           disabled={disabled}
-          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
+          className="w-14 h-14 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
-          <ArrowLeft className="h-6 w-6" />
+          <ArrowLeft className="h-5 w-5" />
         </Button>
         <Button
           variant="neon"
@@ -86,18 +114,18 @@ const GameControls = ({
           onTouchStart={handleDownPress}
           onTouchEnd={handleDownRelease}
           disabled={disabled}
-          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
+          className="w-14 h-14 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
-          <ArrowDown className="h-6 w-6" />
+          <ArrowDown className="h-5 w-5" />
         </Button>
         <Button
           variant="neon"
           size="lg"
           onClick={onMoveRight}
           disabled={disabled}
-          className="w-16 h-16 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
+          className="w-14 h-14 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >
-          <ArrowRight className="h-6 w-6" />
+          <ArrowRight className="h-5 w-5" />
         </Button>
       </div>
     </div>

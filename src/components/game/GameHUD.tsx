@@ -13,16 +13,16 @@ const GameHUD = ({ score, level, nextBlock, onPause }: GameHUDProps) => {
   const cellSize = 16;
 
   return (
-    <div className="glass-card p-4 border-b border-glass-border shadow-glow">
+    <div className="glass-card py-2 px-4 border-b border-glass-border shadow-glow">
       <div className="flex justify-between items-center">
-        <div className="flex gap-6">
-          <div className="space-y-1">
+        <div className="flex gap-4">
+          <div className="space-y-0.5">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">Score</div>
-            <div className="text-2xl font-bold text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]">{score}</div>
+            <div className="text-xl font-bold text-primary drop-shadow-[0_0_8px_hsl(var(--primary))]">{score}</div>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <div className="text-xs text-muted-foreground uppercase tracking-wider">Level</div>
-            <div className="text-2xl font-bold text-secondary drop-shadow-[0_0_8px_hsl(var(--secondary))]">{level}</div>
+            <div className="text-xl font-bold text-secondary drop-shadow-[0_0_8px_hsl(var(--secondary))]">{level}</div>
           </div>
         </div>
         
