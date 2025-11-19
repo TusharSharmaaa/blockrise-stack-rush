@@ -26,3 +26,6 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Release keystore
+android/keystore.properties
