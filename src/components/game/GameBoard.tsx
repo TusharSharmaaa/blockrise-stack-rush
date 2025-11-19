@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Block } from '@/types/game';
 import { GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface GameBoardProps {
   grid: (string | null)[][];
@@ -11,6 +12,7 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(24);
+  const { theme } = useTheme();
 
   // Make responsive based on actual container dimensions
   useEffect(() => {
@@ -95,12 +97,18 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.fillStyle = 'hsl(220 25% 28%)';
+    // Clear canvas - use CSS variable for theme-aware color
+    const gameGridColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--game-grid')
+      .trim();
+    ctx.fillStyle = `hsl(${gameGridColor})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid lines
-    ctx.strokeStyle = 'hsl(220 20% 36%)';
+    // Draw grid lines - use CSS variable for theme-aware color
+    const gameBorderColor = getComputedStyle(document.documentElement)
+      .getPropertyValue('--game-border')
+      .trim();
+    ctx.strokeStyle = `hsl(${gameBorderColor})`;
     ctx.lineWidth = 1;
     for (let row = 0; row <= GRID_HEIGHT; row++) {
       ctx.beginPath();
@@ -180,7 +188,7 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
         });
       });
     }
-  }, [grid, currentBlock, cellSize]);
+  }, [grid, currentBlock, cellSize, theme]);
 
   return (
     <div 

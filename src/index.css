@@ -396,8 +396,8 @@ All colors MUST be HSL.
   }
   
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(195 100% 50% / 0.3); }
-    50% { box-shadow: 0 0 40px hsl(195 100% 50% / 0.6); }
+    0%, 100% { box-shadow: var(--shadow-glow); }
+    50% { box-shadow: var(--shadow-neon); }
   }
   
   .animate-slide-up {
