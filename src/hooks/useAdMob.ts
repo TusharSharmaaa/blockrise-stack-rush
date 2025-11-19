@@ -13,6 +13,8 @@ const AD_UNITS = {
 };
 
 // Global state for ad preloading
+// Note: These are module-level variables shared across all hook instances
+// This is intentional for ad preloading efficiency - only one instance should exist per app
 let isInitialized = false;
 let isInterstitialReady = false;
 let isRewardedReady = false;

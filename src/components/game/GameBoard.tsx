@@ -77,16 +77,19 @@ const GameBoard = memo(({ grid, currentBlock }: GameBoardProps) => {
     const timeoutId = setTimeout(tryUpdate, 50);
     
     // Also listen to window resize and orientation change
-    window.addEventListener('resize', updateSize);
-    window.addEventListener('orientationchange', () => {
+    // Use named function for proper cleanup
+    const handleOrientationChange = () => {
       setTimeout(updateSize, 200);
-    });
+    };
+    
+    window.addEventListener('resize', updateSize, { passive: true });
+    window.addEventListener('orientationchange', handleOrientationChange, { passive: true });
     
     return () => {
       clearTimeout(timeoutId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateSize);
-      window.removeEventListener('orientationchange', updateSize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
 

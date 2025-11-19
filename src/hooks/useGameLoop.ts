@@ -364,20 +364,33 @@ export const useGameLoop = () => {
     }
 
     // Use requestAnimationFrame for smoother game loop
+    // Optimized to prevent excessive CPU usage and heating
     let lastTime = performance.now();
+    let isRunning = true;
     
     const gameLoop = (currentTime: number) => {
+      // Early exit if game state changed
+      if (!isRunning) {
+        return;
+      }
+      
       const delta = currentTime - lastTime;
+      // Only move down if enough time has passed (prevents excessive updates)
       if (delta >= gameState.speed) {
         moveDown();
         lastTime = currentTime;
       }
-      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      
+      // Continue loop only if still running
+      if (isRunning) {
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+      }
     };
     
     gameLoopRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
+      isRunning = false;
       if (gameLoopRef.current !== null) {
         cancelAnimationFrame(gameLoopRef.current);
         gameLoopRef.current = null;

@@ -120,9 +120,19 @@ export const useLeaderboard = (currentProfileId?: string) => {
   useEffect(() => {
     loadLeaderboard();
 
+    // Throttle leaderboard reloads to prevent excessive updates with high user volume
+    let reloadTimeout: ReturnType<typeof setTimeout> | null = null;
+    const throttledReload = () => {
+      if (reloadTimeout) return; // Skip if already scheduled
+      reloadTimeout = setTimeout(() => {
+        loadLeaderboard();
+        reloadTimeout = null;
+      }, 2000); // Throttle to max once per 2 seconds
+    };
+
     // Subscribe to realtime updates for profiles table
     const profilesChannel = supabase
-      .channel('leaderboard-profiles-changes')
+      .channel(`leaderboard-profiles-changes-${currentProfileId || 'global'}`)
       .on(
         'postgres_changes',
         {
@@ -133,11 +143,9 @@ export const useLeaderboard = (currentProfileId?: string) => {
         (payload) => {
           // Only reload if highest_score was updated
           if (payload.eventType === 'UPDATE' && payload.new?.highest_score !== payload.old?.highest_score) {
-            console.log('Profile score updated:', payload);
-            loadLeaderboard();
+            throttledReload();
           } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
-            console.log('Profile changed:', payload);
-            loadLeaderboard();
+            throttledReload();
           }
         }
       )
@@ -145,7 +153,7 @@ export const useLeaderboard = (currentProfileId?: string) => {
 
     // Subscribe to realtime updates for leaderboard table
     const leaderboardChannel = supabase
-      .channel('leaderboard-scores-changes')
+      .channel(`leaderboard-scores-changes-${currentProfileId || 'global'}`)
       .on(
         'postgres_changes',
         {
@@ -153,18 +161,20 @@ export const useLeaderboard = (currentProfileId?: string) => {
           schema: 'public',
           table: 'leaderboard'
         },
-        (payload) => {
-          console.log('New score submitted:', payload);
-          loadLeaderboard();
+        () => {
+          throttledReload();
         }
       )
       .subscribe();
 
     return () => {
+      if (reloadTimeout) {
+        clearTimeout(reloadTimeout);
+      }
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(leaderboardChannel);
     };
-  }, [loadLeaderboard]);
+  }, [loadLeaderboard, currentProfileId]);
 
   const submitScore = async (profileId: string, score: number, level: number) => {
     try {

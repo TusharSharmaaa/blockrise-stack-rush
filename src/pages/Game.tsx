@@ -151,65 +151,86 @@ const Game = () => {
   }, [activeLevel]);
 
   // Track score changes for achievements and level completion
+  // Optimized to prevent excessive re-renders and race conditions
   useEffect(() => {
-    if (gameState.score > previousScore) {
-      // Throttle sound to prevent blocking - only play every 100ms
-      const scoreDiff = gameState.score - previousScore;
-      if (scoreDiff > 0 && scoreDiff % 10 === 0) { // Only play sound every 10 points
-        playSound('coin');
-      }
-      
-      // Check score-based achievements and add coin rewards (async, non-blocking)
-      const checkAchievement = async (achievementId: string, progress: number) => {
+    if (gameState.score <= previousScore) {
+      return; // Early return if score didn't increase
+    }
+
+    const scoreDiff = gameState.score - previousScore;
+    
+    // Throttle sound to prevent blocking - only play every 10 points
+    if (scoreDiff > 0 && scoreDiff % 10 === 0) {
+      playSound('coin');
+    }
+    
+    // Use refs to avoid stale closures in async operations
+    const currentScore = gameState.score;
+    const currentPreviousScore = previousScore;
+    const currentActiveLevel = activeLevel;
+    const currentUnlockedLevels = progress.unlockedLevels;
+    
+    // Check score-based achievements and add coin rewards (async, non-blocking)
+    const checkAchievement = async (achievementId: string, progress: number) => {
+      try {
         const result = await checkAndUnlock(achievementId, progress);
         if (result.unlocked && result.achievement) {
           await addCoins(result.achievement.coinReward);
           toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`);
         }
-      };
+      } catch (error) {
+        console.error('Error checking achievement:', error);
+      }
+    };
 
-      if (gameState.score >= 1000 && previousScore < 1000) {
-        checkAchievement('first_1000', gameState.score);
-      }
-      if (gameState.score >= 5000 && previousScore < 5000) {
-        checkAchievement('score_5000', gameState.score);
-      }
-      if (gameState.score >= 10000 && previousScore < 10000) {
-        checkAchievement('score_10000', gameState.score);
-      }
+    // Batch achievement checks to avoid race conditions
+    if (currentScore >= 1000 && currentPreviousScore < 1000) {
+      checkAchievement('first_1000', currentScore);
+    }
+    if (currentScore >= 5000 && currentPreviousScore < 5000) {
+      checkAchievement('score_5000', currentScore);
+    }
+    if (currentScore >= 10000 && currentPreviousScore < 10000) {
+      checkAchievement('score_10000', currentScore);
+    }
 
-      // Check for level completion and unlock next level (async, non-blocking)
-      const checkLevelCompletion = async () => {
-        const requirement = getScoreRequirement(activeLevel);
-        const hasMetGoal = gameState.score >= requirement;
+    // Check for level completion and unlock next level (async, non-blocking)
+    const checkLevelCompletion = async () => {
+      try {
+        const requirement = getScoreRequirement(currentActiveLevel);
+        const hasMetGoal = currentScore >= requirement;
         if (hasMetGoal) {
-          const nextLevel = activeLevel + 1;
+          const nextLevel = currentActiveLevel + 1;
           if (nextLevel <= 50) {
-            const unlocked = await completeLevel(activeLevel, gameState.score);
-            if (unlocked && !progress.unlockedLevels.includes(nextLevel)) {
-              toast.success(`Level ${activeLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
+            const unlocked = await completeLevel(currentActiveLevel, currentScore);
+            if (unlocked && !currentUnlockedLevels.includes(nextLevel)) {
+              toast.success(`Level ${currentActiveLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
             }
           }
         }
-      };
-      
-      checkLevelCompletion();
-
-      const requirement = getScoreRequirement(activeLevel);
-      if (gameState.score >= requirement && !hasShownLevelCompleteToast) {
-        const nextLevel = Math.min(activeLevel + 1, 50);
-        const alreadyUnlocked = progress.unlockedLevels.includes(nextLevel);
-        const message = alreadyUnlocked
-          ? `Level ${activeLevel} target reached!`
-          : `Level ${activeLevel} completed! Level ${nextLevel} unlocked! 🎉`;
-        toast.success(message, {
-          duration: 1500,
-          position: 'top-center'
-        });
-        setHasShownLevelCompleteToast(true);
+      } catch (error) {
+        console.error('Error checking level completion:', error);
       }
+    };
+    
+    checkLevelCompletion();
+
+    // Show level completion toast (only once)
+    const requirement = getScoreRequirement(currentActiveLevel);
+    if (currentScore >= requirement && !hasShownLevelCompleteToast) {
+      const nextLevel = Math.min(currentActiveLevel + 1, 50);
+      const alreadyUnlocked = currentUnlockedLevels.includes(nextLevel);
+      const message = alreadyUnlocked
+        ? `Level ${currentActiveLevel} target reached!`
+        : `Level ${currentActiveLevel} completed! Level ${nextLevel} unlocked! 🎉`;
+      toast.success(message, {
+        duration: 1500,
+        position: 'top-center'
+      });
+      setHasShownLevelCompleteToast(true);
     }
-    setPreviousScore(gameState.score);
+    
+    setPreviousScore(currentScore);
   }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, playSound, hasShownLevelCompleteToast]);
 
   // Automatically wrap up the level once the target score is reached
