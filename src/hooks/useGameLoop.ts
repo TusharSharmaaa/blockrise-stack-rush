@@ -51,7 +51,7 @@ export const useGameLoop = () => {
       const { value } = await Preferences.get({ key: 'gameProgress' });
       if (value) {
         const progress = JSON.parse(value);
-        const selectedLevel = progress.currentLevel || GAME_CONSTANTS.MIN_LEVEL;
+        const selectedLevel = progress.selectedLevel || progress.currentLevel || GAME_CONSTANTS.MIN_LEVEL;
         const levelSpeed = calculateLevelSpeed(selectedLevel);
         
         setGameState(prevState => ({
@@ -314,7 +314,7 @@ export const useGameLoop = () => {
         const { value } = await Preferences.get({ key: 'gameProgress' });
         if (value) {
           const progress = JSON.parse(value);
-          level = progress.currentLevel || 1;
+          level = progress.selectedLevel || progress.currentLevel || 1;
         } else {
           level = 1;
         }

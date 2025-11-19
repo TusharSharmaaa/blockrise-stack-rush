@@ -4,14 +4,14 @@ const PLACEHOLDER_AD: LoadNativeAdResult = {
   success: true,
   isPlaceholder: true,
   ad: {
-    headline: 'Sponsored • Blockrise',
-    body: 'Upgrade to Blockrise Pro and unlock weekly tournaments, premium skins, and 2x coins on every game session.',
-    callToAction: 'Try Pro for Free',
-    advertiser: 'Blockrise Studios',
+    headline: 'Sponsored • Stack Boost',
+    body: 'Watch a quick ad to earn bonus coins and unlock the next challenge faster.',
+    callToAction: 'Watch & Earn',
+    advertiser: 'Blockrise Rewards',
     iconUrl: '/app-icon.png',
-    imageUrls: ['/promo/premium-preview.png'],
+    imageUrls: ['/placeholder.svg'],
     starRating: 4.9,
-    extraLabel: 'Premium Offer',
+    extraLabel: 'Rewarded Ad',
   },
 };
 

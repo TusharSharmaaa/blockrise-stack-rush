@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface LevelProgress {
   currentLevel: number;
+  selectedLevel: number;
   unlockedLevels: number[];
   adsWatchedForNextLevel: number;
   adsRequiredPerLevel: number;
@@ -39,6 +40,7 @@ type ClaimDailyRewardResult = {
 
 const INITIAL_PROGRESS: LevelProgress = {
   currentLevel: 1,
+  selectedLevel: 1,
   unlockedLevels: [1], // Only Level 1 unlocked initially
   adsWatchedForNextLevel: 0,
   adsRequiredPerLevel: 3,
@@ -124,6 +126,9 @@ export const useGameProgress = () => {
       ...savedProgress,
       // Override with saved values (preserve existing data)
       currentLevel: savedProgress.currentLevel ?? INITIAL_PROGRESS.currentLevel,
+      selectedLevel: savedProgress.selectedLevel
+        ?? savedProgress.currentLevel
+        ?? INITIAL_PROGRESS.selectedLevel,
       unlockedLevels: savedProgress.unlockedLevels && savedProgress.unlockedLevels.length > 0 
         ? savedProgress.unlockedLevels 
         : INITIAL_PROGRESS.unlockedLevels,
@@ -185,8 +190,19 @@ export const useGameProgress = () => {
       normalizedCompletionMethod
     );
 
+    const highestUnlockedLevel = migrated.unlockedLevels.length > 0
+      ? Math.max(...migrated.unlockedLevels)
+      : INITIAL_PROGRESS.currentLevel;
+    const normalizedCurrentLevel = Math.max(migrated.currentLevel, highestUnlockedLevel);
+    let normalizedSelectedLevel = migrated.selectedLevel ?? normalizedCurrentLevel;
+    if (!migrated.unlockedLevels.includes(normalizedSelectedLevel)) {
+      normalizedSelectedLevel = highestUnlockedLevel;
+    }
+
     return {
       ...migrated,
+      currentLevel: normalizedCurrentLevel,
+      selectedLevel: normalizedSelectedLevel,
       levelStars: normalizedLevelStars,
       levelCompletionMethod: normalizedCompletionMethod,
       highestScore: recalculatedScore
@@ -376,6 +392,8 @@ export const useGameProgress = () => {
 
     if (adsWatchedForNextLevel >= updatedProgress.adsRequiredPerLevel) {
       const updatedUnlockedLevels = Array.from(new Set([...updatedProgress.unlockedLevels, nextLevel])).sort((a, b) => a - b);
+      const highestUnlocked = Math.max(...updatedUnlockedLevels);
+      const nextSelection = Math.min(nextLevel, highestUnlocked);
       const newProgress = {
         ...baseProgress,
         unlockedLevels: updatedUnlockedLevels,
@@ -383,6 +401,11 @@ export const useGameProgress = () => {
         adsWatchedForUnlockToday: updatedProgress.adsWatchedForUnlockToday + 1,
         lastAdUnlockDate: today,
         totalCoins: baseProgress.totalCoins + 50, // Bonus on unlock
+        currentLevel: Math.max(baseProgress.currentLevel, nextLevel),
+        selectedLevel: Math.max(
+          baseProgress.selectedLevel ?? baseProgress.currentLevel,
+          nextSelection
+        )
         // Keep adsWatchedForUnlockCountToday - don't reset it! It should continue counting up to 6
       };
 
@@ -411,9 +434,8 @@ export const useGameProgress = () => {
     // Use ref to get latest state (avoids stale closure issues)
     const currentProgress = progressRef.current;
     if (currentProgress.unlockedLevels.includes(level)) {
-      const newProgress = { ...currentProgress, currentLevel: level };
+      const newProgress = { ...currentProgress, selectedLevel: level };
       await saveProgress(newProgress);
-      await syncProgressToBackend(newProgress);
     }
   };
 
@@ -514,6 +536,8 @@ export const useGameProgress = () => {
     const newLevelCompletionMethod = { ...currentProgress.levelCompletionMethod };
     const newLevelStars = { ...currentProgress.levelStars };
     const newUnlockedLevels = [...currentProgress.unlockedLevels];
+    const currentSelectedLevel = currentProgress.selectedLevel ?? currentProgress.currentLevel;
+    let newSelectedLevel = currentSelectedLevel;
 
     // If level is completed by score (regardless of previous ad unlocks)
     if (isLevelCompleted) {
@@ -531,6 +555,11 @@ export const useGameProgress = () => {
       if (nextLevel <= 50 && !newUnlockedLevels.includes(nextLevel)) {
         newUnlockedLevels.push(nextLevel);
       }
+
+      if (currentSelectedLevel === level) {
+        const highestUnlocked = Math.max(...newUnlockedLevels);
+        newSelectedLevel = Math.min(nextLevel, highestUnlocked);
+      }
     }
 
     // Update currentLevel to next level if current level is completed
@@ -542,11 +571,16 @@ export const useGameProgress = () => {
       }
     }
 
+    if (!newUnlockedLevels.includes(newSelectedLevel)) {
+      newSelectedLevel = Math.max(...newUnlockedLevels);
+    }
+
     const totalLevelPoints = calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod);
 
     const newProgress = {
       ...currentProgress,
       currentLevel: newCurrentLevel,
+      selectedLevel: newSelectedLevel,
       totalGamesPlayed: currentProgress.totalGamesPlayed + 1,
       highestScore: totalLevelPoints,
       levelScores: newLevelScores,
@@ -655,6 +689,9 @@ export const useGameProgress = () => {
       ? updatedProgress.unlockedLevels
       : [...updatedProgress.unlockedLevels, nextLevel];
 
+    const highestUnlocked = Math.max(...newUnlockedLevels);
+    const nextSelection = Math.min(nextLevel, highestUnlocked);
+
     const newProgress = {
       ...updatedProgress,
       levelScores: newLevelScores,
@@ -662,6 +699,10 @@ export const useGameProgress = () => {
       levelStars: newLevelStars,
       unlockedLevels: newUnlockedLevels,
       currentLevel: Math.max(updatedProgress.currentLevel, nextLevel), // Progress to next level
+      selectedLevel: Math.max(
+        updatedProgress.selectedLevel ?? updatedProgress.currentLevel,
+        nextSelection
+      ),
       totalCoins: updatedProgress.totalCoins + 100, // Reward for completing level via ad
       adsWatchedToday: updatedProgress.adsWatchedToday + 1,
       adsWatchedForUnlockToday: updatedProgress.adsWatchedForUnlockToday + 1,

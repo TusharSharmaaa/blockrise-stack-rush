@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const LevelSelect = () => {
   const navigate = useNavigate();
   const { progress, watchAdForLevel, selectLevel, isLoading, canWatchAdToday, getScoreRequirement, getLevelBestScore, getStarsForLevel } = useGameProgress();
+  const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   
   // Debug logging
   useEffect(() => {
@@ -187,7 +188,7 @@ const LevelSelect = () => {
         <div className="grid grid-cols-4 md:grid-cols-5 gap-3">
           {Array.from({ length: 50 }, (_, i) => i + 1).map((level) => {
             const isUnlocked = progress.unlockedLevels.includes(level);
-            const isCurrent = progress.currentLevel === level;
+            const isCurrent = selectedLevel === level;
             const stars = getStarsForLevel(level);
             const scoreReq = getScoreRequirement(level);
             const bestScore = getLevelBestScore(level);

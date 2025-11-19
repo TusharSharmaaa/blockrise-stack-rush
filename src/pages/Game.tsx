@@ -7,7 +7,6 @@ import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useAdMob } from '@/hooks/useAdMob';
-import { useSound } from '@/hooks/useSound';
 import { usePowerUps } from '@/hooks/usePowerUps';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useLeaderboard } from '@/hooks/useLeaderboard';
@@ -33,15 +32,15 @@ const Game = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
   const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, selectLevel, getStarsForLevel } = useGameProgress();
+  const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
-  const { playSound, playMusic, stopMusic } = useSound();
   const { usePowerUp: activatePowerUp, loadInventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
-  const [activeLevel, setActiveLevel] = useState(progress.currentLevel);
+  const [activeLevel, setActiveLevel] = useState(selectedLevel);
   const [hasShownLevelCompleteToast, setHasShownLevelCompleteToast] = useState(false);
   const [hasForcedLevelCompletion, setHasForcedLevelCompletion] = useState(false);
   // Session-based attempt counter: tracks consecutive attempts for the current level session
@@ -74,40 +73,40 @@ const Game = () => {
   useEffect(() => {
     if (isLoading) return;
     
+    const latestSelectedLevel = selectedLevel;
+
     // If level changed, reset the session counter for the new level and start at attempt 1
-    if (currentSessionLevel !== null && currentSessionLevel !== progress.currentLevel) {
+    if (currentSessionLevel !== null && currentSessionLevel !== latestSelectedLevel) {
       setSessionAttemptCount({
-        [progress.currentLevel]: 1 // Start new level session at attempt 1
+        [latestSelectedLevel]: 1 // Start new level session at attempt 1
       });
-      setCurrentSessionLevel(progress.currentLevel);
+      setCurrentSessionLevel(latestSelectedLevel);
     } else if (currentSessionLevel === null) {
       // First time entering game, set the current level and start at attempt 1
-      setCurrentSessionLevel(progress.currentLevel);
+      setCurrentSessionLevel(latestSelectedLevel);
       setSessionAttemptCount({
-        [progress.currentLevel]: 1 // First attempt when opening level
+        [latestSelectedLevel]: 1 // First attempt when opening level
       });
     }
-  }, [isLoading, progress.currentLevel, currentSessionLevel]);
+  }, [isLoading, selectedLevel, currentSessionLevel]);
 
   useEffect(() => {
     if (isLoading) return;
     const isFreshRun = !gameState.gameOver && gameState.score === 0;
-    if (isFreshRun && activeLevel !== progress.currentLevel) {
-      setActiveLevel(progress.currentLevel);
+    if (isFreshRun && activeLevel !== selectedLevel) {
+      setActiveLevel(selectedLevel);
       // Reset session counter when switching to a different level and start at attempt 1
       setSessionAttemptCount({
-        [progress.currentLevel]: 1
+        [selectedLevel]: 1
       });
-      setCurrentSessionLevel(progress.currentLevel);
+      setCurrentSessionLevel(selectedLevel);
     }
-  }, [isLoading, progress.currentLevel, gameState.gameOver, gameState.score, activeLevel]);
+  }, [isLoading, selectedLevel, gameState.gameOver, gameState.score, activeLevel]);
 
   // Load power-up inventory on mount
   useEffect(() => {
     loadInventory();
-    playMusic();
     return () => {
-      stopMusic();
       // Clean up slowTime timeout on unmount
       if (slowTimeTimeoutRef.current) {
         clearTimeout(slowTimeTimeoutRef.current);
@@ -144,13 +143,6 @@ const Game = () => {
       return; // Early return if score didn't increase
     }
 
-    const scoreDiff = gameState.score - previousScore;
-    
-    // Throttle sound to prevent blocking - only play every 10 points
-    if (scoreDiff > 0 && scoreDiff % 10 === 0) {
-      playSound('coin');
-    }
-    
     // Use refs to avoid stale closures in async operations
     const currentScore = gameState.score;
     const currentPreviousScore = previousScore;
@@ -218,7 +210,7 @@ const Game = () => {
     }
     
     setPreviousScore(currentScore);
-  }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, playSound, hasShownLevelCompleteToast]);
+  }, [gameState.score, previousScore, checkAndUnlock, addCoins, activeLevel, progress.unlockedLevels, completeLevel, getScoreRequirement, hasShownLevelCompleteToast]);
 
   // Automatically wrap up the level once the target score is reached
   useEffect(() => {
@@ -293,7 +285,6 @@ const Game = () => {
       return;
     }
 
-    playSound('powerup');
     switch (type) {
       case 'clearLine':
         // Find the lowest full or nearly-full line and clear it
@@ -422,7 +413,7 @@ const Game = () => {
         // Submit score to leaderboard if profile exists
         const profileId = profile?.id || localStorage.getItem('profileId');
         if (profileId) {
-          await submitScore(profileId, gameState.score, progress.currentLevel);
+          await submitScore(profileId, gameState.score, activeLevel);
         }
 
         // Check achievements on game over and add coin rewards
@@ -464,26 +455,21 @@ const Game = () => {
 
         await checkGameOverAchievements();
         
-        playSound('gameOver');
-        stopMusic();
-        
         // Show interstitial ad immediately after game over
         showInterstitial();
       };
 
       handleGameOver();
     }
-  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, playSound, stopMusic, activeLevel, getScoreRequirement, completeLevel]);
+  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, activeLevel, getScoreRequirement, completeLevel]);
 
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();
     if (result.success) {
       toast.success('Continue playing! You got 50 bonus coins!');
       await addCoins(50);
-      playSound('coin');
       await resetGame(activeLevel);
       setHasShownGameOverAd(false);
-      playMusic();
     } else {
       toast.error('Ad was not completed');
     }
@@ -497,7 +483,6 @@ const Game = () => {
     }));
     await resetGame(activeLevel);
     setHasShownGameOverAd(false);
-    playMusic();
   };
 
   const handlePlayNextLevel = async () => {
@@ -511,7 +496,6 @@ const Game = () => {
     setActiveLevel(nextPlayableLevel);
     await resetGame(nextPlayableLevel);
     setHasShownGameOverAd(false);
-    playMusic();
   };
 
   const starMessage = hasMetLevelGoal
