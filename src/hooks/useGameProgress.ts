@@ -62,28 +62,34 @@ const INITIAL_PROGRESS: LevelProgress = {
   totalAdsWatched: 0
 };
 
-// Level progression system - score required to complete each level
-export const LEVEL_REQUIREMENTS = {
-  1: 500,
-  2: 800,
-  3: 1200,
-  4: 1800,
-  5: 2500,
-  10: 5000,
-  15: 8000,
-  20: 12000,
-  25: 18000,
-  30: 25000,
-  40: 40000,
-  50: 60000,
-};
+const LEVEL_POINT_STEP = 300;
 
 export const getScoreRequirement = (level: number): number => {
-  if (LEVEL_REQUIREMENTS[level as keyof typeof LEVEL_REQUIREMENTS]) {
-    return LEVEL_REQUIREMENTS[level as keyof typeof LEVEL_REQUIREMENTS];
-  }
-  // Dynamic calculation for levels not in the map
-  return Math.floor(500 + (level * level * 50));
+  return Math.max(level, 1) * LEVEL_POINT_STEP;
+};
+
+const clampStars = (stars: number) => Math.max(0, Math.min(3, Math.floor(stars)));
+
+const calculateLevelPoints = (
+  level: number,
+  stars: number,
+  completionMethod?: LevelProgress['levelCompletionMethod'][number]
+) => {
+  if (completionMethod !== 'score') return 0;
+  const requirement = getScoreRequirement(level);
+  const starRatio = clampStars(stars) / 3;
+  return Math.round(requirement * starRatio);
+};
+
+const calculateTotalProgressPoints = (
+  levelStars: LevelProgress['levelStars'],
+  completionMethod: LevelProgress['levelCompletionMethod']
+) => {
+  return Object.entries(levelStars).reduce((total, [levelStr, stars]) => {
+    const level = Number(levelStr);
+    if (Number.isNaN(level)) return total;
+    return total + calculateLevelPoints(level, stars, completionMethod[level]);
+  }, 0);
 };
 
 // Calculate the highest level reached based on score
@@ -145,7 +151,46 @@ export const useGameProgress = () => {
       levelAttempts: savedProgress.levelAttempts ?? INITIAL_PROGRESS.levelAttempts,
       totalAdsWatched: savedProgress.totalAdsWatched ?? INITIAL_PROGRESS.totalAdsWatched
     };
-    return migrated;
+
+    const normalizedLevelStars = { ...migrated.levelStars };
+    const normalizedCompletionMethod = { ...migrated.levelCompletionMethod };
+
+    // Ensure any level with stars recorded is marked as completed by score
+    Object.entries(normalizedLevelStars).forEach(([levelStr, stars]) => {
+      const level = Number(levelStr);
+      if (Number.isNaN(level)) return;
+      if (stars > 0 && normalizedCompletionMethod[level] !== 'score') {
+        normalizedCompletionMethod[level] = 'score';
+      }
+      if (stars > 3) {
+        normalizedLevelStars[level] = 3;
+      }
+    });
+
+    // Backfill stars/method for levels with a qualifying best score but missing metadata
+    Object.entries(migrated.levelScores).forEach(([levelStr, bestScore]) => {
+      const level = Number(levelStr);
+      if (Number.isNaN(level)) return;
+      const requirement = getScoreRequirement(level);
+      if (bestScore >= requirement) {
+        normalizedCompletionMethod[level] = 'score';
+        if (!normalizedLevelStars[level] || normalizedLevelStars[level] < 1) {
+          normalizedLevelStars[level] = 1;
+        }
+      }
+    });
+
+    const recalculatedScore = calculateTotalProgressPoints(
+      normalizedLevelStars,
+      normalizedCompletionMethod
+    );
+
+    return {
+      ...migrated,
+      levelStars: normalizedLevelStars,
+      levelCompletionMethod: normalizedCompletionMethod,
+      highestScore: recalculatedScore
+    };
   };
 
   const saveProgress = useCallback(async (newProgress: LevelProgress) => {
@@ -497,11 +542,13 @@ export const useGameProgress = () => {
       }
     }
 
+    const totalLevelPoints = calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod);
+
     const newProgress = {
       ...currentProgress,
       currentLevel: newCurrentLevel,
       totalGamesPlayed: currentProgress.totalGamesPlayed + 1,
-      highestScore: Math.max(currentProgress.highestScore, score),
+      highestScore: totalLevelPoints,
       levelScores: newLevelScores,
       levelCompletionMethod: newLevelCompletionMethod,
       levelStars: newLevelStars,
@@ -621,7 +668,8 @@ export const useGameProgress = () => {
       lastAdWatchDate: today,
       lastAdUnlockDate: today,
       totalAdsWatched: updatedProgress.totalAdsWatched + 1,
-      adsWatchedForNextLevel: 0
+      adsWatchedForNextLevel: 0,
+      highestScore: calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod)
     };
 
     await saveProgress(newProgress);

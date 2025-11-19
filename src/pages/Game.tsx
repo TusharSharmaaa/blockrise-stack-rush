@@ -49,7 +49,6 @@ const Game = () => {
   const [sessionAttemptCount, setSessionAttemptCount] = useState<{ [level: number]: number }>({});
   const [currentSessionLevel, setCurrentSessionLevel] = useState<number | null>(null);
   const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const levelCompleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downHapticCooldownRef = useRef(0);
   const scoreRequirement = getScoreRequirement(activeLevel);
   const {
@@ -114,10 +113,6 @@ const Game = () => {
         clearTimeout(slowTimeTimeoutRef.current);
         slowTimeTimeoutRef.current = null;
       }
-      if (levelCompleteTimeoutRef.current) {
-        clearTimeout(levelCompleteTimeoutRef.current);
-        levelCompleteTimeoutRef.current = null;
-      }
       // Reset session counter when leaving the game (navigating away)
       setSessionAttemptCount({});
       setCurrentSessionLevel(null);
@@ -129,20 +124,12 @@ const Game = () => {
     if (!gameState.gameOver && gameState.score === 0) {
       setHasShownLevelCompleteToast(false);
       setHasForcedLevelCompletion(false);
-      if (levelCompleteTimeoutRef.current) {
-        clearTimeout(levelCompleteTimeoutRef.current);
-        levelCompleteTimeoutRef.current = null;
-      }
     }
   }, [gameState.gameOver, gameState.score]);
 
   useEffect(() => {
     setHasShownLevelCompleteToast(false);
     setHasForcedLevelCompletion(false);
-    if (levelCompleteTimeoutRef.current) {
-      clearTimeout(levelCompleteTimeoutRef.current);
-      levelCompleteTimeoutRef.current = null;
-    }
     // Reset session counter when level changes and start at attempt 1
     setSessionAttemptCount({
       [activeLevel]: 1
@@ -235,31 +222,16 @@ const Game = () => {
 
   // Automatically wrap up the level once the target score is reached
   useEffect(() => {
-    if (hasMetLevelGoal && !gameState.gameOver && !hasForcedLevelCompletion) {
-      if (levelCompleteTimeoutRef.current) {
-        clearTimeout(levelCompleteTimeoutRef.current);
-      }
-      levelCompleteTimeoutRef.current = setTimeout(() => {
-        setGameState(prev => ({
-          ...prev,
-          gameOver: true,
-          paused: false
-        }));
-        setHasForcedLevelCompletion(true);
-        levelCompleteTimeoutRef.current = null;
-      }, 1200);
-      return () => {
-        if (levelCompleteTimeoutRef.current) {
-          clearTimeout(levelCompleteTimeoutRef.current);
-          levelCompleteTimeoutRef.current = null;
-        }
-      };
+    if (!hasMetLevelGoal || gameState.gameOver || hasForcedLevelCompletion) {
+      return;
     }
 
-    if ((!hasMetLevelGoal || gameState.gameOver) && levelCompleteTimeoutRef.current) {
-      clearTimeout(levelCompleteTimeoutRef.current);
-      levelCompleteTimeoutRef.current = null;
-    }
+    setHasForcedLevelCompletion(true);
+    setGameState(prev => ({
+      ...prev,
+      gameOver: true,
+      paused: false
+    }));
   }, [hasMetLevelGoal, gameState.gameOver, hasForcedLevelCompletion, setGameState]);
 
   // Track level achievements
