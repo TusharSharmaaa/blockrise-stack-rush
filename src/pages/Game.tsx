@@ -3,7 +3,6 @@ import GameBoard from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
 import PowerUpBar from '@/components/game/PowerUpBar';
-import SyncIndicator from '@/components/game/SyncIndicator';
 import { useGameLoop } from '@/hooks/useGameLoop';
 import { useGameProgress } from '@/hooks/useGameProgress';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -418,14 +417,10 @@ const Game = () => {
         // Update stats and sync to backend
         await updateGameStats(gameState.score, activeLevel, attempts);
         
-        // Trigger sync indicator animation
-        window.dispatchEvent(new Event('progressSynced'));
-        
         // Submit score to leaderboard if profile exists
         const profileId = profile?.id || localStorage.getItem('profileId');
         if (profileId) {
           await submitScore(profileId, gameState.score, progress.currentLevel);
-          toast.success('Progress saved to cloud! ☁️');
         }
 
         // Check achievements on game over and add coin rewards
@@ -530,11 +525,6 @@ const Game = () => {
 
   return (
     <div className="h-full bg-background flex flex-col relative overflow-hidden">
-      {/* Sync Indicator */}
-      <div className="absolute top-2 right-2 z-50">
-        <SyncIndicator profileId={profile?.id} />
-      </div>
-      
       {/* Animated background gradient */}
       <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
       
