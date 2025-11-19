@@ -15,6 +15,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
 import { validateProfileData } from '@/utils/validation';
 import { Skeleton } from '@/components/ui/skeleton';
+import Fuse from 'fuse.js';
 
 const USERNAME_CACHE_DURATION_MS = 5 * 60 * 1000;
 
@@ -114,12 +115,17 @@ const ProfileSetupDialog = () => {
     }
   }, [comboboxOpen]);
 
-  // Filter countries using prefix matching (starts with search query)
+  // Configure Fuse.js for fuzzy search (same as Profile.tsx)
+  const fuse = new Fuse(countries, {
+    keys: ['name', 'code'],
+    threshold: 0.4, // Lower threshold = more strict matching (0.0 = exact, 1.0 = match anything)
+    includeScore: true,
+    ignoreLocation: true, // Search anywhere in the string
+  });
+
+  // Filter countries using fuzzy search
   const filteredCountries = searchQuery
-    ? countries.filter(c => 
-        c.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-        c.code.toLowerCase().startsWith(searchQuery.toLowerCase())
-      )
+    ? fuse.search(searchQuery).map(result => result.item)
     : countries;
 
   useEffect(() => {
