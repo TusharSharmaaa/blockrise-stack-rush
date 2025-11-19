@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import GameBoard from '@/components/game/GameBoard';
+import GameBoard, { HighlightCell } from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
 import PowerUpBar from '@/components/game/PowerUpBar';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Play, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getRandomBlock } from '@/utils/blockShapes';
+import { getRandomBlock, GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 import { hapticVibrate } from '@/utils/haptics';
 import { calculateLevelSpeed } from '@/utils/gameConstants';
 import {
@@ -28,6 +28,13 @@ import {
 } from '@/components/ui/dialog';
 import GameOverPanel from '@/components/game/GameOverPanel';
 
+const POWER_UP_DURATIONS: Record<'slowTime' | 'clearLine' | 'shuffle' | 'bomb', number> = {
+  slowTime: 30000,
+  clearLine: 1200,
+  shuffle: 800,
+  bomb: 1500,
+};
+
 const Game = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
@@ -35,7 +42,7 @@ const Game = () => {
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
-  const { usePowerUp: activatePowerUp, loadInventory } = usePowerUps();
+  const { usePowerUp: activatePowerUp, loadInventory, addPowerUp } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
@@ -48,7 +55,97 @@ const Game = () => {
   const [sessionAttemptCount, setSessionAttemptCount] = useState<{ [level: number]: number }>({});
   const [currentSessionLevel, setCurrentSessionLevel] = useState<number | null>(null);
   const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downHapticCooldownRef = useRef(0);
+  const [powerUpHighlights, setPowerUpHighlights] = useState<HighlightCell[]>([]);
+
+  const triggerHighlights = useCallback((cells: HighlightCell[], duration: number = 700) => {
+    if (!cells.length) return;
+    setPowerUpHighlights(cells);
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    if (typeof window !== 'undefined') {
+      highlightTimeoutRef.current = window.setTimeout(() => {
+        setPowerUpHighlights([]);
+        highlightTimeoutRef.current = null;
+      }, duration);
+    }
+  }, []);
+
+  const findBestLineToClear = useCallback((grid: (string | null)[][]): number => {
+    let candidate = -1;
+    let filled = 0;
+    for (let row = grid.length - 1; row >= 0; row--) {
+      const rowFilled = grid[row].reduce((count, cell) => count + (cell ? 1 : 0), 0);
+      if (rowFilled > filled) {
+        filled = rowFilled;
+        candidate = row;
+      }
+    }
+    return filled >= 3 ? candidate : -1;
+  }, []);
+
+  const createLineHighlight = useCallback((lineIndex: number): HighlightCell[] => {
+    if (lineIndex < 0) return [];
+    return Array.from({ length: GRID_WIDTH }, (_, x) => ({
+      x,
+      y: lineIndex,
+      color: 'rgba(255,255,255,0.95)',
+      alpha: 0.9
+    }));
+  }, []);
+
+  const createAreaHighlight = useCallback((centerX: number, centerY: number, radius: number, color: string): HighlightCell[] => {
+    const cells: HighlightCell[] = [];
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const x = centerX + dx;
+        const y = centerY + dy;
+        if (x >= 0 && x < GRID_WIDTH && y >= 0 && y < GRID_HEIGHT) {
+          cells.push({
+            x,
+            y,
+            color,
+            alpha: 0.85
+          });
+        }
+      }
+    }
+    return cells;
+  }, []);
+
+  const createSpawnHighlight = useCallback((): HighlightCell[] => {
+    const cells: HighlightCell[] = [];
+    const startX = Math.max(0, Math.floor(GRID_WIDTH / 2) - 2);
+    const endX = Math.min(GRID_WIDTH - 1, Math.floor(GRID_WIDTH / 2) + 1);
+    for (let y = 0; y < 4; y++) {
+      for (let x = startX; x <= endX; x++) {
+        cells.push({
+          x,
+          y,
+          color: 'rgba(52,211,153,0.8)',
+          alpha: 0.6
+        });
+      }
+    }
+    return cells;
+  }, []);
+
+  const createBoardHighlight = useCallback((): HighlightCell[] => {
+    const cells: HighlightCell[] = [];
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+      for (let x = 0; x < GRID_WIDTH; x++) {
+        cells.push({
+          x,
+          y,
+          color: 'rgba(59,130,246,0.65)',
+          alpha: 0.22
+        });
+      }
+    }
+    return cells;
+  }, []);
   const scoreRequirement = getScoreRequirement(activeLevel);
   const {
     gameState,
@@ -112,11 +209,16 @@ const Game = () => {
         clearTimeout(slowTimeTimeoutRef.current);
         slowTimeTimeoutRef.current = null;
       }
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+      setPowerUpHighlights([]);
       // Reset session counter when leaving the game (navigating away)
       setSessionAttemptCount({});
       setCurrentSessionLevel(null);
     };
-  }, []);
+  }, [loadInventory]);
 
   // Reset level completion helpers when starting a fresh run or switching levels
   useEffect(() => {
@@ -279,46 +381,86 @@ const Game = () => {
   }, [rotate, triggerMovePulse]);
 
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
-    const success = await activatePowerUp(type, 30000);
+    if (gameState.gameOver) {
+      toast.error('Finish the current game to use power-ups.');
+      return;
+    }
+
+    let preCheckPassed = true;
+
+    switch (type) {
+      case 'clearLine': {
+        const lineIndex = findBestLineToClear(gameState.grid);
+        if (lineIndex === -1) {
+          toast.info('No dense line to clear right now.');
+          preCheckPassed = false;
+        }
+        break;
+      }
+      case 'bomb': {
+        if (!gameState.currentBlock) {
+          toast.info('Place a block before using the bomb.');
+          preCheckPassed = false;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (!preCheckPassed) {
+      return;
+    }
+
+    const success = await activatePowerUp(type, POWER_UP_DURATIONS[type]);
     if (!success) {
       toast.error('Power-up not available');
       return;
     }
 
     switch (type) {
-      case 'clearLine':
-        // Find the lowest full or nearly-full line and clear it
+      case 'clearLine': {
+        let clearedLineIndex = -1;
         setGameState(prevState => {
-          let targetLine = -1;
-          let maxFilled = 0;
-          
-          for (let i = prevState.grid.length - 1; i >= 0; i--) {
-            const filled = prevState.grid[i].filter(cell => cell !== null).length;
-            if (filled > maxFilled && filled >= 7) { // Clear if 70% full
-              targetLine = i;
-              maxFilled = filled;
-            }
+          const targetLine = findBestLineToClear(prevState.grid);
+          if (targetLine === -1) {
+            clearedLineIndex = -1;
+            return prevState;
           }
-          
-          if (targetLine >= 0) {
-            return clearLine(prevState, targetLine);
-          }
-          return prevState;
+          clearedLineIndex = targetLine;
+          return clearLine(prevState, targetLine);
         });
+        if (clearedLineIndex === -1) {
+          toast.info('Line was already cleared.');
+          await addPowerUp('clearLine', 1);
+          return;
+        }
+        triggerHighlights(createLineHighlight(clearedLineIndex), 900);
         toast.success('Line cleared!');
         break;
-      case 'bomb':
-        // Clear a 3x3 area around the current block
+      }
+      case 'bomb': {
+        let areaCenter: { x: number; y: number } | null = null;
         setGameState(prevState => {
-          if (!prevState.currentBlock) return prevState;
+          if (!prevState.currentBlock) {
+            areaCenter = null;
+            return prevState;
+          }
           const centerX = prevState.currentBlock.x + Math.floor(prevState.currentBlock.shape[0].length / 2);
           const centerY = prevState.currentBlock.y + Math.floor(prevState.currentBlock.shape.length / 2);
+          areaCenter = { x: centerX, y: centerY };
           return clearArea(prevState, centerX, centerY, 1);
         });
+        if (!areaCenter) {
+          toast.info('No block to detonate.');
+          await addPowerUp('bomb', 1);
+          return;
+        }
+        triggerHighlights(createAreaHighlight(areaCenter.x, areaCenter.y, 1, 'rgba(248,113,113,0.95)'), 1100);
         toast.success('Bomb exploded! Area cleared!');
         break;
-      case 'shuffle':
-        // Shuffle next blocks
+      }
+      case 'shuffle': {
         setGameState(prevState => ({
           ...prevState,
           nextBlock: {
@@ -328,29 +470,30 @@ const Game = () => {
             id: Math.random().toString()
           }
         }));
+        triggerHighlights(createSpawnHighlight(), 800);
         toast.success('Next blocks shuffled!');
         break;
-      case 'slowTime':
-        // Clear any existing slowTime timeout
+      }
+      case 'slowTime': {
         if (slowTimeTimeoutRef.current) {
           clearTimeout(slowTimeTimeoutRef.current);
           slowTimeTimeoutRef.current = null;
         }
-        // Slow down game speed
         setGameState(prevState => ({
           ...prevState,
           speed: prevState.speed * 2
         }));
-        // Reset speed after duration using the same formula as game loop
+        triggerHighlights(createBoardHighlight(), 900);
         slowTimeTimeoutRef.current = setTimeout(() => {
           setGameState(prevState => ({
             ...prevState,
             speed: calculateLevelSpeed(prevState.level)
           }));
           slowTimeTimeoutRef.current = null;
-        }, 30000);
+        }, POWER_UP_DURATIONS.slowTime);
         toast.success('Time slowed for 30s!');
         break;
+      }
     }
   };
 
@@ -543,6 +686,7 @@ const Game = () => {
           <GameBoard
             grid={gameState.grid}
             currentBlock={gameState.currentBlock}
+            highlights={powerUpHighlights}
           />
         </div>
 

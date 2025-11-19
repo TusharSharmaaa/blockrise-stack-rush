@@ -13,7 +13,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountries } from '@/hooks/useCountries';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
-import { validateProfileData } from '@/utils/validation';
+import { sanitizeUsername, validateProfileData } from '@/utils/validation';
 import { Skeleton } from '@/components/ui/skeleton';
 import Fuse from 'fuse.js';
 
@@ -44,6 +44,11 @@ const ProfileSetupDialog = () => {
   const countrySearchInputRef = useRef<HTMLInputElement>(null);
 
   const generateUsernameSuggestions = useCallback(async (baseName: string) => {
+    const normalizedBase = sanitizeUsername(baseName);
+    if (!normalizedBase) {
+      setUsernameSuggestions([]);
+      return;
+    }
     const suggestions: string[] = [];
     
     // Get country code if available
@@ -53,13 +58,13 @@ const ProfileSetupDialog = () => {
     
     // Generate different types of suggestions
     const candidates = [
-      `${baseName}_${countryCode}`,           // username_IN
-      `${baseName}_${countryName}`,           // username_india
-      `${baseName}${countryCode}`,            // usernameIN
-      `${baseName}2`,                         // username2
-      `${baseName}_2`,                        // username_2
-      `${baseName}3`,                         // username3
-      `${baseName}_${Math.floor(Math.random() * 100)}`, // username_42
+      `${normalizedBase}_${countryCode}`,           // username_IN
+      `${normalizedBase}_${countryName}`,           // username_india
+      `${normalizedBase}${countryCode}`,            // usernameIN
+      `${normalizedBase}2`,                         // username2
+      `${normalizedBase}_2`,                        // username_2
+      `${normalizedBase}3`,                         // username3
+      `${normalizedBase}_${Math.floor(Math.random() * 100)}`, // username_42
     ];
     
     // Check availability of each suggestion
@@ -163,8 +168,10 @@ const ProfileSetupDialog = () => {
       skipButtonTimerRef.current = null;
     }
 
+    const normalizedName = sanitizeUsername(name);
+
     // Reset states if name is empty or too short
-    if (!name || name.trim().length < 3) {
+    if (!normalizedName || normalizedName.length < 3) {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
       setUsernameSuggestions([]);
@@ -214,15 +221,15 @@ const ProfileSetupDialog = () => {
       if (!isMounted) return;
 
       try {
-        const trimmedName = name.trim().toLowerCase();
+        const cacheKey = normalizedName.toLowerCase();
         
         // Check cache first
-        const cached = usernameCheckCacheRef.current.get(trimmedName);
+        const cached = usernameCheckCacheRef.current.get(cacheKey);
         const now = Date.now();
         
         if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
           // Use cached result
-          console.log('[ProfileSetup] Using cached result for:', trimmedName);
+          console.log('[ProfileSetup] Using cached result for:', cacheKey);
           if (timeoutId) clearTimeout(timeoutId);
           if (skipButtonTimerRef.current) {
             clearTimeout(skipButtonTimerRef.current);
@@ -233,7 +240,7 @@ const ProfileSetupDialog = () => {
           
           // If username is taken, generate suggestions
           if (!cached.available) {
-            await generateUsernameSuggestions(name.trim());
+            await generateUsernameSuggestions(normalizedName);
           } else {
             setUsernameSuggestions([]);
           }
@@ -242,14 +249,14 @@ const ProfileSetupDialog = () => {
         }
         
         // Make API call if not cached or expired
-        console.log('[ProfileSetup] Checking username availability for:', name.trim());
-        const isUnique = await checkNameUniqueRef.current(name.trim());
+        console.log('[ProfileSetup] Checking username availability for:', normalizedName);
+        const isUnique = await checkNameUniqueRef.current(normalizedName);
         console.log('[ProfileSetup] Uniqueness result:', isUnique);
         
         if (!isMounted) return;
         
         // Cache the result
-        usernameCheckCacheRef.current.set(trimmedName, {
+        usernameCheckCacheRef.current.set(cacheKey, {
           available: isUnique,
           timestamp: now
         });
@@ -264,7 +271,7 @@ const ProfileSetupDialog = () => {
         
         // If username is taken, generate suggestions
         if (!isUnique) {
-          await generateUsernameSuggestions(name.trim());
+          await generateUsernameSuggestions(normalizedName);
         } else {
           setUsernameSuggestions([]);
         }
@@ -307,14 +314,15 @@ const ProfileSetupDialog = () => {
   }, [name, isOnline, generateUsernameSuggestions]);
 
   const handleSuggestionClick = (suggestion: string) => {
-    setName(suggestion);
+    const normalizedSuggestion = sanitizeUsername(suggestion);
+    setName(normalizedSuggestion);
     setUsernameAvailable(true);
     setUsernameSuggestions([]);
     setShowSkipValidation(false);
     setErrors(prev => ({ ...prev, name: undefined }));
     
     // Update cache for the selected suggestion
-    const suggestionLower = suggestion.toLowerCase();
+    const suggestionLower = normalizedSuggestion.toLowerCase();
     usernameCheckCacheRef.current.set(suggestionLower, {
       available: true,
       timestamp: Date.now()
@@ -369,6 +377,12 @@ const ProfileSetupDialog = () => {
         name,
         country,
       });
+      if (validatedData.name !== name) {
+        setName(validatedData.name);
+      }
+      if (validatedData.country !== country) {
+        setCountry(validatedData.country);
+      }
       
       console.log('[ProfileSetup] Validation passed');
 

@@ -1,14 +1,22 @@
-import { useEffect, useRef, useState, useCallback, memo } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { Block } from '@/types/game';
 import { GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 import { useTheme } from '@/components/ThemeProvider';
 
+export interface HighlightCell {
+  x: number;
+  y: number;
+  color?: string;
+  alpha?: number;
+}
+
 interface GameBoardProps {
   grid: (string | null)[][];
   currentBlock: Block | null;
+  highlights?: HighlightCell[];
 }
 
-const GameBoard = memo(({ grid, currentBlock }: GameBoardProps) => {
+const GameBoard = memo(({ grid, currentBlock, highlights }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(24);
@@ -192,7 +200,24 @@ const GameBoard = memo(({ grid, currentBlock }: GameBoardProps) => {
         });
       });
     }
-  }, [grid, currentBlock, cellSize, theme]);
+    
+    // Draw highlights from power-ups
+    if (highlights?.length) {
+      highlights.forEach(({ x, y, color, alpha }) => {
+        if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
+          return;
+        }
+        const px = x * cellSize + 1;
+        const py = y * cellSize + 1;
+        const size = cellSize - 2;
+        ctx.save();
+        ctx.fillStyle = color || 'rgba(255, 255, 255, 0.85)';
+        ctx.globalAlpha = alpha !== undefined ? Math.max(0, Math.min(alpha, 1)) : 0.75;
+        ctx.fillRect(px, py, size, size);
+        ctx.restore();
+      });
+    }
+  }, [grid, currentBlock, cellSize, theme, highlights]);
 
   return (
     <div 

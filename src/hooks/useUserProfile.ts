@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeUsername } from '@/utils/validation';
 
 export interface UserProfile {
   id?: string;
@@ -378,12 +379,16 @@ export const useUserProfile = () => {
   };
 
   const checkNameUnique = async (name: string, currentUserId?: string): Promise<boolean> => {
-    console.log('[useUserProfile] Checking name uniqueness:', { name, currentUserId });
+    const normalizedName = sanitizeUsername(name);
+    if (!normalizedName) {
+      return false;
+    }
+    console.log('[useUserProfile] Checking name uniqueness:', { name: normalizedName, currentUserId });
     try {
       let query = supabase
         .from('profiles')
         .select('id, user_id')
-        .ilike('username', name);
+        .ilike('username', normalizedName);
 
       const { data, error } = await query.maybeSingle();
 

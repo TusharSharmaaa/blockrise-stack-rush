@@ -119,9 +119,3 @@ After clearing, when you open the app:
 ---
 
 **Recommended for Testing**: Use **Method 1** (Android Settings) as it's the easiest and most reliable way to clear all app data.
-
-
-
-
-
-

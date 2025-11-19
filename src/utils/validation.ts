@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const normalizeWhitespace = (value: string): string =>
+  value.replace(/\s+/g, ' ').trim();
+
+export const sanitizeUsername = (input: string): string => {
+  // Remove HTML brackets, normalize whitespace, and collapse multiple separators
+  const cleaned = input.replace(/[<>]/g, '');
+  return normalizeWhitespace(cleaned);
+};
+
 // Profile validation schemas
 export const nameSchema = z
   .string()
@@ -31,7 +40,7 @@ export const sanitizeInput = (input: string): string => {
 export const validateProfileData = (data: { name: string; country: string }) => {
   try {
     const sanitized = {
-      name: sanitizeInput(data.name),
+      name: sanitizeUsername(data.name),
       country: sanitizeInput(data.country),
     };
     
