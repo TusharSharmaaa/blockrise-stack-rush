@@ -19,7 +19,7 @@ window.addEventListener('orientationchange', setVH);
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="theme-preference">
       <App />
     </ThemeProvider>
   </ErrorBoundary>

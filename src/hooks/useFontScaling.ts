@@ -3,50 +3,29 @@ import { useEffect, useState } from 'react';
 type FontScale = 'small' | 'medium' | 'large' | 'extra-large';
 
 export const useFontScaling = () => {
-  const [fontScale, setFontScale] = useState<FontScale>('medium');
+  // Initialize from localStorage if available, otherwise default to 'medium'
+  const [fontScale, setFontScale] = useState<FontScale>(() => {
+    const saved = localStorage.getItem('font-scale-preference');
+    if (saved && ['small', 'medium', 'large', 'extra-large'].includes(saved)) {
+      return saved as FontScale;
+    }
+    return 'medium';
+  });
 
   useEffect(() => {
-    // Detect system font size preference
-    const detectFontScale = () => {
-      // Check for browser zoom/text size
-      const baseFontSize = parseFloat(
-        getComputedStyle(document.documentElement).fontSize
-      );
+    // Apply saved preference on mount
+    const saved = localStorage.getItem('font-scale-preference');
+    if (saved && ['small', 'medium', 'large', 'extra-large'].includes(saved)) {
+      const savedScale = saved as FontScale;
+      setFontScale(savedScale);
+      document.documentElement.setAttribute('data-font-scale', savedScale);
+      return;
+    }
 
-      // Detect preferred font scale from system
-      if (baseFontSize <= 14) {
-        return 'small';
-      } else if (baseFontSize >= 20) {
-        return 'extra-large';
-      } else if (baseFontSize >= 18) {
-        return 'large';
-      }
-      return 'medium';
-    };
-
-    const updateScale = () => {
-      const scale = detectFontScale();
-      setFontScale(scale);
-      document.documentElement.setAttribute('data-font-scale', scale);
-    };
-
-    // Initial check
-    updateScale();
-
-    // Listen for font size changes (via browser zoom or accessibility settings)
-    const observer = new MutationObserver(updateScale);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style'],
-    });
-
-    // Also listen for viewport size changes
-    window.addEventListener('resize', updateScale);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', updateScale);
-    };
+    // For new installs, default to 'medium' (don't detect from system)
+    // Apply the default medium scale
+    setFontScale('medium');
+    document.documentElement.setAttribute('data-font-scale', 'medium');
   }, []);
 
   const setCustomScale = (scale: FontScale) => {
