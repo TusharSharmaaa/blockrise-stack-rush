@@ -96,11 +96,11 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
     if (!ctx) return;
 
     // Clear canvas
-    ctx.fillStyle = 'hsl(220 18% 15%)';
+    ctx.fillStyle = 'hsl(220 25% 28%)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw grid lines
-    ctx.strokeStyle = 'hsl(220 15% 20%)';
+    ctx.strokeStyle = 'hsl(220 20% 36%)';
     ctx.lineWidth = 1;
     for (let row = 0; row <= GRID_HEIGHT; row++) {
       ctx.beginPath();
@@ -119,41 +119,63 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
     for (let row = 0; row < GRID_HEIGHT; row++) {
       for (let col = 0; col < GRID_WIDTH; col++) {
         if (grid[row][col]) {
-          ctx.fillStyle = grid[row][col] as string;
-          ctx.fillRect(col * cellSize + 1, row * cellSize + 1, cellSize - 2, cellSize - 2);
+          const x = col * cellSize + 1;
+          const y = row * cellSize + 1;
+          const size = cellSize - 2;
           
-          // Add subtle gradient
+          // Draw block with brighter fill
+          ctx.fillStyle = grid[row][col] as string;
+          ctx.fillRect(x, y, size, size);
+          
+          // Add very subtle gradient for depth (reduced opacity)
           const gradient = ctx.createLinearGradient(
             col * cellSize,
             row * cellSize,
             col * cellSize,
             (row + 1) * cellSize
           );
-          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-          gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+          gradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
           ctx.fillStyle = gradient;
-          ctx.fillRect(col * cellSize + 1, row * cellSize + 1, cellSize - 2, cellSize - 2);
+          ctx.fillRect(x, y, size, size);
+          
+          // Add subtle outline for sharper edges
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
         }
       }
     }
 
     // Draw current block
     if (currentBlock) {
-      ctx.fillStyle = currentBlock.color;
       currentBlock.shape.forEach((row, rowIndex) => {
         row.forEach((cell, colIndex) => {
           if (cell) {
-            const x = (currentBlock.x + colIndex) * cellSize;
-            const y = (currentBlock.y + rowIndex) * cellSize;
-            ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+            const x = (currentBlock.x + colIndex) * cellSize + 1;
+            const y = (currentBlock.y + rowIndex) * cellSize + 1;
+            const size = cellSize - 2;
             
-            // Add gradient to current block
-            const gradient = ctx.createLinearGradient(x, y, x, y + cellSize);
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+            // Draw block with brighter fill
             ctx.fillStyle = currentBlock.color;
+            ctx.fillRect(x, y, size, size);
+            
+            // Add very subtle gradient for depth (reduced opacity)
+            const gradient = ctx.createLinearGradient(
+              (currentBlock.x + colIndex) * cellSize,
+              (currentBlock.y + rowIndex) * cellSize,
+              (currentBlock.x + colIndex) * cellSize,
+              (currentBlock.y + rowIndex + 1) * cellSize
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, size, size);
+            
+            // Add subtle outline for sharper edges
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
           }
         });
       });
