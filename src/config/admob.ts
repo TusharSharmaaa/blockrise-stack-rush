@@ -1,20 +1,14 @@
-// AdMob configuration - Using test ad unit IDs
-// Google Test Ad Unit IDs for development and testing
+// Production AdMob configuration
+// Source: BlockRise app ad units (see provided AdMob screenshot)
 export const ADMOB_CONFIG = {
-  // Test Banner Ad Unit ID
-  BANNER_ID: 'ca-app-pub-3940256099942544/6300978111',
-  
-  // Test Native Advanced Ad Unit ID
-  NATIVE_ID: 'ca-app-pub-3940256099942544/2247696110',
-  
-  // Test Interstitial Ad Unit ID
-  INTERSTITIAL_ID: 'ca-app-pub-3940256099942544/1033173712',
-  
-  // Test Rewarded Ad Unit ID
-  REWARDED_ID: 'ca-app-pub-3940256099942544/5224354917',
-  
-  IS_DEV: true,
-};
+  APP_OPEN_ID: 'ca-app-pub-2816806517862101/57352555017',
+  BANNER_ID: 'ca-app-pub-2816806517862101/1440786782',
+  INTERSTITIAL_ID: 'ca-app-pub-2816806517862101/6501541775',
+  NATIVE_ID: 'ca-app-pub-2816806517862101/1282780789',
+  REWARDED_ID: 'ca-app-pub-2816806517862101/7623051754',
+  REWARDED_INTERSTITIAL_ID: 'ca-app-pub-2816806517862101/1403583174',
+  IS_DEV: false,
+} as const;
 
 // Ad placement documentation for QA
 export const AD_PLACEMENTS = {
@@ -24,4 +18,6 @@ export const AD_PLACEMENTS = {
   REWARDED_FINISH_LEVEL: 'Watch ad to finish/complete a level when failed',
   REWARDED_EARN_MONEY: 'Watch ad to earn coins after game over',
   REWARDED_CONTINUE: 'Watch ad to continue playing after game over',
+  APP_OPEN: 'Shown when app moves from background to foreground',
+  REWARDED_INTERSTITIAL: 'High-value placement (e.g., continue run)',
 } as const;
