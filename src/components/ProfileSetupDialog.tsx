@@ -37,6 +37,10 @@ const ProfileSetupDialog = () => {
   const skipButtonTimerRef = useRef<NodeJS.Timeout | null>(null);
   const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
   const checkNameUniqueRef = useRef(checkNameUnique);
+  const usernameInputRef = useRef<HTMLInputElement>(null);
+  const countryButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const countrySearchInputRef = useRef<HTMLInputElement>(null);
 
   const generateUsernameSuggestions = useCallback(async (baseName: string) => {
     const suggestions: string[] = [];
@@ -99,6 +103,16 @@ const ProfileSetupDialog = () => {
   useEffect(() => {
     checkNameUniqueRef.current = checkNameUnique;
   }, [checkNameUnique]);
+
+  // Auto-focus country search input when popover opens
+  useEffect(() => {
+    if (comboboxOpen && countrySearchInputRef.current) {
+      // Small delay to ensure popover is fully rendered
+      setTimeout(() => {
+        countrySearchInputRef.current?.focus();
+      }, 150);
+    }
+  }, [comboboxOpen]);
 
   // Filter countries using prefix matching (starts with search query)
   const filteredCountries = searchQuery
@@ -310,6 +324,24 @@ const ProfileSetupDialog = () => {
     toast.info('Validation skipped. Proceeding with username.');
   };
 
+  const handleUsernameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle Enter/Return key to move to country field
+    if (e.key === 'Enter' || e.key === 'Return') {
+      e.preventDefault();
+      // Small delay to ensure input value is updated
+      setTimeout(() => {
+        if (countryButtonRef.current) {
+          countryButtonRef.current.focus();
+          setComboboxOpen(true);
+          // Scroll country field into view if keyboard is open
+          if (countryButtonRef.current) {
+            countryButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 100);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -418,7 +450,8 @@ const ProfileSetupDialog = () => {
       modal={true}
     >
       <DialogContent 
-        className="sm:max-w-md z-50" 
+        ref={dialogContentRef}
+        className="sm:max-w-md z-50 max-h-[90vh] overflow-y-auto" 
         onEscapeKeyDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -461,13 +494,26 @@ const ProfileSetupDialog = () => {
             </p>
             <div className="relative">
               <Input
+                ref={usernameInputRef}
                 id="setup-name"
                 type="text"
+                inputMode="text"
+                enterKeyHint="next"
+                autoComplete="username"
                 placeholder="Enter your name (min 3 characters)"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
                   setErrors(prev => ({ ...prev, name: undefined }));
+                }}
+                onKeyDown={handleUsernameKeyDown}
+                onFocus={() => {
+                  // Scroll into view when focused on mobile
+                  setTimeout(() => {
+                    if (usernameInputRef.current) {
+                      usernameInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }, 300);
                 }}
                 maxLength={30}
                 required
@@ -567,25 +613,54 @@ const ProfileSetupDialog = () => {
               <Globe className="h-4 w-4" />
               Country
             </Label>
-            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+            <Popover open={comboboxOpen} onOpenChange={(open) => {
+              setComboboxOpen(open);
+              // Scroll country field into view when opening popover
+              if (open && countryButtonRef.current) {
+                setTimeout(() => {
+                  countryButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              }
+            }}>
               <PopoverTrigger asChild>
                 <Button
+                  ref={countryButtonRef}
+                  id="setup-country"
                   variant="outline"
                   role="combobox"
                   aria-expanded={comboboxOpen}
                   className="w-full justify-between"
                   disabled={isSubmitting || countriesLoading}
+                  type="button"
+                  onFocus={() => {
+                    // Scroll into view when focused
+                    setTimeout(() => {
+                      if (countryButtonRef.current) {
+                        countryButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
                 >
                   {country || "Type or select your country"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent 
+                className="w-full p-0 max-h-[300px] overflow-y-auto" 
+                align="start"
+                sideOffset={4}
+                avoidCollisions={true}
+                collisionPadding={8}
+              >
                 <Command shouldFilter={false}>
                   <CommandInput 
+                    ref={countrySearchInputRef}
                     placeholder="Search country..." 
                     value={searchQuery}
                     onValueChange={setSearchQuery}
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoFocus
                   />
                   <CommandList>
                     <CommandEmpty>No country found.</CommandEmpty>
