@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { Block } from '@/types/game';
 import { GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 import { useTheme } from '@/components/ThemeProvider';
@@ -8,7 +8,7 @@ interface GameBoardProps {
   currentBlock: Block | null;
 }
 
-const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
+const GameBoard = memo(({ grid, currentBlock }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [cellSize, setCellSize] = useState(24);
@@ -94,9 +94,10 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false }); // Disable alpha for better performance
     if (!ctx) return;
 
+    // Immediate rendering for responsiveness
     // Clear canvas - use CSS variable for theme-aware color
     const gameGridColor = getComputedStyle(document.documentElement)
       .getPropertyValue('--game-grid')
@@ -218,6 +219,8 @@ const GameBoard = ({ grid, currentBlock }: GameBoardProps) => {
       />
     </div>
   );
-};
+});
+
+GameBoard.displayName = 'GameBoard';
 
 export default GameBoard;

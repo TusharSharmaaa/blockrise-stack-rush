@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCw, ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
 
@@ -10,7 +10,7 @@ interface GameControlsProps {
   disabled: boolean;
 }
 
-const GameControls = ({
+const GameControls = memo(({
   onRotate,
   onMoveLeft,
   onMoveRight,
@@ -26,13 +26,16 @@ const GameControls = ({
     
     isHoldingRef.current = true;
     
+    // Immediate first action
+    onMoveDown();
+    
     // Clear any existing interval
     if (fastDownIntervalRef.current) {
       clearInterval(fastDownIntervalRef.current);
       fastDownIntervalRef.current = null;
     }
     
-    // Delay before starting continuous movement (to distinguish tap from hold)
+    // Reduced delay before starting continuous movement (to distinguish tap from hold)
     holdTimeoutRef.current = setTimeout(() => {
       if (isHoldingRef.current && !disabled) {
         // Start fast continuous movement only if still holding
@@ -40,9 +43,9 @@ const GameControls = ({
           if (!disabled) {
             onMoveDown();
           }
-        }, 65);
+        }, 50); // Faster interval for more responsive feel
       }
-    }, 200); // 200ms delay before starting continuous movement
+    }, 100); // Reduced delay for faster response
   };
 
   const handleDownRelease = () => {
@@ -130,6 +133,8 @@ const GameControls = ({
       </div>
     </div>
   );
-};
+});
+
+GameControls.displayName = 'GameControls';
 
 export default GameControls;

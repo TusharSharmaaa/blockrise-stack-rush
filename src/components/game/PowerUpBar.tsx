@@ -2,14 +2,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { usePowerUps } from '@/hooks/usePowerUps';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 
 interface PowerUpBarProps {
   onUsePowerUp: (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => void;
   disabled?: boolean;
 }
 
-const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
+const PowerUpBar = memo(({ onUsePowerUp, disabled }: PowerUpBarProps) => {
   const { inventory, activePowerUps, getRemainingTime } = usePowerUps();
   const [, forceRefresh] = useState(0);
 
@@ -98,6 +98,8 @@ const PowerUpBar = ({ onUsePowerUp, disabled }: PowerUpBarProps) => {
       </div>
     </div>
   );
-};
+});
+
+PowerUpBar.displayName = 'PowerUpBar';
 
 export default PowerUpBar;

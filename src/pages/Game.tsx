@@ -153,9 +153,13 @@ const Game = () => {
   // Track score changes for achievements and level completion
   useEffect(() => {
     if (gameState.score > previousScore) {
-      playSound('coin');
+      // Throttle sound to prevent blocking - only play every 100ms
+      const scoreDiff = gameState.score - previousScore;
+      if (scoreDiff > 0 && scoreDiff % 10 === 0) { // Only play sound every 10 points
+        playSound('coin');
+      }
       
-      // Check score-based achievements and add coin rewards
+      // Check score-based achievements and add coin rewards (async, non-blocking)
       const checkAchievement = async (achievementId: string, progress: number) => {
         const result = await checkAndUnlock(achievementId, progress);
         if (result.unlocked && result.achievement) {
@@ -174,7 +178,7 @@ const Game = () => {
         checkAchievement('score_10000', gameState.score);
       }
 
-      // Check for level completion and unlock next level
+      // Check for level completion and unlock next level (async, non-blocking)
       const checkLevelCompletion = async () => {
         const requirement = getScoreRequirement(activeLevel);
         const hasMetGoal = gameState.score >= requirement;
@@ -259,14 +263,14 @@ const Game = () => {
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
   const triggerMovePulse = useCallback(() => {
-    void hapticVibrate(12);
+    hapticVibrate(12);
   }, []);
 
   const triggerDownPulse = useCallback(() => {
     const now = Date.now();
-    if (now - downHapticCooldownRef.current < 150) return;
+    if (now - downHapticCooldownRef.current < 50) return; // Reduced cooldown for faster response
     downHapticCooldownRef.current = now;
-    void hapticVibrate(18);
+    hapticVibrate(18);
   }, []);
 
   const handleMoveLeft = useCallback(() => {
@@ -283,6 +287,11 @@ const Game = () => {
     triggerDownPulse();
     moveDown();
   }, [moveDown, triggerDownPulse]);
+
+  const handleRotate = useCallback(() => {
+    triggerMovePulse();
+    rotate();
+  }, [rotate, triggerMovePulse]);
 
   const handleUsePowerUp = async (type: 'slowTime' | 'clearLine' | 'shuffle' | 'bomb') => {
     const success = await activatePowerUp(type, 30000);
@@ -381,7 +390,7 @@ const Game = () => {
         case 'ArrowUp':
         case ' ':
           e.preventDefault();
-          rotate();
+          handleRotate();
           break;
         case 'p':
         case 'Escape':
@@ -393,7 +402,7 @@ const Game = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState.gameOver, gameState.paused, handleMoveLeft, handleMoveRight, handleMoveDown, rotate, togglePause]);
+  }, [gameState.gameOver, gameState.paused, handleMoveLeft, handleMoveRight, handleMoveDown, handleRotate, togglePause]);
 
   // Show ad when game ends
   useEffect(() => {
@@ -567,7 +576,7 @@ const Game = () => {
         
         <div className="safe-bottom pb-2">
           <GameControls
-            onRotate={rotate}
+            onRotate={handleRotate}
             onMoveLeft={handleMoveLeft}
             onMoveRight={handleMoveRight}
             onMoveDown={handleMoveDown}

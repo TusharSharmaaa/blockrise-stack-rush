@@ -39,7 +39,7 @@ export const useGameLoop = () => {
     };
   });
 
-  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const gameLoopRef = useRef<number | null>(null);
 
   // Load selected level on mount
   useEffect(() => {
@@ -253,6 +253,7 @@ export const useGameLoop = () => {
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, -1, 0)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: {
@@ -269,6 +270,7 @@ export const useGameLoop = () => {
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, 1, 0)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: {
@@ -287,6 +289,7 @@ export const useGameLoop = () => {
       const rotated = rotateShape(state.currentBlock.shape);
       const rotatedBlock = { ...state.currentBlock, shape: rotated };
       if (!checkCollision(rotatedBlock, state.grid)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: rotatedBlock
@@ -350,9 +353,9 @@ export const useGameLoop = () => {
   }, []);
 
   useEffect(() => {
-    // Clear any existing interval first
-    if (gameLoopRef.current) {
-      clearInterval(gameLoopRef.current);
+    // Clear any existing animation frame first
+    if (gameLoopRef.current !== null) {
+      cancelAnimationFrame(gameLoopRef.current);
       gameLoopRef.current = null;
     }
 
@@ -360,14 +363,23 @@ export const useGameLoop = () => {
       return;
     }
 
-    // Create new interval
-    gameLoopRef.current = setInterval(() => {
-      moveDown();
-    }, gameState.speed);
+    // Use requestAnimationFrame for smoother game loop
+    let lastTime = performance.now();
+    
+    const gameLoop = (currentTime: number) => {
+      const delta = currentTime - lastTime;
+      if (delta >= gameState.speed) {
+        moveDown();
+        lastTime = currentTime;
+      }
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+    };
+    
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current);
+      if (gameLoopRef.current !== null) {
+        cancelAnimationFrame(gameLoopRef.current);
         gameLoopRef.current = null;
       }
     };
