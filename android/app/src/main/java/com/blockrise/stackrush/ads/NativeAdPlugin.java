@@ -56,37 +56,29 @@ public class NativeAdPlugin extends Plugin {
                         .build();
 
                     AdLoader adLoader = new AdLoader.Builder(getContext(), adUnitId)
-                        .forNativeAd(nativeAd -> {
-                            if (!call.isReleased()) {
-                                resolveWithAd(call, nativeAd);
-                            }
-                        })
+                        .forNativeAd(nativeAd -> resolveWithAd(call, nativeAd))
                         .withNativeAdOptions(options)
                         .withAdListener(new AdListener() {
                             @Override
                             public void onAdFailedToLoad(LoadAdError loadAdError) {
-                                if (!call.isReleased()) {
-                                    JSObject result = new JSObject();
-                                    result.put("success", false);
-                                    String errorMessage = loadAdError.getMessage();
-                                    if (errorMessage == null || errorMessage.isEmpty()) {
-                                        errorMessage = "Failed to load native ad. Please try again.";
-                                    }
-                                    result.put("errorMessage", errorMessage);
-                                    call.resolve(result);
+                                JSObject result = new JSObject();
+                                result.put("success", false);
+                                String errorMessage = loadAdError.getMessage();
+                                if (errorMessage == null || errorMessage.isEmpty()) {
+                                    errorMessage = "Failed to load native ad. Please try again.";
                                 }
+                                result.put("errorMessage", errorMessage);
+                                call.resolve(result);
                             }
                         })
                         .build();
 
                     adLoader.loadAd(new AdRequest.Builder().build());
                 } catch (Exception e) {
-                    if (!call.isReleased()) {
-                        JSObject result = new JSObject();
-                        result.put("success", false);
-                        result.put("errorMessage", "Error loading ad: " + e.getMessage());
-                        call.resolve(result);
-                    }
+                    JSObject result = new JSObject();
+                    result.put("success", false);
+                    result.put("errorMessage", "Error loading ad: " + e.getMessage());
+                    call.resolve(result);
                 }
             });
         } catch (Exception e) {
