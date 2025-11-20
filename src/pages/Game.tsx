@@ -54,8 +54,8 @@ const Game = () => {
   // Resets when level changes or when navigating away
   const [sessionAttemptCount, setSessionAttemptCount] = useState<{ [level: number]: number }>({});
   const [currentSessionLevel, setCurrentSessionLevel] = useState<number | null>(null);
-  const slowTimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slowTimeTimeoutRef = useRef<number | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
   const downHapticCooldownRef = useRef(0);
   const [powerUpHighlights, setPowerUpHighlights] = useState<HighlightCell[]>([]);
 
@@ -484,7 +484,7 @@ const Game = () => {
           speed: prevState.speed * 2
         }));
         triggerHighlights(createBoardHighlight(), 900);
-        slowTimeTimeoutRef.current = setTimeout(() => {
+        slowTimeTimeoutRef.current = window.setTimeout(() => {
           setGameState(prevState => ({
             ...prevState,
             speed: calculateLevelSpeed(prevState.level)
