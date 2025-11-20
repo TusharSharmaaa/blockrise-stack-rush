@@ -2,57 +2,67 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 
 const isNative = Capacitor.isNativePlatform();
+const HAPTICS_ENABLED = true;
+const MOVE_PULSE_DURATION_MS = 12;
 
-export const hapticImpact = async (style: ImpactStyle = ImpactStyle.Light) => {
-  if (!isNative) return;
-  try {
-    await Haptics.impact({ style });
-  } catch (error) {
-    console.warn('Haptic feedback not available:', error);
+const canUseNativeHaptics = () => HAPTICS_ENABLED && isNative;
+const canUseWebVibration = () =>
+  typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function';
+
+export const hapticImpact = (style: ImpactStyle = ImpactStyle.Light) => {
+  if (!canUseNativeHaptics()) return;
+  // Fire and forget - don't await to avoid blocking
+  Haptics.impact({ style }).catch(() => {
+    // Silently fail
+  });
+};
+
+export const hapticNotification = (type: NotificationType = NotificationType.Success) => {
+  if (!canUseNativeHaptics()) return;
+  // Fire and forget - don't await to avoid blocking
+  Haptics.notification({ type }).catch(() => {
+    // Silently fail
+  });
+};
+
+export const hapticVibrate = (duration: number = MOVE_PULSE_DURATION_MS) => {
+  if (canUseNativeHaptics()) {
+    // Fire and forget - don't await to avoid blocking
+    Haptics.vibrate({ duration }).catch(() => {
+      // Silently fail
+    });
+    return;
+  }
+
+  if (canUseWebVibration()) {
+    try {
+      (navigator as Navigator & { vibrate?: (pattern: number | number[]) => boolean }).vibrate?.(duration);
+    } catch (error) {
+      // Silently fail
+    }
   }
 };
 
-export const hapticNotification = async (type: NotificationType = NotificationType.Success) => {
-  if (!isNative) return;
-  try {
-    await Haptics.notification({ type });
-  } catch (error) {
-    console.warn('Haptic notification not available:', error);
-  }
+export const hapticSelectionStart = () => {
+  if (!canUseNativeHaptics()) return;
+  // Fire and forget - don't await to avoid blocking
+  Haptics.selectionStart().catch(() => {
+    // Silently fail
+  });
 };
 
-export const hapticVibrate = async (duration: number = 100) => {
-  if (!isNative) return;
-  try {
-    await Haptics.vibrate({ duration });
-  } catch (error) {
-    console.warn('Haptic vibration not available:', error);
-  }
+export const hapticSelectionChanged = () => {
+  if (!canUseNativeHaptics()) return;
+  // Fire and forget - don't await to avoid blocking
+  Haptics.selectionChanged().catch(() => {
+    // Silently fail
+  });
 };
 
-export const hapticSelectionStart = async () => {
-  if (!isNative) return;
-  try {
-    await Haptics.selectionStart();
-  } catch (error) {
-    console.warn('Haptic selection not available:', error);
-  }
-};
-
-export const hapticSelectionChanged = async () => {
-  if (!isNative) return;
-  try {
-    await Haptics.selectionChanged();
-  } catch (error) {
-    console.warn('Haptic selection changed not available:', error);
-  }
-};
-
-export const hapticSelectionEnd = async () => {
-  if (!isNative) return;
-  try {
-    await Haptics.selectionEnd();
-  } catch (error) {
-    console.warn('Haptic selection end not available:', error);
-  }
+export const hapticSelectionEnd = () => {
+  if (!canUseNativeHaptics()) return;
+  // Fire and forget - don't await to avoid blocking
+  Haptics.selectionEnd().catch(() => {
+    // Silently fail
+  });
 };

@@ -38,8 +38,8 @@ All colors MUST be HSL.
 
     --radius: 0.75rem;
     
-    --game-grid: 220 18% 15%;
-    --game-border: 220 15% 25%;
+    --game-grid: 220 25% 28%;
+    --game-border: 220 25% 35%;
     --success: 142 76% 45%;
     --warning: 38 92% 50%;
     
@@ -309,6 +309,8 @@ All colors MUST be HSL.
     padding-right: max(var(--safe-right), 1rem);
     margin-left: auto;
     margin-right: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
   
   @media (min-width: 640px) {
@@ -394,8 +396,8 @@ All colors MUST be HSL.
   }
   
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(195 100% 50% / 0.3); }
-    50% { box-shadow: 0 0 40px hsl(195 100% 50% / 0.6); }
+    0%, 100% { box-shadow: var(--shadow-glow); }
+    50% { box-shadow: var(--shadow-neon); }
   }
   
   .animate-slide-up {

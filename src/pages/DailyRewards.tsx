@@ -7,23 +7,34 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState } from 'react';
+import { useAdMob } from '@/hooks/useAdMob';
 
 const DailyRewards = () => {
   const navigate = useNavigate();
   useBackButton(); // Handle Android back button
   const { progress, claimDailyReward } = useGameProgress();
   const [isClaiming, setIsClaiming] = useState(false);
+  const { showRewardedAd, isRewardedLoading } = useAdMob();
 
   const handleClaimReward = async () => {
-    if (isClaiming) return;
+    if (isClaiming || progress.hasClaimedDailyReward) return;
     setIsClaiming(true);
     try {
-      const reward = await claimDailyReward();
-      if (reward > 0) {
-        toast.success(`Claimed ${reward} coins! Keep your streak going!`);
-      } else {
-        toast.info('Already claimed today. Come back tomorrow!');
+      const adResult = await showRewardedAd();
+      if (!adResult.success) {
+        toast.error('You must watch the full ad to claim your reward.');
+        return;
       }
+
+      const rewardResult = await claimDailyReward({ adVerified: true });
+      if (rewardResult.success && rewardResult.reward > 0) {
+        toast.success(`Claimed ${rewardResult.reward} coins! Keep your streak going!`);
+      } else {
+        toast.info(rewardResult.message || 'Already claimed today. Come back tomorrow!');
+      }
+    } catch (error) {
+      console.error('Failed to claim daily reward:', error);
+      toast.error('Unable to claim reward. Please try again.');
     } finally {
       setIsClaiming(false);
     }
@@ -64,11 +75,15 @@ const DailyRewards = () => {
         {/* Claim Button */}
         <Button
           onClick={handleClaimReward}
-          disabled={progress.hasClaimedDailyReward || isClaiming}
+          disabled={progress.hasClaimedDailyReward || isClaiming || isRewardedLoading}
           className="w-full h-16 text-lg gradient-primary"
         >
           <Gift className="mr-2 h-5 w-5" />
-          {progress.hasClaimedDailyReward ? 'Claimed Today' : 'Claim Daily Reward'}
+          {progress.hasClaimedDailyReward
+            ? 'Claimed Today'
+            : isRewardedLoading
+            ? 'Loading reward ad...'
+            : 'Claim Daily Reward'}
         </Button>
 
         {/* Streak Rewards */}
@@ -80,8 +95,12 @@ const DailyRewards = () => {
           <div className="space-y-3">
             {streakRewards.map((reward, index) => {
               const day = index + 1;
-              const isCurrentDay = progress.dailyStreak === day;
-              const isPastDay = progress.dailyStreak > day;
+              // A day is "past" (completed) if:
+              // 1. Streak is greater than the day, OR
+              // 2. Streak equals the day AND the reward has been claimed today
+              const isPastDay = progress.dailyStreak > day || (progress.dailyStreak === day && progress.hasClaimedDailyReward);
+              // A day is "current" if it matches the streak AND reward hasn't been claimed yet
+              const isCurrentDay = progress.dailyStreak === day && !progress.hasClaimedDailyReward;
 
               return (
                 <div

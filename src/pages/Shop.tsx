@@ -1,37 +1,28 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, ShoppingBag, Coins, Zap, Shield, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, Star, Video } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useGameProgress } from '@/hooks/useGameProgress';
-import { useCurrency } from '@/hooks/useCurrency';
 import { usePowerUps } from '@/hooks/usePowerUps';
+import { useAdMob } from '@/hooks/useAdMob';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, useEffect } from 'react';
+import { NativeAdCard } from '@/components/ads/NativeAdCard';
 
 const Shop = () => {
   const navigate = useNavigate();
-  const { progress, addCoins } = useGameProgress();
-  const { formatPrice, isLoading: currencyLoading } = useCurrency();
+  const { progress, addCoins, watchAdForCoins } = useGameProgress();
   const { addPowerUp, inventory, loadInventory } = usePowerUps();
+  const { showRewardedAd, isRewardedLoading } = useAdMob();
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
 
-  const coinPacks = [
-    { id: 'pack1', coins: 100, priceKey: 'coinPack100' as const, popular: false },
-    { id: 'pack2', coins: 500, priceKey: 'coinPack500' as const, popular: true, bonus: 50 },
-    { id: 'pack3', coins: 1000, priceKey: 'coinPack1000' as const, popular: false, bonus: 150 },
-  ];
-
-  const powerUps = [
+  const powerPacks = [
     { id: 'slowTime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100, type: 'slowTime' as const },
     { id: 'clearLine', name: 'Clear Line', description: 'Clear any full line instantly', icon: '✨', price: 150, type: 'clearLine' as const },
     { id: 'shuffle', name: 'Block Shuffle', description: 'Change next 3 blocks', icon: '🔄', price: 75, type: 'shuffle' as const },
     { id: 'bomb', name: 'Bomb', description: 'Clear 3x3 area', icon: '💣', price: 200, type: 'bomb' as const },
-  ];
-
-  const premiumItems = [
-    { id: 'noads', name: 'Remove Ads', description: 'Remove all ads forever', icon: <Shield className="h-6 w-6" />, priceKey: 'removeAds' as const, popular: true },
-    { id: 'premium', name: 'Premium Pass', description: '2x coins, exclusive skins, ad-free', icon: <Star className="h-6 w-6" />, priceKey: 'premium' as const, popular: false },
   ];
 
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -41,19 +32,43 @@ const Shop = () => {
     loadInventory();
   }, [loadInventory]);
 
-  const handlePurchasePowerUp = async (powerUp: typeof powerUps[0]) => {
+  const handleWatchAdForCoins = async () => {
+    if (isWatchingAd || isRewardedLoading) return;
+
+    setIsWatchingAd(true);
+    try {
+      const result = await showRewardedAd();
+      if (result.success) {
+        const rewardResult = await watchAdForCoins(50); // Use hook function with 50 coins reward
+        if (rewardResult.success) {
+          toast.success(`🎉 You earned ${rewardResult.coinsEarned} coins!`);
+        } else {
+          toast.error(rewardResult.message || 'Failed to claim coins');
+        }
+      } else {
+        toast.error('Ad was not completed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to watch ad:', error);
+      toast.error('Failed to load ad. Please try again.');
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
+
+  const handlePurchasePowerPack = async (powerPack: typeof powerPacks[0]) => {
     if (isPurchasing) return;
-    if (progress.totalCoins < powerUp.price) {
+    if (progress.totalCoins < powerPack.price) {
       toast.error('Not enough coins!');
       return;
     }
     setIsPurchasing(true);
     try {
       // Deduct coins
-      await addCoins(-powerUp.price);
+      await addCoins(-powerPack.price);
       // Add power-up to inventory
-      await addPowerUp(powerUp.type, 1);
-      toast.success(`${powerUp.name} purchased! Added to inventory.`);
+      await addPowerUp(powerPack.type, 1);
+      toast.success(`${powerPack.name} purchased! Added to inventory.`);
     } catch (error) {
       console.error('Failed to purchase power-up:', error);
       toast.error('Failed to purchase power-up. Please try again.');
@@ -61,19 +76,6 @@ const Shop = () => {
       setIsPurchasing(false);
     }
   };
-
-  const handlePurchaseIAP = (item: string) => {
-    if (isPurchasing) return;
-    setIsPurchasing(true);
-    toast.info('Opening payment... (Demo mode)');
-    setTimeout(() => setIsPurchasing(false), 1000);
-  };
-
-  if (currencyLoading) {
-    return <div className="h-full bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-    </div>;
-  }
 
   return (
     <ScrollArea className="h-full">
@@ -97,100 +99,57 @@ const Shop = () => {
           </Badge>
         </div>
 
-        {/* Premium Items */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6 text-yellow-500" />
-            Premium
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {premiumItems.map((item) => (
-              <Card key={item.id} className={`p-6 relative ${item.popular ? 'border-2 border-primary' : ''}`}>
-                {item.popular && (
-                  <Badge className="absolute top-4 right-4 bg-primary">Most Popular</Badge>
-                )}
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-primary/10 rounded-lg text-primary">
-                    {item.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                    <Button
-                      onClick={() => handlePurchaseIAP(item.id)}
-                      className="w-full mt-4 gradient-primary"
-                    >
-                      Buy for {formatPrice(item.priceKey)}
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
+        {/* Watch Ad Section */}
+        <NativeAdCard
+          className="sticky top-4 z-20 mb-6"
+          footer={
+            <div className="space-y-3 text-center">
+              <Button
+                onClick={handleWatchAdForCoins}
+                disabled={isRewardedLoading || isWatchingAd}
+                className="w-full gradient-primary shadow-glow-lg"
+                size="lg"
+              >
+                <Video className="mr-2 h-5 w-5" />
+                {isWatchingAd || isRewardedLoading
+                  ? 'Loading Ad...'
+                  : 'Watch Ad & Earn 50 Coins'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                💰 Current Balance: {progress.totalCoins} coins
+              </p>
+            </div>
+          }
+        />
 
-        {/* Coin Packs */}
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Coins className="h-6 w-6 text-yellow-500" />
-            Coin Packs
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {coinPacks.map((pack) => (
-              <Card key={pack.id} className={`p-6 relative ${pack.popular ? 'border-2 border-primary' : ''}`}>
-                {pack.popular && (
-                  <Badge className="absolute top-4 right-4 bg-primary">Best Value</Badge>
-                )}
-                <div className="text-center space-y-4">
-                  <div className="text-5xl">💰</div>
-                  <div>
-                    <div className="text-3xl font-bold">{pack.coins}</div>
-                    {pack.bonus && (
-                      <div className="text-sm text-primary font-semibold">+{pack.bonus} Bonus!</div>
-                    )}
-                    <div className="text-xs text-muted-foreground">coins</div>
-                  </div>
-                  <Button
-                    onClick={() => handlePurchaseIAP(pack.id)}
-                    className="w-full gradient-primary"
-                  >
-                    {formatPrice(pack.priceKey)}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
-
-        {/* Power-ups */}
+        {/* Power Packs */}
         <section className="space-y-4">
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Star className="h-6 w-6 text-yellow-500" />
-            Power-ups
+            Power Packs
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {powerUps.map((powerUp) => {
-              const quantity = inventory[powerUp.type] || 0;
+          <div className="flex flex-col gap-4">
+            {powerPacks.map((powerPack) => {
+              const quantity = inventory[powerPack.type] || 0;
               return (
-                <Card key={powerUp.id} className="p-4 text-center space-y-3">
-                  <div className="text-4xl">{powerUp.icon}</div>
-                  <div>
-                    <h3 className="font-semibold">{powerUp.name}</h3>
-                    <p className="text-xs text-muted-foreground">{powerUp.description}</p>
+                <Card key={powerPack.id} className="p-6 flex items-center gap-4">
+                  <div className="text-4xl">{powerPack.icon}</div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{powerPack.name}</h3>
+                    <p className="text-sm text-muted-foreground">{powerPack.description}</p>
                     {quantity > 0 && (
-                      <Badge variant="secondary" className="mt-1">
+                      <Badge variant="secondary" className="mt-2 w-fit">
                         Owned: {quantity}
                       </Badge>
                     )}
                   </div>
                   <Button
-                    onClick={() => handlePurchasePowerUp(powerUp)}
-                    className="w-full"
+                    onClick={() => handlePurchasePowerPack(powerPack)}
                     variant="outline"
-                    disabled={progress.totalCoins < powerUp.price || isPurchasing}
+                    disabled={progress.totalCoins < powerPack.price || isPurchasing}
+                    className="min-w-[120px]"
                   >
-                    <Coins className="h-4 w-4 mr-1" />
-                    {powerUp.price}
+                    💰 {powerPack.price}
                   </Button>
                 </Card>
               );

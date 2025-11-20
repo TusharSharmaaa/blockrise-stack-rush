@@ -7,12 +7,8 @@ import {
   GRID_WIDTH,
   GRID_HEIGHT
 } from '@/utils/blockShapes';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Preferences } from '@capacitor/preferences';
-import { GAME_CONSTANTS } from '@/utils/gameConstants';
-
-const BASE_SPEED = GAME_CONSTANTS.BASE_SPEED;
-const SPEED_INCREASE_PER_LEVEL = GAME_CONSTANTS.SPEED_INCREASE_PER_LEVEL;
+import { GAME_CONSTANTS, calculateLevelSpeed } from '@/utils/gameConstants';
 
 export const useGameLoop = () => {
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -39,11 +35,11 @@ export const useGameLoop = () => {
       linesCleared: 0,
       gameOver: false,
       paused: false,
-      speed: BASE_SPEED
+      speed: calculateLevelSpeed(GAME_CONSTANTS.MIN_LEVEL)
     };
   });
 
-  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const gameLoopRef = useRef<number | null>(null);
 
   // Load selected level on mount
   useEffect(() => {
@@ -55,8 +51,8 @@ export const useGameLoop = () => {
       const { value } = await Preferences.get({ key: 'gameProgress' });
       if (value) {
         const progress = JSON.parse(value);
-        const selectedLevel = progress.currentLevel || 1;
-        const levelSpeed = Math.max(100, BASE_SPEED - (selectedLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+        const selectedLevel = progress.selectedLevel || progress.currentLevel || GAME_CONSTANTS.MIN_LEVEL;
+        const levelSpeed = calculateLevelSpeed(selectedLevel);
         
         setGameState(prevState => ({
           ...prevState,
@@ -92,7 +88,7 @@ export const useGameLoop = () => {
     
     const newScore = state.score + (GAME_CONSTANTS.POINTS_PER_LINE * state.level);
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
     
     return {
       ...state,
@@ -135,7 +131,7 @@ export const useGameLoop = () => {
     const bonusScore = cellsCleared * 10 * state.level;
     const newScore = state.score + bonusScore;
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
     
     return {
       ...state,
@@ -177,11 +173,22 @@ export const useGameLoop = () => {
 
     const newScore = state.score + (linesCleared * GAME_CONSTANTS.POINTS_PER_LINE * state.level);
     const newLevel = Math.floor(newScore / GAME_CONSTANTS.SCORE_PER_LEVEL) + 1;
-    const newSpeed = Math.max(GAME_CONSTANTS.MIN_SPEED, BASE_SPEED - (newLevel - 1) * SPEED_INCREASE_PER_LEVEL);
+    const newSpeed = calculateLevelSpeed(newLevel);
 
     // Haptic feedback on line clear
-    if (linesCleared > 0) {
-      Haptics.impact({ style: ImpactStyle.Medium });
+    // Check if top row has any blocks (game over condition)
+    const topRowHasBlocks = clearedGrid[0]?.some(cell => cell !== null);
+    if (topRowHasBlocks) {
+      return {
+        ...state,
+        grid: clearedGrid,
+        currentBlock: null,
+        score: newScore,
+        level: newLevel,
+        linesCleared: state.linesCleared + linesCleared,
+        speed: newSpeed,
+        gameOver: true
+      };
     }
 
     const nextBlockData = getRandomBlock();
@@ -192,12 +199,16 @@ export const useGameLoop = () => {
       id: Math.random().toString()
     };
 
-    // Check if game over
+    // Check if game over (next block can't be placed)
     if (checkCollision(newCurrentBlock, clearedGrid)) {
-      Haptics.impact({ style: ImpactStyle.Heavy });
       return {
         ...state,
         grid: clearedGrid,
+        currentBlock: null,
+        score: newScore,
+        level: newLevel,
+        linesCleared: state.linesCleared + linesCleared,
+        speed: newSpeed,
         gameOver: true
       };
     }
@@ -239,10 +250,10 @@ export const useGameLoop = () => {
   }, [checkCollision, placeBlock]);
 
   const moveLeft = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, -1, 0)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: {
@@ -256,10 +267,10 @@ export const useGameLoop = () => {
   }, [checkCollision]);
 
   const moveRight = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       if (!checkCollision(state.currentBlock, state.grid, 1, 0)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: {
@@ -273,12 +284,12 @@ export const useGameLoop = () => {
   }, [checkCollision]);
 
   const rotate = useCallback(() => {
-    Haptics.impact({ style: ImpactStyle.Light });
     setGameState(state => {
       if (state.gameOver || state.paused || !state.currentBlock) return state;
       const rotated = rotateShape(state.currentBlock.shape);
       const rotatedBlock = { ...state.currentBlock, shape: rotated };
       if (!checkCollision(rotatedBlock, state.grid)) {
+        // Use functional update for immediate response
         return {
           ...state,
           currentBlock: rotatedBlock
@@ -295,7 +306,25 @@ export const useGameLoop = () => {
     }));
   }, []);
 
-  const resetGame = useCallback(() => {
+  const resetGame = useCallback(async (selectedLevel?: number) => {
+    // Load selected level if not provided
+    let level = selectedLevel;
+    if (level === undefined) {
+      try {
+        const { value } = await Preferences.get({ key: 'gameProgress' });
+        if (value) {
+          const progress = JSON.parse(value);
+          level = progress.selectedLevel || progress.currentLevel || 1;
+        } else {
+          level = 1;
+        }
+      } catch (error) {
+        console.error('Failed to load level:', error);
+        level = 1;
+      }
+    }
+    
+    const levelSpeed = calculateLevelSpeed(level);
     const { shape, color } = getRandomBlock();
     const nextBlockData = getRandomBlock();
     setGameState({
@@ -315,30 +344,56 @@ export const useGameLoop = () => {
         id: Math.random().toString()
       },
       score: 0,
-      level: 1,
+      level: level,
       linesCleared: 0,
       gameOver: false,
       paused: false,
-      speed: BASE_SPEED
+      speed: levelSpeed
     });
   }, []);
 
   useEffect(() => {
+    // Clear any existing animation frame first
+    if (gameLoopRef.current !== null) {
+      cancelAnimationFrame(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
+
     if (gameState.gameOver || gameState.paused) {
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current);
-        gameLoopRef.current = null;
-      }
       return;
     }
 
-    gameLoopRef.current = setInterval(() => {
-      moveDown();
-    }, gameState.speed);
+    // Use requestAnimationFrame for smoother game loop
+    // Optimized to prevent excessive CPU usage and heating
+    let lastTime = performance.now();
+    let isRunning = true;
+    
+    const gameLoop = (currentTime: number) => {
+      // Early exit if game state changed
+      if (!isRunning) {
+        return;
+      }
+      
+      const delta = currentTime - lastTime;
+      // Only move down if enough time has passed (prevents excessive updates)
+      if (delta >= gameState.speed) {
+        moveDown();
+        lastTime = currentTime;
+      }
+      
+      // Continue loop only if still running
+      if (isRunning) {
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+      }
+    };
+    
+    gameLoopRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      if (gameLoopRef.current) {
-        clearInterval(gameLoopRef.current);
+      isRunning = false;
+      if (gameLoopRef.current !== null) {
+        cancelAnimationFrame(gameLoopRef.current);
+        gameLoopRef.current = null;
       }
     };
   }, [gameState.speed, gameState.gameOver, gameState.paused, moveDown]);

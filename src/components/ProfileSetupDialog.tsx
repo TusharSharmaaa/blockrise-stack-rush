@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,11 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCountries } from '@/hooks/useCountries';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { toast } from 'sonner';
-import { validateProfileData } from '@/utils/validation';
+import { sanitizeUsername, validateProfileData } from '@/utils/validation';
 import { Skeleton } from '@/components/ui/skeleton';
+import Fuse from 'fuse.js';
+
+const USERNAME_CACHE_DURATION_MS = 5 * 60 * 1000;
 
 const ProfileSetupDialog = () => {
   const { profile, isLoading: profileLoading, createProfile, checkNameUnique } = useUserProfile();
@@ -35,20 +38,121 @@ const ProfileSetupDialog = () => {
   const skipButtonTimerRef = useRef<NodeJS.Timeout | null>(null);
   const usernameCheckCacheRef = useRef<Map<string, { available: boolean; timestamp: number }>>(new Map());
   const checkNameUniqueRef = useRef(checkNameUnique);
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const usernameInputRef = useRef<HTMLInputElement>(null);
+  const countryButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const countrySearchInputRef = useRef<HTMLInputElement>(null);
+
+  const generateUsernameSuggestions = useCallback(async (baseName: string) => {
+    const normalizedBase = sanitizeUsername(baseName);
+    if (!normalizedBase) {
+      setUsernameSuggestions([]);
+      return;
+    }
+    const suggestions: string[] = [];
+    
+    // Get country code if available
+    const selectedCountry = countries.find(c => c.name === country);
+    const countryCode = selectedCountry?.code?.slice(0, 2).toUpperCase() || '';
+    const countryName = country.toLowerCase().replace(/\s+/g, '');
+    
+    // Generate different types of suggestions
+    const candidates = [
+      `${normalizedBase}_${countryCode}`,           // username_IN
+      `${normalizedBase}_${countryName}`,           // username_india
+      `${normalizedBase}${countryCode}`,            // usernameIN
+      `${normalizedBase}2`,                         // username2
+      `${normalizedBase}_2`,                        // username_2
+      `${normalizedBase}3`,                         // username3
+      `${normalizedBase}_${Math.floor(Math.random() * 100)}`, // username_42
+    ];
+    
+    // Check availability of each suggestion
+    for (const candidate of candidates) {
+      if (suggestions.length >= 3) break; // Limit to 3 suggestions
+      
+      try {
+        const candidateLower = candidate.toLowerCase();
+        
+        // Check cache first
+        const cached = usernameCheckCacheRef.current.get(candidateLower);
+        const now = Date.now();
+        
+        let isAvailable: boolean;
+        
+        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
+          // Use cached result
+          isAvailable = cached.available;
+        } else {
+          // Make API call
+          isAvailable = await checkNameUniqueRef.current(candidate);
+          
+          // Cache the result
+          usernameCheckCacheRef.current.set(candidateLower, {
+            available: isAvailable,
+            timestamp: now
+          });
+        }
+        
+        if (isAvailable) {
+          suggestions.push(candidate);
+        }
+      } catch (error) {
+        console.error('Error checking suggestion:', candidate, error);
+      }
+    }
+    
+    setUsernameSuggestions(suggestions);
+  }, [countries, country]);
 
   // Keep ref updated with latest function
   useEffect(() => {
     checkNameUniqueRef.current = checkNameUnique;
   }, [checkNameUnique]);
 
-  // Filter countries using prefix matching (starts with search query)
-  const filteredCountries = searchQuery
-    ? countries.filter(c => 
-        c.name.toLowerCase().startsWith(searchQuery.toLowerCase()) ||
-        c.code.toLowerCase().startsWith(searchQuery.toLowerCase())
-      )
-    : countries;
+  // Auto-focus country search input when popover opens
+  useEffect(() => {
+    if (comboboxOpen && countrySearchInputRef.current) {
+      // Small delay to ensure popover is fully rendered
+      setTimeout(() => {
+        countrySearchInputRef.current?.focus();
+      }, 150);
+    }
+  }, [comboboxOpen]);
+
+  // Configure Fuse.js for fuzzy search with more lenient matching for incremental typing
+  const fuse = useMemo(() => new Fuse(countries, {
+    keys: ['name', 'code'],
+    threshold: 0.3, // More lenient threshold for better incremental search (0.0 = exact, 1.0 = match anything)
+    includeScore: true,
+    ignoreLocation: true, // Search anywhere in the string
+    minMatchCharLength: 1, // Match even single characters
+    findAllMatches: true, // Find all matches, not just best
+  }), [countries]);
+
+  // Filter countries using fuzzy search with fallback for short queries
+  const filteredCountries = useMemo(() => {
+    if (!searchQuery) {
+      return countries;
+    }
+    
+    const query = searchQuery.trim().toLowerCase();
+    
+    // For very short queries (1-2 chars), use simple prefix matching for better UX
+    if (query.length <= 2) {
+      const prefixMatches = countries.filter(c => 
+        c.name.toLowerCase().startsWith(query) || 
+        c.code.toLowerCase().startsWith(query)
+      );
+      if (prefixMatches.length > 0) {
+        return prefixMatches;
+      }
+    }
+    
+    // For longer queries, use fuzzy search
+    const fuzzyResults = fuse.search(searchQuery);
+    return fuzzyResults.map(result => result.item);
+  }, [searchQuery, countries, fuse]);
 
   useEffect(() => {
     // Don't show dialog while profile is loading
@@ -85,8 +189,10 @@ const ProfileSetupDialog = () => {
       skipButtonTimerRef.current = null;
     }
 
+    const normalizedName = sanitizeUsername(name);
+
     // Reset states if name is empty or too short
-    if (!name || name.trim().length < 3) {
+    if (!normalizedName || normalizedName.length < 3) {
       setUsernameAvailable(null);
       setIsCheckingUsername(false);
       setUsernameSuggestions([]);
@@ -136,15 +242,15 @@ const ProfileSetupDialog = () => {
       if (!isMounted) return;
 
       try {
-        const trimmedName = name.trim().toLowerCase();
+        const cacheKey = normalizedName.toLowerCase();
         
         // Check cache first
-        const cached = usernameCheckCacheRef.current.get(trimmedName);
+        const cached = usernameCheckCacheRef.current.get(cacheKey);
         const now = Date.now();
         
-        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
           // Use cached result
-          console.log('[ProfileSetup] Using cached result for:', trimmedName);
+          console.log('[ProfileSetup] Using cached result for:', cacheKey);
           if (timeoutId) clearTimeout(timeoutId);
           if (skipButtonTimerRef.current) {
             clearTimeout(skipButtonTimerRef.current);
@@ -155,7 +261,7 @@ const ProfileSetupDialog = () => {
           
           // If username is taken, generate suggestions
           if (!cached.available) {
-            await generateUsernameSuggestions(name.trim());
+            await generateUsernameSuggestions(normalizedName);
           } else {
             setUsernameSuggestions([]);
           }
@@ -164,14 +270,14 @@ const ProfileSetupDialog = () => {
         }
         
         // Make API call if not cached or expired
-        console.log('[ProfileSetup] Checking username availability for:', name.trim());
-        const isUnique = await checkNameUniqueRef.current(name.trim());
+        console.log('[ProfileSetup] Checking username availability for:', normalizedName);
+        const isUnique = await checkNameUniqueRef.current(normalizedName);
         console.log('[ProfileSetup] Uniqueness result:', isUnique);
         
         if (!isMounted) return;
         
         // Cache the result
-        usernameCheckCacheRef.current.set(trimmedName, {
+        usernameCheckCacheRef.current.set(cacheKey, {
           available: isUnique,
           timestamp: now
         });
@@ -186,7 +292,7 @@ const ProfileSetupDialog = () => {
         
         // If username is taken, generate suggestions
         if (!isUnique) {
-          await generateUsernameSuggestions(name.trim());
+          await generateUsernameSuggestions(normalizedName);
         } else {
           setUsernameSuggestions([]);
         }
@@ -226,74 +332,18 @@ const ProfileSetupDialog = () => {
       // Reset loading state on cleanup to prevent stuck spinner
       setIsCheckingUsername(false);
     };
-  }, [name, isOnline]); // Removed checkNameUnique from dependencies to prevent unnecessary re-runs
-
-  const generateUsernameSuggestions = async (baseName: string) => {
-    const suggestions: string[] = [];
-    
-    // Get country code if available
-    const selectedCountry = countries.find(c => c.name === country);
-    const countryCode = selectedCountry?.code?.slice(0, 2).toUpperCase() || '';
-    const countryName = country.toLowerCase().replace(/\s+/g, '');
-    
-    // Generate different types of suggestions
-    const candidates = [
-      `${baseName}_${countryCode}`,           // username_IN
-      `${baseName}_${countryName}`,           // username_india
-      `${baseName}${countryCode}`,            // usernameIN
-      `${baseName}2`,                         // username2
-      `${baseName}_2`,                        // username_2
-      `${baseName}3`,                         // username3
-      `${baseName}_${Math.floor(Math.random() * 100)}`, // username_42
-    ];
-    
-    // Check availability of each suggestion
-    for (const candidate of candidates) {
-      if (suggestions.length >= 3) break; // Limit to 3 suggestions
-      
-      try {
-        const candidateLower = candidate.toLowerCase();
-        
-        // Check cache first
-        const cached = usernameCheckCacheRef.current.get(candidateLower);
-        const now = Date.now();
-        
-        let isAvailable: boolean;
-        
-        if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-          // Use cached result
-          isAvailable = cached.available;
-        } else {
-          // Make API call
-          isAvailable = await checkNameUniqueRef.current(candidate);
-          
-          // Cache the result
-          usernameCheckCacheRef.current.set(candidateLower, {
-            available: isAvailable,
-            timestamp: now
-          });
-        }
-        
-        if (isAvailable) {
-          suggestions.push(candidate);
-        }
-      } catch (error) {
-        console.error('Error checking suggestion:', candidate, error);
-      }
-    }
-    
-    setUsernameSuggestions(suggestions);
-  };
+  }, [name, isOnline, generateUsernameSuggestions]);
 
   const handleSuggestionClick = (suggestion: string) => {
-    setName(suggestion);
+    const normalizedSuggestion = sanitizeUsername(suggestion);
+    setName(normalizedSuggestion);
     setUsernameAvailable(true);
     setUsernameSuggestions([]);
     setShowSkipValidation(false);
     setErrors(prev => ({ ...prev, name: undefined }));
     
     // Update cache for the selected suggestion
-    const suggestionLower = suggestion.toLowerCase();
+    const suggestionLower = normalizedSuggestion.toLowerCase();
     usernameCheckCacheRef.current.set(suggestionLower, {
       available: true,
       timestamp: Date.now()
@@ -307,6 +357,24 @@ const ProfileSetupDialog = () => {
     setShowSkipValidation(false);
     setUsernameSuggestions([]);
     toast.info('Validation skipped. Proceeding with username.');
+  };
+
+  const handleUsernameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle Enter/Return key to move to country field
+    if (e.key === 'Enter' || e.key === 'Return') {
+      e.preventDefault();
+      // Small delay to ensure input value is updated
+      setTimeout(() => {
+        if (countryButtonRef.current) {
+          countryButtonRef.current.focus();
+          setComboboxOpen(true);
+          // Scroll country field into view if keyboard is open
+          if (countryButtonRef.current) {
+            countryButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 100);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -330,6 +398,12 @@ const ProfileSetupDialog = () => {
         name,
         country,
       });
+      if (validatedData.name !== name) {
+        setName(validatedData.name);
+      }
+      if (validatedData.country !== country) {
+        setCountry(validatedData.country);
+      }
       
       console.log('[ProfileSetup] Validation passed');
 
@@ -384,9 +458,10 @@ const ProfileSetupDialog = () => {
       setOpen(false);
       
       toast.success('Profile created! Welcome to BlockRise! 🎉');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[ProfileSetup] Error during submission:', error);
-      const errorMessage = error?.message || 'Saving failed. Check your connection and try again.';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Saving failed. Check your connection and try again.';
       
       // Handle username conflict specifically
       if (errorMessage === 'USERNAME_TAKEN' || 
@@ -416,7 +491,8 @@ const ProfileSetupDialog = () => {
       modal={true}
     >
       <DialogContent 
-        className="sm:max-w-md z-50" 
+        ref={dialogContentRef}
+        className="sm:max-w-md z-50 max-h-[90vh] overflow-y-auto" 
         onEscapeKeyDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -459,13 +535,26 @@ const ProfileSetupDialog = () => {
             </p>
             <div className="relative">
               <Input
+                ref={usernameInputRef}
                 id="setup-name"
                 type="text"
+                inputMode="text"
+                enterKeyHint="next"
+                autoComplete="username"
                 placeholder="Enter your name (min 3 characters)"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
                   setErrors(prev => ({ ...prev, name: undefined }));
+                }}
+                onKeyDown={handleUsernameKeyDown}
+                onFocus={() => {
+                  // Scroll into view when focused on mobile
+                  setTimeout(() => {
+                    if (usernameInputRef.current) {
+                      usernameInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }, 300);
                 }}
                 maxLength={30}
                 required
@@ -565,25 +654,54 @@ const ProfileSetupDialog = () => {
               <Globe className="h-4 w-4" />
               Country
             </Label>
-            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+            <Popover open={comboboxOpen} onOpenChange={(open) => {
+              setComboboxOpen(open);
+              // Scroll country field into view when opening popover
+              if (open && countryButtonRef.current) {
+                setTimeout(() => {
+                  countryButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+              }
+            }}>
               <PopoverTrigger asChild>
                 <Button
+                  ref={countryButtonRef}
+                  id="setup-country"
                   variant="outline"
                   role="combobox"
                   aria-expanded={comboboxOpen}
                   className="w-full justify-between"
                   disabled={isSubmitting || countriesLoading}
+                  type="button"
+                  onFocus={() => {
+                    // Scroll into view when focused
+                    setTimeout(() => {
+                      if (countryButtonRef.current) {
+                        countryButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
                 >
                   {country || "Type or select your country"}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent 
+                className="w-full p-0 max-h-[300px] overflow-y-auto" 
+                align="start"
+                sideOffset={4}
+                avoidCollisions={true}
+                collisionPadding={8}
+              >
                 <Command shouldFilter={false}>
                   <CommandInput 
+                    ref={countrySearchInputRef}
                     placeholder="Search country..." 
                     value={searchQuery}
                     onValueChange={setSearchQuery}
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoFocus
                   />
                   <CommandList>
                     <CommandEmpty>No country found.</CommandEmpty>

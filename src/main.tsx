@@ -14,12 +14,14 @@ const setVH = () => {
 setVH();
 
 // Update on resize and orientation change
-window.addEventListener('resize', setVH);
-window.addEventListener('orientationchange', setVH);
+// Note: These listeners are intentionally not removed as they need to persist for the app lifetime
+// They are lightweight and necessary for proper mobile viewport handling
+window.addEventListener('resize', setVH, { passive: true });
+window.addEventListener('orientationchange', setVH, { passive: true });
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="theme-preference">
       <App />
     </ThemeProvider>
   </ErrorBoundary>

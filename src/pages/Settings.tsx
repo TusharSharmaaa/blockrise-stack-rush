@@ -1,14 +1,11 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Volume2, VolumeX, Vibrate, Sun, Moon, Bell, Type } from 'lucide-react';
+import { ArrowLeft, Vibrate, Sun, Moon, Type } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
-import { useCurrency } from '@/hooks/useCurrency';
-import { useSound } from '@/hooks/useSound';
 import { useFontScaling } from '@/hooks/useFontScaling';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,8 +14,6 @@ const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
-  const { formatPrice } = useCurrency();
-  const { settings, toggleSound, toggleMusic, setVolume, playSound } = useSound();
   const { fontScale, setCustomScale } = useFontScaling();
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
@@ -27,22 +22,6 @@ const Settings = () => {
       requestPermissions();
     }
   }, []);
-
-  const handleNotificationToggle = async (enabled: boolean) => {
-    if (enabled && !permissionGranted) {
-      const granted = await requestPermissions();
-      if (!granted) {
-        toast.error('Notification permission denied');
-        return;
-      }
-    }
-    await toggleNotifications(enabled);
-    toast.success(enabled ? 'Notifications enabled' : 'Notifications disabled');
-  };
-
-  const handleRemoveAds = () => {
-    toast.info('Opening payment...');
-  };
 
   return (
     <ScrollArea className="h-full">
@@ -142,55 +121,12 @@ const Settings = () => {
             </div>
           </Card>
 
-          {/* Audio Settings */}
+          {/* Gameplay & Feedback */}
           <Card variant="glass" className="p-6 space-y-4 shadow-glow">
-            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Audio</h2>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {settings.soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-                <div>
-                  <div className="font-medium">Sound Effects</div>
-                  <div className="text-sm text-muted-foreground">Game sounds and effects</div>
-                </div>
-              </div>
-              <Switch
-                checked={settings.soundEnabled}
-                onCheckedChange={(checked) => {
-                  toggleSound(checked);
-                  if (checked) playSound('coin');
-                }}
-              />
+            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Gameplay & Feedback</h2>
+            <div className="p-4 rounded-md bg-muted/20 border border-muted/40 text-sm text-muted-foreground">
+              Sound effects and music are disabled in this build. Enable vibration below to keep haptic feedback during play.
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {settings.musicEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-                <div>
-                  <div className="font-medium">Music</div>
-                  <div className="text-sm text-muted-foreground">Background music</div>
-                </div>
-              </div>
-              <Switch
-                checked={settings.musicEnabled}
-                onCheckedChange={toggleMusic}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">Volume</div>
-                <span className="text-sm text-muted-foreground">{Math.round(settings.volume * 100)}%</span>
-              </div>
-              <Slider
-                value={[settings.volume * 100]}
-                onValueChange={(value) => setVolume(value[0] / 100)}
-                max={100}
-                step={1}
-                className="w-full"
-              />
-            </div>
-
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Vibrate className="h-5 w-5" />
@@ -219,17 +155,6 @@ const Settings = () => {
                 <span className="text-foreground">Production</span>
               </div>
             </div>
-          </Card>
-
-          {/* Monetization */}
-          <Card variant="premium" className="p-6 shadow-glow-lg animate-pulse-glow">
-            <h2 className="text-xl font-semibold mb-4 drop-shadow-[0_0_8px_hsl(var(--primary))]">Premium</h2>
-            <Button className="w-full gradient-primary">
-              Remove Ads - $2.99
-            </Button>
-            <p className="text-sm text-muted-foreground mt-2">
-              One-time purchase, no subscription
-            </p>
           </Card>
 
         </div>
