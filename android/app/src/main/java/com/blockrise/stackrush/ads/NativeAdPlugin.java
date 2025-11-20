@@ -21,7 +21,21 @@ import com.google.android.gms.ads.nativead.NativeAdOptions;
 @CapacitorPlugin(name = "NativeAd")
 public class NativeAdPlugin extends Plugin {
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Handler mainHandler;
+    
+    // Lazy initialization of Handler to avoid deprecation warnings
+    private Handler getMainHandler() {
+        if (mainHandler == null) {
+            // Use Handler.createAsync for API 30+ to avoid deprecation warning
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                mainHandler = Handler.createAsync(Looper.getMainLooper());
+            } else {
+                // For older APIs, use the traditional constructor
+                mainHandler = new Handler(Looper.getMainLooper());
+            }
+        }
+        return mainHandler;
+    }
 
     @PluginMethod
     public void loadAd(final PluginCall call) {
@@ -35,7 +49,7 @@ public class NativeAdPlugin extends Plugin {
         }
 
         try {
-            mainHandler.post(() -> {
+            getMainHandler().post(() -> {
                 try {
                     NativeAdOptions options = new NativeAdOptions.Builder()
                         .setReturnUrlsForImageAssets(true)

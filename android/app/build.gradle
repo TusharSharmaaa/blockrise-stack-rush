@@ -23,6 +23,19 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    
+    // Configure Java compiler to show deprecation warnings but not fail the build
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    
+    // Suppress deprecation warnings from dependencies (like Capacitor, AdMob)
+    // while still allowing our code to show deprecation warnings
+    tasks.withType(JavaCompile) {
+        options.compilerArgs << '-Xlint:deprecation'
+        options.deprecation = true
+    }
     signingConfigs {
         release {
             if (keystoreProperties['storeFile']) {
