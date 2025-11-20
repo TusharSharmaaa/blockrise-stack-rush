@@ -28,27 +28,61 @@ export const useNativeAd = (adUnitId: string = ADMOB_CONFIG.NATIVE_ID): UseNativ
       return;
     }
 
+    // Check if we're on a native platform
+    if (!isSupported) {
+      // On web, show placeholder - this is handled by nativeAd.web.ts
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
+    setError(null);
+    
     try {
       const result = await NativeAd.loadAd({ adUnitId });
       if (!isMountedRef.current) return;
 
-      if (result.success && result.ad) {
+      if (result && result.success && result.ad) {
         setAd(result.ad);
         setIsPlaceholder(Boolean(result.isPlaceholder));
         setError(null);
+      } else if (result && !result.success) {
+        // Plugin returned an error result
+        setError(result.errorMessage ?? 'Native ad unavailable. Please try again.');
       } else {
-        setError(result.errorMessage ?? 'Native ad unavailable');
+        // Unexpected result format
+        setError('Native ad unavailable. Please try again.');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load native ad';
+      if (!isMountedRef.current) return;
+      
+      let message = 'Failed to load native ad';
+      if (err instanceof Error) {
+        message = err.message;
+        // Handle common Capacitor plugin errors
+        if (message.includes('not implemented') || message.includes('not available') || message.includes('Unimplemented') || message.includes('UNAVAILABLE')) {
+          message = 'Native ad plugin is not available. Please rebuild the Android app and ensure the plugin is properly registered.';
+        } else if (message.includes('unavailable')) {
+          message = 'Native ad unavailable. Please try again later.';
+        } else {
+          message = `Failed to load ad: ${message}`;
+        }
+      } else if (typeof err === 'string') {
+        if (err.includes('not implemented') || err.includes('not available')) {
+          message = 'Native ad plugin is not available. Please rebuild the Android app.';
+        } else {
+          message = err;
+        }
+      }
       setError(message);
+      console.error('[useNativeAd] Error loading native ad:', err);
     } finally {
       if (isMountedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [adUnitId]);
+  }, [adUnitId, isSupported]);
 
   useEffect(() => {
     isMountedRef.current = true;

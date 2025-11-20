@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,17 +40,39 @@ const Profile = () => {
     }
   }, [profile?.username, profile?.country]);
 
-  // Configure Fuse.js for fuzzy search
-  const fuse = new Fuse(countries, {
+  // Configure Fuse.js for fuzzy search with more lenient matching for incremental typing
+  const fuse = useMemo(() => new Fuse(countries, {
     keys: ['name', 'code'],
-    threshold: 0.4,
+    threshold: 0.3, // More lenient threshold for better incremental search (0.0 = exact, 1.0 = match anything)
     includeScore: true,
-  });
+    ignoreLocation: true, // Search anywhere in the string
+    minMatchCharLength: 1, // Match even single characters
+    findAllMatches: true, // Find all matches, not just best
+  }), [countries]);
 
-  // Filter countries using fuzzy search
-  const filteredCountries = searchQuery
-    ? fuse.search(searchQuery).map(result => result.item)
-    : countries;
+  // Filter countries using fuzzy search with fallback for short queries
+  const filteredCountries = useMemo(() => {
+    if (!searchQuery) {
+      return countries;
+    }
+    
+    const query = searchQuery.trim().toLowerCase();
+    
+    // For very short queries (1-2 chars), use simple prefix matching for better UX
+    if (query.length <= 2) {
+      const prefixMatches = countries.filter(c => 
+        c.name.toLowerCase().startsWith(query) || 
+        c.code.toLowerCase().startsWith(query)
+      );
+      if (prefixMatches.length > 0) {
+        return prefixMatches;
+      }
+    }
+    
+    // For longer queries, use fuzzy search
+    const fuzzyResults = fuse.search(searchQuery);
+    return fuzzyResults.map(result => result.item);
+  }, [searchQuery, countries, fuse]);
 
   const nameChangeInfo = canChangeUsername(progress.currentLevel || 1);
   const canEditName = !profile?.username || nameChangeInfo.canChange;

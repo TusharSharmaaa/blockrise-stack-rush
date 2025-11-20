@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "android": "npm run build && npx cap sync android && node scripts/ensure-native-ad-plugin.mjs && cd android && ./gradlew installDebug && adb shell am start -n com.blockrise.stackrush/.MainActivity",
+    "android": "npm run build && npx cap sync android && node scripts/ensure-native-ad-plugin.mjs && cd android && ./gradlew assembleDebug && cd .. && node scripts/android-install.mjs",
+    "android:install": "node scripts/android-install-only.mjs",
     "android:sync": "npm run build && npx cap sync android && node scripts/ensure-native-ad-plugin.mjs",
     "android:open": "npx cap open android"
   },

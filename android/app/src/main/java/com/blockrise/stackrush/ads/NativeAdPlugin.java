@@ -27,30 +27,60 @@ public class NativeAdPlugin extends Plugin {
     public void loadAd(final PluginCall call) {
         final String adUnitId = call.getString("adUnitId");
         if (adUnitId == null || adUnitId.trim().isEmpty()) {
-            call.reject("adUnitId is required");
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("errorMessage", "adUnitId is required");
+            call.resolve(result);
             return;
         }
 
-        mainHandler.post(() -> {
-            NativeAdOptions options = new NativeAdOptions.Builder()
-                .setReturnUrlsForImageAssets(true)
-                .build();
+        try {
+            mainHandler.post(() -> {
+                try {
+                    NativeAdOptions options = new NativeAdOptions.Builder()
+                        .setReturnUrlsForImageAssets(true)
+                        .build();
 
-            AdLoader adLoader = new AdLoader.Builder(getContext(), adUnitId)
-                .forNativeAd(nativeAd -> resolveWithAd(call, nativeAd))
-                .withNativeAdOptions(options)
-                .withAdListener(new AdListener() {
-                    @Override
-                    public void onAdFailedToLoad(LoadAdError loadAdError) {
-                        if (!call.isReleased()) {
-                            call.reject("Native ad failed to load: " + loadAdError.getMessage());
-                        }
+                    AdLoader adLoader = new AdLoader.Builder(getContext(), adUnitId)
+                        .forNativeAd(nativeAd -> {
+                            if (!call.isReleased()) {
+                                resolveWithAd(call, nativeAd);
+                            }
+                        })
+                        .withNativeAdOptions(options)
+                        .withAdListener(new AdListener() {
+                            @Override
+                            public void onAdFailedToLoad(LoadAdError loadAdError) {
+                                if (!call.isReleased()) {
+                                    JSObject result = new JSObject();
+                                    result.put("success", false);
+                                    String errorMessage = loadAdError.getMessage();
+                                    if (errorMessage == null || errorMessage.isEmpty()) {
+                                        errorMessage = "Failed to load native ad. Please try again.";
+                                    }
+                                    result.put("errorMessage", errorMessage);
+                                    call.resolve(result);
+                                }
+                            }
+                        })
+                        .build();
+
+                    adLoader.loadAd(new AdRequest.Builder().build());
+                } catch (Exception e) {
+                    if (!call.isReleased()) {
+                        JSObject result = new JSObject();
+                        result.put("success", false);
+                        result.put("errorMessage", "Error loading ad: " + e.getMessage());
+                        call.resolve(result);
                     }
-                })
-                .build();
-
-            adLoader.loadAd(new AdRequest.Builder().build());
-        });
+                }
+            });
+        } catch (Exception e) {
+            JSObject result = new JSObject();
+            result.put("success", false);
+            result.put("errorMessage", "Error initializing ad loader: " + e.getMessage());
+            call.resolve(result);
+        }
     }
 
     private void resolveWithAd(PluginCall call, NativeAd nativeAd) {

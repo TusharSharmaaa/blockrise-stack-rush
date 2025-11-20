@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,18 +120,39 @@ const ProfileSetupDialog = () => {
     }
   }, [comboboxOpen]);
 
-  // Configure Fuse.js for fuzzy search (same as Profile.tsx)
-  const fuse = new Fuse(countries, {
+  // Configure Fuse.js for fuzzy search with more lenient matching for incremental typing
+  const fuse = useMemo(() => new Fuse(countries, {
     keys: ['name', 'code'],
-    threshold: 0.4, // Lower threshold = more strict matching (0.0 = exact, 1.0 = match anything)
+    threshold: 0.3, // More lenient threshold for better incremental search (0.0 = exact, 1.0 = match anything)
     includeScore: true,
     ignoreLocation: true, // Search anywhere in the string
-  });
+    minMatchCharLength: 1, // Match even single characters
+    findAllMatches: true, // Find all matches, not just best
+  }), [countries]);
 
-  // Filter countries using fuzzy search
-  const filteredCountries = searchQuery
-    ? fuse.search(searchQuery).map(result => result.item)
-    : countries;
+  // Filter countries using fuzzy search with fallback for short queries
+  const filteredCountries = useMemo(() => {
+    if (!searchQuery) {
+      return countries;
+    }
+    
+    const query = searchQuery.trim().toLowerCase();
+    
+    // For very short queries (1-2 chars), use simple prefix matching for better UX
+    if (query.length <= 2) {
+      const prefixMatches = countries.filter(c => 
+        c.name.toLowerCase().startsWith(query) || 
+        c.code.toLowerCase().startsWith(query)
+      );
+      if (prefixMatches.length > 0) {
+        return prefixMatches;
+      }
+    }
+    
+    // For longer queries, use fuzzy search
+    const fuzzyResults = fuse.search(searchQuery);
+    return fuzzyResults.map(result => result.item);
+  }, [searchQuery, countries, fuse]);
 
   useEffect(() => {
     // Don't show dialog while profile is loading
