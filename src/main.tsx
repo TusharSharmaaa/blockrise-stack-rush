@@ -3,6 +3,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import ErrorBoundary from "./components/ErrorBoundary";
 import App from "./App.tsx";
 import "./index.css";
+import { HapticsProvider } from "./hooks/useHaptics";
 
 // Fix for dynamic viewport height on mobile devices
 const setVH = () => {
@@ -22,7 +23,9 @@ window.addEventListener('orientationchange', setVH, { passive: true });
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="theme-preference">
-      <App />
+      <HapticsProvider>
+        <App />
+      </HapticsProvider>
     </ThemeProvider>
   </ErrorBoundary>
 );

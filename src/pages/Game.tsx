@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { getRandomBlock, GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 import { hapticVibrate } from '@/utils/haptics';
 import { calculateLevelSpeed } from '@/utils/gameConstants';
+import { useHaptics } from '@/hooks/useHaptics';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +46,7 @@ const Game = () => {
   const { usePowerUp: activatePowerUp, loadInventory, addPowerUp, inventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
+  const { vibrationEnabled } = useHaptics();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
   const [previousScore, setPreviousScore] = useState(0);
   const [activeLevel, setActiveLevel] = useState(selectedLevel);
@@ -347,15 +349,17 @@ const Game = () => {
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
   const triggerMovePulse = useCallback(() => {
+    if (!vibrationEnabled) return;
     hapticVibrate(6); // Reduced vibration intensity for smoother feel
-  }, []);
+  }, [vibrationEnabled]);
 
   const triggerDownPulse = useCallback(() => {
+    if (!vibrationEnabled) return;
     const now = Date.now();
     if (now - downHapticCooldownRef.current < 150) return; // Increased cooldown to prevent irritation
     downHapticCooldownRef.current = now;
     hapticVibrate(8); // Reduced vibration intensity for smoother feel
-  }, []);
+  }, [vibrationEnabled]);
 
   const handleMoveLeft = useCallback(() => {
     triggerMovePulse();

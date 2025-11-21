@@ -3,19 +3,20 @@ import { ArrowLeft, Vibrate, Sun, Moon, Type } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useFontScaling } from '@/hooks/useFontScaling';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const { notificationsEnabled, permissionGranted, toggleNotifications, requestPermissions } = useNotifications();
   const { fontScale, setCustomScale } = useFontScaling();
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const { vibrationEnabled, setVibrationEnabled } = useHaptics();
 
   useEffect(() => {
     if (!permissionGranted && notificationsEnabled) {
@@ -137,7 +138,10 @@ const Settings = () => {
               </div>
               <Switch
                 checked={vibrationEnabled}
-                onCheckedChange={setVibrationEnabled}
+                onCheckedChange={(checked) => {
+                  setVibrationEnabled(checked);
+                  toast.success(checked ? 'Vibration enabled' : 'Vibration disabled');
+                }}
               />
             </div>
           </Card>

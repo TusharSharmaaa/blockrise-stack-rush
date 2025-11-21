@@ -2,12 +2,22 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
 
 const isNative = Capacitor.isNativePlatform();
-const HAPTICS_ENABLED = true;
 const MOVE_PULSE_DURATION_MS = 12;
 
-const canUseNativeHaptics = () => HAPTICS_ENABLED && isNative;
+let hapticsEnabled = true;
+
+const canUseNativeHaptics = () => hapticsEnabled && isNative;
 const canUseWebVibration = () =>
-  typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function';
+  hapticsEnabled &&
+  typeof navigator !== 'undefined' &&
+  'vibrate' in navigator &&
+  typeof navigator.vibrate === 'function';
+
+export const setHapticsEnabled = (enabled: boolean) => {
+  hapticsEnabled = enabled;
+};
+
+export const isHapticsEnabled = () => hapticsEnabled;
 
 export const hapticImpact = (style: ImpactStyle = ImpactStyle.Light) => {
   if (!canUseNativeHaptics()) return;
