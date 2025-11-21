@@ -68,8 +68,8 @@ const DailyRewards = () => {
         {/* Current Streak */}
         <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg p-6 card-elevated text-center">
           <Zap className="h-12 w-12 mx-auto mb-3 text-primary" />
-          <h2 className="text-3xl font-bold mb-2">{progress.dailyStreak} Day Streak</h2>
-          <p className="text-muted-foreground">Keep playing daily to maintain your streak!</p>
+          <h2 className="text-3xl font-bold mb-2">Day {progress.dailyStreak}</h2>
+          <p className="text-muted-foreground">Keep opening the game daily to continue your streak!</p>
         </div>
 
         {/* Claim Button */}

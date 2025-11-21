@@ -241,12 +241,16 @@ export const useGameProgress = () => {
           adsWatchedForUnlockCountToday: savedProgress.adsWatchedForUnlockCountToday,
           maxAdsForUnlockPerDay: savedProgress.maxAdsForUnlockPerDay
         });
-        updateDailyStreak(savedProgress);
+        // Update streak based on when game was last opened
+        // This modifies savedProgress in place, and migrateProgress will preserve these changes
+        updateDailyStreak(savedProgress as LevelProgress);
         const migratedProgress = migrateProgress(savedProgress);
         console.log('🔄 Migrated progress:', {
           adsWatchedForUnlockCountToday: migratedProgress.adsWatchedForUnlockCountToday,
           maxAdsForUnlockPerDay: migratedProgress.maxAdsForUnlockPerDay,
-          adsWatchedForNextLevel: migratedProgress.adsWatchedForNextLevel
+          adsWatchedForNextLevel: migratedProgress.adsWatchedForNextLevel,
+          dailyStreak: migratedProgress.dailyStreak,
+          lastPlayedDate: migratedProgress.lastPlayedDate
         });
         progressRef.current = migratedProgress; // Update ref first
         setProgress(migratedProgress);
@@ -254,8 +258,16 @@ export const useGameProgress = () => {
         await saveProgress(migratedProgress);
       } else {
         console.log('📂 No saved progress, using initial state');
-        progressRef.current = INITIAL_PROGRESS; // Update ref for initial state
-        setProgress(INITIAL_PROGRESS);
+        // First time opening - set streak to Day 1
+        const initialProgress = {
+          ...INITIAL_PROGRESS,
+          dailyStreak: 1,
+          lastPlayedDate: new Date().toDateString()
+        };
+        progressRef.current = initialProgress; // Update ref for initial state
+        setProgress(initialProgress);
+        // Save initial progress with Day 1 streak
+        await saveProgress(initialProgress);
       }
     } catch (error) {
       console.error('Failed to load progress:', error);
@@ -276,8 +288,9 @@ export const useGameProgress = () => {
     const lastPlayedTime = lastPlayed.getTime();
 
     if (Number.isNaN(lastPlayedTime)) {
+      // Invalid date, start fresh
       savedProgress.lastPlayedDate = today;
-      savedProgress.dailyStreak = 0;
+      savedProgress.dailyStreak = 1; // First day
       savedProgress.hasClaimedDailyReward = false;
       return;
     }
@@ -285,12 +298,28 @@ export const useGameProgress = () => {
     const diffTime = todayDate.getTime() - lastPlayedTime;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays >= 1) {
-      savedProgress.hasClaimedDailyReward = false;
-      if (diffDays > 1) {
-        savedProgress.dailyStreak = 0;
-      }
+    // If already opened today, don't change streak
+    if (diffDays === 0) {
+      // Already opened today, keep streak as is
+      return;
     }
+
+    // Reset daily reward claim status for new day
+    savedProgress.hasClaimedDailyReward = false;
+
+    if (diffDays === 1) {
+      // Consecutive day - increment streak
+      savedProgress.dailyStreak = (savedProgress.dailyStreak || 0) + 1;
+    } else if (diffDays > 1) {
+      // Streak broken - reset to day 1 (today is day 1)
+      savedProgress.dailyStreak = 1;
+    } else {
+      // Future date or same day (shouldn't happen, but handle it)
+      savedProgress.dailyStreak = 1;
+    }
+
+    // Update last played date to today
+    savedProgress.lastPlayedDate = today;
   };
 
   const canWatchAdToday = (adsNeeded: number = 1) => {
@@ -485,34 +514,19 @@ export const useGameProgress = () => {
     // Use ref to get latest state (avoids stale closure issues)
     const currentProgress = progressRef.current;
     if (!currentProgress.hasClaimedDailyReward) {
-      const today = new Date().toDateString();
-      const lastPlayed = new Date(currentProgress.lastPlayedDate);
-      const todayDate = new Date(today);
-      const diffTime = todayDate.getTime() - lastPlayed.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-      let newStreak = currentProgress.dailyStreak;
-      if (diffDays === 1) {
-        // Consecutive day - increment streak
-        newStreak = currentProgress.dailyStreak + 1;
-      } else if (diffDays > 1) {
-        // Streak broken - reset to 1 (today counts as day 1)
-        newStreak = 1;
-      } else if (diffDays === 0 && currentProgress.dailyStreak === 0) {
-        // First time claiming today, start streak at 1
-        newStreak = 1;
-      }
+      // Streak is already updated when game is opened (in updateDailyStreak)
+      // Just use the current streak value
+      const currentStreak = currentProgress.dailyStreak || 1; // Default to 1 if somehow 0
 
       const baseReward = 50;
-      const streakBonus = newStreak * 10;
+      const streakBonus = currentStreak * 10;
       const totalReward = baseReward + streakBonus;
 
       const newProgress = {
         ...currentProgress,
         totalCoins: currentProgress.totalCoins + totalReward,
-        hasClaimedDailyReward: true,
-        dailyStreak: newStreak,
-        lastPlayedDate: today
+        hasClaimedDailyReward: true
+        // Don't update streak or lastPlayedDate here - already updated on app open
       };
       await saveProgress(newProgress);
       await syncProgressToBackend(newProgress);
