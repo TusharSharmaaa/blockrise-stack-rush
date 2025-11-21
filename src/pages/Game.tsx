@@ -42,7 +42,7 @@ const Game = () => {
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
-  const { usePowerUp: activatePowerUp, loadInventory, addPowerUp } = usePowerUps();
+  const { usePowerUp: activatePowerUp, loadInventory, addPowerUp, inventory } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
   const [hasShownGameOverAd, setHasShownGameOverAd] = useState(false);
@@ -73,17 +73,14 @@ const Game = () => {
     }
   }, []);
 
-  const findBestLineToClear = useCallback((grid: (string | null)[][]): number => {
-    let candidate = -1;
-    let filled = 0;
+  const findHighestFilledRow = useCallback((grid: (string | null)[][]): number => {
+    // Find the highest row (highest index) that has at least one block
     for (let row = grid.length - 1; row >= 0; row--) {
-      const rowFilled = grid[row].reduce((count, cell) => count + (cell ? 1 : 0), 0);
-      if (rowFilled > filled) {
-        filled = rowFilled;
-        candidate = row;
+      if (grid[row]?.some(cell => cell !== null)) {
+        return row;
       }
     }
-    return filled >= 3 ? candidate : -1;
+    return -1; // No filled rows found
   }, []);
 
   const createLineHighlight = useCallback((lineIndex: number): HighlightCell[] => {
@@ -389,14 +386,6 @@ const Game = () => {
     let preCheckPassed = true;
 
     switch (type) {
-      case 'clearLine': {
-        const lineIndex = findBestLineToClear(gameState.grid);
-        if (lineIndex === -1) {
-          toast.info('No dense line to clear right now.');
-          preCheckPassed = false;
-        }
-        break;
-      }
       case 'bomb': {
         if (!gameState.currentBlock) {
           toast.info('Place a block before using the bomb.');
@@ -420,23 +409,23 @@ const Game = () => {
 
     switch (type) {
       case 'clearLine': {
-        let clearedLineIndex = -1;
+        // Find and clear the highest filled row
+        let highestRowIndex = -1;
         setGameState(prevState => {
-          const targetLine = findBestLineToClear(prevState.grid);
-          if (targetLine === -1) {
-            clearedLineIndex = -1;
+          highestRowIndex = findHighestFilledRow(prevState.grid);
+          if (highestRowIndex === -1) {
+            // No filled rows found, return state unchanged
             return prevState;
           }
-          clearedLineIndex = targetLine;
-          return clearLine(prevState, targetLine);
+          return clearLine(prevState, highestRowIndex);
         });
-        if (clearedLineIndex === -1) {
-          toast.info('Line was already cleared.');
+        if (highestRowIndex === -1) {
+          toast.info('No blocks to clear.');
           await addPowerUp('clearLine', 1);
           return;
         }
-        triggerHighlights(createLineHighlight(clearedLineIndex), 900);
-        toast.success('Line cleared!');
+        triggerHighlights(createLineHighlight(highestRowIndex), 900);
+        toast.success('Highest row cleared!');
         break;
       }
       case 'bomb': {
@@ -471,7 +460,7 @@ const Game = () => {
           }
         }));
         triggerHighlights(createSpawnHighlight(), 800);
-        toast.success('Next blocks shuffled!');
+        toast.success('Next block changed!');
         break;
       }
       case 'slowTime': {
@@ -481,7 +470,7 @@ const Game = () => {
         }
         setGameState(prevState => ({
           ...prevState,
-          speed: prevState.speed * 2
+          speed: prevState.speed * 1.5
         }));
         triggerHighlights(createBoardHighlight(), 900);
         slowTimeTimeoutRef.current = window.setTimeout(() => {

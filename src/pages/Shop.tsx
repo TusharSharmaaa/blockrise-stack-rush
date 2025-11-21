@@ -20,8 +20,8 @@ const Shop = () => {
 
   const powerPacks = [
     { id: 'slowTime', name: 'Slow Time', description: 'Slows game speed for 30s', icon: '⏱️', price: 100, type: 'slowTime' as const },
-    { id: 'clearLine', name: 'Clear Line', description: 'Clear any full line instantly', icon: '✨', price: 150, type: 'clearLine' as const },
-    { id: 'shuffle', name: 'Block Shuffle', description: 'Change next 3 blocks', icon: '🔄', price: 75, type: 'shuffle' as const },
+    { id: 'clearLine', name: 'Clear Line', description: 'Clear highest filled row instantly', icon: '✨', price: 150, type: 'clearLine' as const },
+    { id: 'shuffle', name: 'Block Shuffle', description: 'Change next block', icon: '🔄', price: 75, type: 'shuffle' as const },
     { id: 'bomb', name: 'Bomb', description: 'Clear 3x3 area', icon: '💣', price: 200, type: 'bomb' as const },
   ];
 
