@@ -271,3 +271,4 @@ CREATE POLICY "Profiles are readable publicly"
 -- The anonymous auth setting must be enabled in Authentication > Providers > Email
 -- This migration just ensures the policies allow it
 
+

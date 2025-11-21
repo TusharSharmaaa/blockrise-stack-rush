@@ -110,3 +110,4 @@ RESET role;
 
 Once you have the actual error message/code from the logs, I can help fix it specifically.
 
+

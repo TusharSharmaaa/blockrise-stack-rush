@@ -294,3 +294,4 @@ SELECT COUNT(*) as final_count FROM public.countries;
 -- STEP 8: Test the query (this is what the app uses)
 SELECT code, name FROM public.countries ORDER BY name LIMIT 10;
 
+

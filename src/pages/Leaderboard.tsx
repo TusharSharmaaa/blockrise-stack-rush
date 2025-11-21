@@ -306,10 +306,24 @@ const Leaderboard = () => {
                     <Badge className="ml-1 sm:ml-2 text-[10px] sm:text-xs bg-primary text-primary-foreground">You</Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 text-[10px] sm:text-xs md:text-sm text-muted-foreground overflow-hidden flex-wrap">
-                  <span className="whitespace-nowrap flex-shrink-0">Lvl {adjustedUserPosition.entry?.level}</span>
-                  <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
-                  <span className="whitespace-nowrap flex-shrink-0">#{adjustedUserPosition.rank} of {adjustedUserPosition.totalPlayers}</span>
+                <div className="flex flex-col gap-0.5 sm:gap-1 text-[10px] sm:text-xs md:text-sm text-muted-foreground overflow-hidden">
+                  <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 flex-wrap">
+                    {adjustedUserPosition.entry?.country && (
+                      <>
+                        <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap flex-shrink-0">{adjustedUserPosition.entry.country}</span>
+                      </>
+                    )}
+                    {adjustedUserPosition.entry?.level && (
+                      <>
+                        <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
+                        <span className="whitespace-nowrap flex-shrink-0">Lvl {adjustedUserPosition.entry.level}</span>
+                      </>
+                    )}
+                  </div>
+                  <div className="whitespace-nowrap flex-shrink-0">
+                    #{adjustedUserPosition.rank} of {adjustedUserPosition.totalPlayers}
+                  </div>
                 </div>
               </div>
               <div className="text-right flex-shrink-0 ml-1 sm:ml-2">
@@ -351,8 +365,19 @@ const Leaderboard = () => {
                       {entry.isCurrentUser && <Badge className="ml-1 sm:ml-1.5 md:ml-2 text-[10px] sm:text-xs">You</Badge>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 text-[9px] sm:text-[10px] md:text-xs text-muted-foreground overflow-hidden">
-                    <span className="whitespace-nowrap flex-shrink-0">Lvl {entry.level}</span>
+                  <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 text-[9px] sm:text-[10px] md:text-xs text-muted-foreground overflow-hidden flex-wrap">
+                    {entry.country && (
+                      <>
+                        <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap flex-shrink-0">{entry.country}</span>
+                      </>
+                    )}
+                    {entry.country && entry.level && (
+                      <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
+                    )}
+                    {entry.level && (
+                      <span className="whitespace-nowrap flex-shrink-0">Lvl {entry.level}</span>
+                    )}
                   </div>
                 </div>
                 

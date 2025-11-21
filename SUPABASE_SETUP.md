@@ -82,3 +82,4 @@ The new migration `20251120000000_fix_all_setup.sql`:
 - Run the fix_all_setup migration
 - Verify policies are created correctly
 
+

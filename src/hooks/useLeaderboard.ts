@@ -43,28 +43,17 @@ export const useLeaderboard = (currentProfileId?: string) => {
 
       if (error) throw error;
 
-      // Calculate ranks with proper tie-breaking
-      // Players with same score get same rank, but ordered by earlier achievement time
-      let currentRank = 1;
-      let previousScore: number | null = null;
-
+      // Calculate ranks sequentially (1, 2, 3, 4, 5...)
+      // Each player gets a unique rank based on their position in the sorted list
+      // Players are sorted by highest_score DESC, then updated_at ASC (earlier achievement ranks higher)
       const leaderboardEntries: LeaderboardEntry[] = (data || []).map((entry, index) => {
         const score = entry.highest_score || 0;
-        
-        // If score changed from previous, update rank to current position (index + 1)
-        if (previousScore !== null && score !== previousScore) {
-          currentRank = index + 1;
-        } else if (previousScore === null) {
-          // First entry always has rank 1
-          currentRank = 1;
-        }
-        // If score is same as previous, keep same rank (players share rank)
-        
-        previousScore = score;
+        // Sequential ranking: first entry is rank 1, second is rank 2, etc.
+        const rank = index + 1;
 
         return {
           id: entry.id,
-          rank: currentRank,
+          rank,
           username: entry.username,
           city: entry.city || '',
           country: entry.country || '',
@@ -165,34 +154,24 @@ export const useLeaderboard = (currentProfileId?: string) => {
         return;
       }
 
-      // Calculate rank based on sorted list with proper tie-breaking
-      let calculatedRank = 1;
-      let previousScore: number | null = null;
+      // Calculate rank based on sorted list with sequential ranking
+      // Each player gets a unique rank based on their position (1, 2, 3, 4, 5...)
+      let calculatedRank = totalPlayers + 1; // Default to last if not found
       let foundUser = false;
 
       for (let i = 0; i < allProfiles.length; i++) {
         const profile = allProfiles[i];
-        const score = profile.highest_score || 0;
-
-        // Update rank when score changes (players with same score share rank)
-        if (previousScore !== null && score !== previousScore) {
-          calculatedRank = i + 1;
-        } else if (previousScore === null) {
-          // First entry always has rank 1
-          calculatedRank = 1;
-        }
-        // If score is same as previous, keep same rank (players share rank)
-
+        
         // Check if this is the user
         if (profile.id === profileId) {
+          // Sequential ranking: position in sorted list (0-based index + 1)
+          calculatedRank = i + 1;
           foundUser = true;
           break;
         }
-
-        previousScore = score;
       }
 
-      // If user not found (shouldn't happen), set rank to total + 1
+      // If user not found (shouldn't happen), keep default rank
       if (!foundUser) {
         calculatedRank = totalPlayers + 1;
       }
