@@ -26,36 +26,48 @@ const GameControls = memo(({
     
     isHoldingRef.current = true;
     
-    // Immediate first action
-    onMoveDown();
-    
-    // Clear any existing interval
+    // Clear any existing intervals/timeouts first
     if (fastDownIntervalRef.current) {
       clearInterval(fastDownIntervalRef.current);
       fastDownIntervalRef.current = null;
     }
-    
-    // Reduced delay before starting continuous movement (to distinguish tap from hold)
-    holdTimeoutRef.current = setTimeout(() => {
-      if (isHoldingRef.current && !disabled) {
-        // Start fast continuous movement only if still holding
-        fastDownIntervalRef.current = setInterval(() => {
-          if (!disabled) {
-            onMoveDown();
-          }
-        }, 50); // Faster interval for more responsive feel
-      }
-    }, 100); // Reduced delay for faster response
-  };
-
-  const handleDownRelease = () => {
-    isHoldingRef.current = false;
-    
     if (holdTimeoutRef.current) {
       clearTimeout(holdTimeoutRef.current);
       holdTimeoutRef.current = null;
     }
     
+    // Immediate first action
+    onMoveDown();
+    
+    // Delay before starting continuous movement (to distinguish tap from hold)
+    holdTimeoutRef.current = setTimeout(() => {
+      // Double-check that we're still holding and not disabled
+      if (isHoldingRef.current && !disabled) {
+        // Start continuous movement only if still holding
+        fastDownIntervalRef.current = setInterval(() => {
+          // Check on each interval to ensure we should continue
+          if (!disabled && isHoldingRef.current) {
+            onMoveDown();
+          } else {
+            // Stop if disabled or no longer holding
+            handleDownRelease();
+          }
+        }, 150); // Slower interval for smoother control
+      }
+    }, 200); // Longer delay before continuous movement starts
+  };
+
+  const handleDownRelease = () => {
+    // Reset holding state immediately
+    isHoldingRef.current = false;
+    
+    // Clear timeout if it exists
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    
+    // Clear interval if it exists
     if (fastDownIntervalRef.current) {
       clearInterval(fastDownIntervalRef.current);
       fastDownIntervalRef.current = null;
@@ -114,8 +126,18 @@ const GameControls = memo(({
           onMouseDown={handleDownPress}
           onMouseUp={handleDownRelease}
           onMouseLeave={handleDownRelease}
-          onTouchStart={handleDownPress}
-          onTouchEnd={handleDownRelease}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            handleDownPress();
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            handleDownRelease();
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            handleDownRelease();
+          }}
           disabled={disabled}
           className="w-14 h-14 rounded-full hover:scale-110 active:scale-95 transition-all duration-200 shadow-neon"
         >

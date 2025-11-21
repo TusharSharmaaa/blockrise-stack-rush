@@ -350,14 +350,14 @@ const Game = () => {
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
   const triggerMovePulse = useCallback(() => {
-    hapticVibrate(12);
+    hapticVibrate(6); // Reduced vibration intensity for smoother feel
   }, []);
 
   const triggerDownPulse = useCallback(() => {
     const now = Date.now();
-    if (now - downHapticCooldownRef.current < 50) return; // Reduced cooldown for faster response
+    if (now - downHapticCooldownRef.current < 150) return; // Increased cooldown to prevent irritation
     downHapticCooldownRef.current = now;
-    hapticVibrate(18);
+    hapticVibrate(8); // Reduced vibration intensity for smoother feel
   }, []);
 
   const handleMoveLeft = useCallback(() => {

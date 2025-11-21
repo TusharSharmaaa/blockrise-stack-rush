@@ -376,9 +376,11 @@ export const useGameLoop = () => {
       
       const delta = currentTime - lastTime;
       // Only move down if enough time has passed (prevents excessive updates)
+      // Using smoothed delta for better frame timing
       if (delta >= gameState.speed) {
         moveDown();
-        lastTime = currentTime;
+        // Smooth timing adjustment to prevent jitter
+        lastTime = currentTime - (delta % gameState.speed);
       }
       
       // Continue loop only if still running
