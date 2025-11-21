@@ -40,15 +40,188 @@ const Leaderboard = () => {
   );
 
   const getCountryFlag = (country: string) => {
+    if (!country) return '';
+    
+    // Comprehensive country name to flag emoji mapping
     const flags: { [key: string]: string } = {
-      'Japan': '🇯🇵',
-      'India': '🇮🇳',
+      // North America
+      'United States': '🇺🇸',
       'USA': '🇺🇸',
+      'US': '🇺🇸',
+      'Canada': '🇨🇦',
+      'CA': '🇨🇦',
+      'Mexico': '🇲🇽',
+      'MX': '🇲🇽',
+      
+      // South America
+      'Brazil': '🇧🇷',
+      'BR': '🇧🇷',
+      'Argentina': '🇦🇷',
+      'AR': '🇦🇷',
+      'Chile': '🇨🇱',
+      'CL': '🇨🇱',
+      'Colombia': '🇨🇴',
+      'CO': '🇨🇴',
+      
+      // Europe
+      'United Kingdom': '🇬🇧',
       'UK': '🇬🇧',
+      'GB': '🇬🇧',
+      'Germany': '🇩🇪',
+      'DE': '🇩🇪',
+      'France': '🇫🇷',
+      'FR': '🇫🇷',
+      'Italy': '🇮🇹',
+      'IT': '🇮🇹',
+      'Spain': '🇪🇸',
+      'ES': '🇪🇸',
+      'Netherlands': '🇳🇱',
+      'NL': '🇳🇱',
+      'Belgium': '🇧🇪',
+      'BE': '🇧🇪',
+      'Switzerland': '🇨🇭',
+      'CH': '🇨🇭',
+      'Austria': '🇦🇹',
+      'AT': '🇦🇹',
+      'Sweden': '🇸🇪',
+      'SE': '🇸🇪',
+      'Norway': '🇳🇴',
+      'NO': '🇳🇴',
+      'Denmark': '🇩🇰',
+      'DK': '🇩🇰',
+      'Finland': '🇫🇮',
+      'FI': '🇫🇮',
+      'Poland': '🇵🇱',
+      'PL': '🇵🇱',
+      'Portugal': '🇵🇹',
+      'PT': '🇵🇹',
+      'Greece': '🇬🇷',
+      'GR': '🇬🇷',
+      'Ireland': '🇮🇪',
+      'IE': '🇮🇪',
+      'Russia': '🇷🇺',
+      'RU': '🇷🇺',
+      
+      // Asia
+      'India': '🇮🇳',
+      'IN': '🇮🇳',
+      'China': '🇨🇳',
+      'CN': '🇨🇳',
+      'Japan': '🇯🇵',
+      'JP': '🇯🇵',
+      'South Korea': '🇰🇷',
+      'Korea': '🇰🇷',
+      'KR': '🇰🇷',
+      'Singapore': '🇸🇬',
+      'SG': '🇸🇬',
+      'Malaysia': '🇲🇾',
+      'MY': '🇲🇾',
+      'Thailand': '🇹🇭',
+      'TH': '🇹🇭',
+      'Indonesia': '🇮🇩',
+      'ID': '🇮🇩',
+      'Philippines': '🇵🇭',
+      'PH': '🇵🇭',
+      'Vietnam': '🇻🇳',
+      'VN': '🇻🇳',
+      'Bangladesh': '🇧🇩',
+      'BD': '🇧🇩',
+      'Pakistan': '🇵🇰',
+      'PK': '🇵🇰',
+      'Sri Lanka': '🇱🇰',
+      'LK': '🇱🇰',
+      'Nepal': '🇳🇵',
+      'NP': '🇳🇵',
+      'Myanmar': '🇲🇲',
+      'MM': '🇲🇲',
+      'Cambodia': '🇰🇭',
+      'KH': '🇰🇭',
+      'Laos': '🇱🇦',
+      'LA': '🇱🇦',
+      'Mongolia': '🇲🇳',
+      'MN': '🇲🇳',
+      'Taiwan': '🇹🇼',
+      'TW': '🇹🇼',
+      'Hong Kong': '🇭🇰',
+      'HK': '🇭🇰',
+      
+      // Middle East
+      'United Arab Emirates': '🇦🇪',
       'UAE': '🇦🇪',
-      'Singapore': '🇸🇬'
+      'AE': '🇦🇪',
+      'Saudi Arabia': '🇸🇦',
+      'SA': '🇸🇦',
+      'Israel': '🇮🇱',
+      'IL': '🇮🇱',
+      'Turkey': '🇹🇷',
+      'TR': '🇹🇷',
+      'Iran': '🇮🇷',
+      'IR': '🇮🇷',
+      'Iraq': '🇮🇶',
+      'IQ': '🇮🇶',
+      'Lebanon': '🇱🇧',
+      'LB': '🇱🇧',
+      'Jordan': '🇯🇴',
+      'JO': '🇯🇴',
+      'Kuwait': '🇰🇼',
+      'KW': '🇰🇼',
+      'Qatar': '🇶🇦',
+      'QA': '🇶🇦',
+      'Oman': '🇴🇲',
+      'OM': '🇴🇲',
+      'Bahrain': '🇧🇭',
+      'BH': '🇧🇭',
+      'Egypt': '🇪🇬',
+      'EG': '🇪🇬',
+      
+      // Africa
+      'South Africa': '🇿🇦',
+      'ZA': '🇿🇦',
+      'Nigeria': '🇳🇬',
+      'NG': '🇳🇬',
+      'Kenya': '🇰🇪',
+      'KE': '🇰🇪',
+      'Ghana': '🇬🇭',
+      'GH': '🇬🇭',
+      'Ethiopia': '🇪🇹',
+      'ET': '🇪🇹',
+      'Morocco': '🇲🇦',
+      'MA': '🇲🇦',
+      'Algeria': '🇩🇿',
+      'DZ': '🇩🇿',
+      'Tunisia': '🇹🇳',
+      'TN': '🇹🇳',
+      'Uganda': '🇺🇬',
+      'UG': '🇺🇬',
+      'Tanzania': '🇹🇿',
+      'TZ': '🇹🇿',
+      
+      // Oceania
+      'Australia': '🇦🇺',
+      'AU': '🇦🇺',
+      'New Zealand': '🇳🇿',
+      'NZ': '🇳🇿',
+      'Fiji': '🇫🇯',
+      'FJ': '🇫🇯',
+      'Papua New Guinea': '🇵🇬',
+      'PG': '🇵🇬',
     };
-    return flags[country] || '🌍';
+    
+    // Try exact match first
+    if (flags[country]) {
+      return flags[country];
+    }
+    
+    // Try case-insensitive match
+    const countryLower = country.toLowerCase();
+    for (const [key, flag] of Object.entries(flags)) {
+      if (key.toLowerCase() === countryLower) {
+        return flag;
+      }
+    }
+    
+    // Return empty string if no match (no flag shown)
+    return '';
   };
 
   const getRankIcon = (rank: number) => {
@@ -125,16 +298,15 @@ const Leaderboard = () => {
               </div>
               <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                  <span className="text-base sm:text-xl md:text-2xl flex-shrink-0">{getCountryFlag(adjustedUserPosition.entry?.country || '')}</span>
+                  {getCountryFlag(adjustedUserPosition.entry?.country || '') && (
+                    <span className="text-base sm:text-xl md:text-2xl flex-shrink-0">{getCountryFlag(adjustedUserPosition.entry?.country || '')}</span>
+                  )}
                   <div className="font-bold text-sm sm:text-base md:text-lg truncate min-w-0">
                     {adjustedUserPosition.entry?.username}
                     <Badge className="ml-1 sm:ml-2 text-[10px] sm:text-xs bg-primary text-primary-foreground">You</Badge>
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 text-[10px] sm:text-xs md:text-sm text-muted-foreground overflow-hidden flex-wrap">
-                  <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                  <span className="truncate min-w-0">{adjustedUserPosition.entry?.city}, {adjustedUserPosition.entry?.country}</span>
-                  <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
                   <span className="whitespace-nowrap flex-shrink-0">Lvl {adjustedUserPosition.entry?.level}</span>
                   <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
                   <span className="whitespace-nowrap flex-shrink-0">#{adjustedUserPosition.rank} of {adjustedUserPosition.totalPlayers}</span>
@@ -171,16 +343,15 @@ const Leaderboard = () => {
                 
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 mb-0.5 sm:mb-1">
-                    <span className="text-sm sm:text-base md:text-xl flex-shrink-0">{getCountryFlag(entry.country)}</span>
+                    {getCountryFlag(entry.country) && (
+                      <span className="text-sm sm:text-base md:text-xl flex-shrink-0">{getCountryFlag(entry.country)}</span>
+                    )}
                     <div className="font-semibold text-xs sm:text-sm md:text-base truncate min-w-0">
                       {entry.username}
                       {entry.isCurrentUser && <Badge className="ml-1 sm:ml-1.5 md:ml-2 text-[10px] sm:text-xs">You</Badge>}
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 sm:gap-1 md:gap-2 text-[9px] sm:text-[10px] md:text-xs text-muted-foreground overflow-hidden">
-                    <MapPin className="h-2 w-2 sm:h-2.5 sm:w-2.5 md:h-3 md:w-3 flex-shrink-0" />
-                    <span className="truncate min-w-0">{entry.city}, {entry.country}</span>
-                    <span className="mx-0.5 sm:mx-1 flex-shrink-0">•</span>
                     <span className="whitespace-nowrap flex-shrink-0">Lvl {entry.level}</span>
                   </div>
                 </div>

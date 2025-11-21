@@ -33,32 +33,53 @@ export const useLeaderboard = (currentProfileId?: string) => {
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
-      // Load top 100 entries
+      // Load top 100 entries with tie-breaking: highest_score DESC, then updated_at ASC (earlier achievement ranks higher)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('highest_score', { ascending: false })
+        .order('updated_at', { ascending: true, nullsFirst: false })
         .limit(100);
 
       if (error) throw error;
 
-      const leaderboardEntries: LeaderboardEntry[] = (data || []).map((entry, index) => ({
-        id: entry.id,
-        rank: index + 1,
-        username: entry.username,
-        city: entry.city,
-        country: entry.country,
-        score: entry.highest_score || 0,
-        level: entry.current_level || 1,
-        avatarColor: entry.avatar_color,
-        isCurrentUser: currentProfileId === entry.id
-      }));
+      // Calculate ranks with proper tie-breaking
+      // Players with same score get same rank, but ordered by earlier achievement time
+      let currentRank = 1;
+      let previousScore: number | null = null;
+
+      const leaderboardEntries: LeaderboardEntry[] = (data || []).map((entry, index) => {
+        const score = entry.highest_score || 0;
+        
+        // If score changed from previous, update rank to current position (index + 1)
+        if (previousScore !== null && score !== previousScore) {
+          currentRank = index + 1;
+        } else if (previousScore === null) {
+          // First entry always has rank 1
+          currentRank = 1;
+        }
+        // If score is same as previous, keep same rank (players share rank)
+        
+        previousScore = score;
+
+        return {
+          id: entry.id,
+          rank: currentRank,
+          username: entry.username,
+          city: entry.city || '',
+          country: entry.country || '',
+          score,
+          level: entry.current_level || 1,
+          avatarColor: entry.avatar_color,
+          isCurrentUser: currentProfileId === entry.id
+        };
+      });
 
       setEntries(leaderboardEntries);
 
       // Get user's position if they have a profile
       if (currentProfileId) {
-        await loadUserPosition(currentProfileId, totalCount || 0);
+        await loadUserPosition(currentProfileId, totalCount || 0, leaderboardEntries);
       }
     } catch (error) {
       console.error('Error loading leaderboard:', error);
@@ -67,7 +88,7 @@ export const useLeaderboard = (currentProfileId?: string) => {
     }
   }, [currentProfileId]);
 
-  const loadUserPosition = async (profileId: string, totalPlayers: number) => {
+  const loadUserPosition = async (profileId: string, totalPlayers: number, entries: LeaderboardEntry[] = []) => {
     try {
       // Get user's profile
       const { data: userProfile, error: userError } = await supabase
@@ -81,34 +102,115 @@ export const useLeaderboard = (currentProfileId?: string) => {
         return;
       }
 
-      // Count how many players have a higher score
-      const { count, error: countError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .gt('highest_score', userProfile.highest_score || 0);
+      const userScore = userProfile.highest_score || 0;
 
-      if (countError) {
-        console.error('Error counting user position:', countError);
+      // Check if user is in the top 100 entries list
+      const userInEntries = entries.find(entry => entry.id === profileId);
+      if (userInEntries) {
+        // Use the rank from the entries list (already calculated with proper tie-breaking)
+        const userEntry: LeaderboardEntry = {
+          id: userProfile.id,
+          rank: userInEntries.rank,
+          username: userProfile.username,
+          city: userProfile.city || '',
+          country: userProfile.country || '',
+          score: userScore,
+          level: userProfile.current_level || 1,
+          avatarColor: userProfile.avatar_color,
+          isCurrentUser: true
+        };
+
+        setUserPosition({
+          rank: userInEntries.rank,
+          entry: userEntry,
+          totalPlayers
+        });
         return;
       }
 
-      const rank = (count || 0) + 1;
+      // User is not in top 100, calculate their rank properly with tie-breaking
+      // Get all profiles ordered by score (DESC) then updated_at (ASC) for tie-breaking
+      const { data: allProfiles, error: fetchError } = await supabase
+        .from('profiles')
+        .select('id, highest_score, updated_at, created_at')
+        .order('highest_score', { ascending: false })
+        .order('updated_at', { ascending: true, nullsFirst: false });
 
-      // Check if user is in the top 100
+      if (fetchError) {
+        console.error('Error fetching all profiles for ranking:', fetchError);
+        // Fallback: count players with strictly higher score
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .gt('highest_score', userScore);
+        
+        const rank = (count || 0) + 1;
+        const userEntry: LeaderboardEntry = {
+          id: userProfile.id,
+          rank,
+          username: userProfile.username,
+          city: userProfile.city || '',
+          country: userProfile.country || '',
+          score: userScore,
+          level: userProfile.current_level || 1,
+          avatarColor: userProfile.avatar_color,
+          isCurrentUser: true
+        };
+
+        setUserPosition({
+          rank,
+          entry: userEntry,
+          totalPlayers
+        });
+        return;
+      }
+
+      // Calculate rank based on sorted list with proper tie-breaking
+      let calculatedRank = 1;
+      let previousScore: number | null = null;
+      let foundUser = false;
+
+      for (let i = 0; i < allProfiles.length; i++) {
+        const profile = allProfiles[i];
+        const score = profile.highest_score || 0;
+
+        // Update rank when score changes (players with same score share rank)
+        if (previousScore !== null && score !== previousScore) {
+          calculatedRank = i + 1;
+        } else if (previousScore === null) {
+          // First entry always has rank 1
+          calculatedRank = 1;
+        }
+        // If score is same as previous, keep same rank (players share rank)
+
+        // Check if this is the user
+        if (profile.id === profileId) {
+          foundUser = true;
+          break;
+        }
+
+        previousScore = score;
+      }
+
+      // If user not found (shouldn't happen), set rank to total + 1
+      if (!foundUser) {
+        calculatedRank = totalPlayers + 1;
+      }
+
       const userEntry: LeaderboardEntry = {
         id: userProfile.id,
-        rank,
+        rank: calculatedRank,
         username: userProfile.username,
-        city: userProfile.city,
-        country: userProfile.country,
-        score: userProfile.highest_score || 0,
+        city: userProfile.city || '',
+        country: userProfile.country || '',
+        score: userScore,
         level: userProfile.current_level || 1,
         avatarColor: userProfile.avatar_color,
         isCurrentUser: true
       };
 
       setUserPosition({
-        rank,
+        rank: calculatedRank,
         entry: userEntry,
         totalPlayers
       });
