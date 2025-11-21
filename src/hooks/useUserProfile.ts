@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { sanitizeUsername } from '@/utils/validation';
 
 export interface UserProfile {
@@ -13,6 +13,8 @@ export interface UserProfile {
   highestScore?: number;
   currentLevel?: number;
   totalCoins?: number;
+  isOffline?: boolean;
+  offlineReason?: string;
 }
 
 export const AVATAR_COLORS = [
@@ -28,9 +30,102 @@ export const AVATAR_COLORS = [
   '#98D8C8'
 ];
 
+const OFFLINE_PROFILE_STORAGE_KEY = 'blockrise_offline_profile_v1';
+
+const generateLocalProfileId = () => {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `offline-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+};
+
+const readOfflineProfile = (): UserProfile | null => {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(OFFLINE_PROFILE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as UserProfile;
+  } catch (error) {
+    console.error('[useUserProfile] Failed to parse offline profile from storage:', error);
+    return null;
+  }
+};
+
+const persistOfflineProfile = (profile: UserProfile) => {
+  if (typeof localStorage === 'undefined') return;
+  const id = profile.id || generateLocalProfileId();
+  const profileWithId = { ...profile, id };
+  localStorage.setItem(OFFLINE_PROFILE_STORAGE_KEY, JSON.stringify(profileWithId));
+  localStorage.setItem('profileId', profileWithId.id);
+  localStorage.setItem('blockrise_profile_complete', 'true');
+};
+
+const clearOfflineProfile = () => {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.removeItem(OFFLINE_PROFILE_STORAGE_KEY);
+};
+
+const isLikelyNetworkIssue = (error?: unknown) => {
+  if (!error) {
+    return !isSupabaseConfigured;
+  }
+  const message = String((error as any)?.message || error || '').toLowerCase();
+  if (!message) return !isSupabaseConfigured;
+  const indicators = [
+    'failed to fetch',
+    'network request failed',
+    'fetch failed',
+    'networkerror',
+    'connection refused',
+    'typeerror: failed to fetch',
+    'timeout',
+  ];
+  return indicators.some((indicator) => message.includes(indicator));
+};
+
 export const useUserProfile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const hydrateOfflineProfile = (context?: string) => {
+    const offlineProfile = readOfflineProfile();
+    if (offlineProfile) {
+      if (context) {
+        console.warn('[useUserProfile] Using offline profile:', context);
+      }
+      setProfile(offlineProfile);
+      return true;
+    }
+    return false;
+  };
+
+  const buildOfflineProfile = (name: string, country: string, reason?: string): UserProfile => {
+    const existingId =
+      typeof localStorage === 'undefined' ? null : localStorage.getItem('profileId');
+    const avatarColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+    return {
+      id: existingId || generateLocalProfileId(),
+      user_id: undefined,
+      username: name,
+      city: '',
+      country,
+      avatarColor,
+      joinedDate: new Date().toISOString(),
+      highestScore: 0,
+      currentLevel: 1,
+      totalCoins: 0,
+      isOffline: true,
+      offlineReason: reason,
+    };
+  };
+
+  const createOfflineProfile = (name: string, country: string, reason?: string) => {
+    console.warn('[useUserProfile] Falling back to offline profile mode:', reason || 'Unknown reason');
+    const offlineProfile = buildOfflineProfile(name, country, reason);
+    persistOfflineProfile(offlineProfile);
+    setProfile(offlineProfile);
+    return offlineProfile;
+  };
 
   useEffect(() => {
     loadProfile();
@@ -38,6 +133,11 @@ export const useUserProfile = () => {
 
   const loadProfile = async () => {
     try {
+      if (!isSupabaseConfigured) {
+        hydrateOfflineProfile('Supabase environment missing');
+        return;
+      }
+
       // Prefer localStorage for fast boot
       const localId = localStorage.getItem('profileId');
 
@@ -48,7 +148,9 @@ export const useUserProfile = () => {
           .eq('id', localId)
           .single();
 
-        if (data && !error) {
+        if (data && !error && data.username) {
+          // Valid profile with username exists
+          clearOfflineProfile();
           setProfile({
             id: data.id,
             user_id: data.user_id,
@@ -62,6 +164,11 @@ export const useUserProfile = () => {
             totalCoins: data.total_coins,
           });
           return;
+        } else {
+          // Invalid profile or missing username - clear localStorage
+          console.log('[useUserProfile] Invalid profile in localStorage, clearing...');
+          localStorage.removeItem('profileId');
+          localStorage.removeItem('blockrise_profile_complete');
         }
       }
 
@@ -75,8 +182,10 @@ export const useUserProfile = () => {
           .eq('user_id', uid)
           .maybeSingle();
 
-        if (existing && !existingErr) {
+        if (existing && !existingErr && existing.username) {
+          // Valid profile with username exists
           localStorage.setItem('profileId', existing.id);
+          clearOfflineProfile();
           setProfile({
             id: existing.id,
             user_id: existing.user_id,
@@ -89,10 +198,19 @@ export const useUserProfile = () => {
             currentLevel: existing.current_level,
             totalCoins: existing.total_coins,
           });
+        } else if (existing && !existing.username) {
+          // Profile exists but has no username - clear invalid profile flag
+          console.log('[useUserProfile] Profile exists but missing username, clearing localStorage...');
+          localStorage.removeItem('profileId');
+          localStorage.removeItem('blockrise_profile_complete');
         }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      const offlineLoaded = hydrateOfflineProfile('Failed to load profile from Supabase');
+      if (offlineLoaded) {
+        return;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,6 +218,9 @@ export const useUserProfile = () => {
 
   const createProfile = async (name: string, country: string) => {
     console.log('[useUserProfile] Creating profile:', { name, country });
+    if (!isSupabaseConfigured) {
+      return createOfflineProfile(name, country, 'Supabase environment missing');
+    }
     try {
       // Ensure we have a user session (anonymous or authenticated)
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -107,13 +228,31 @@ export const useUserProfile = () => {
 
       if (authError || !uid) {
         console.log('[useUserProfile] No user session, creating anonymous user...');
-        const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-        if (anonError || !anonData.user) {
-          console.error('[useUserProfile] Anonymous auth error:', anonError);
-          throw new Error('Failed to create user session');
+        try {
+          const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+          if (anonError) {
+            console.error('[useUserProfile] Anonymous auth error:', anonError);
+            // Provide helpful error message
+            if (anonError.message?.includes('disabled') || anonError.message?.includes('not enabled')) {
+              throw new Error('Anonymous authentication is not enabled in Supabase. Please enable it in Authentication > Providers > Email settings.');
+            }
+            if (isLikelyNetworkIssue(anonError)) {
+              return createOfflineProfile(name, country, anonError.message || 'Supabase unavailable');
+            }
+            throw new Error(`Failed to create user session: ${anonError.message || 'Unknown error'}`);
+          }
+          if (!anonData?.user) {
+            throw new Error('Failed to create user session: No user returned');
+          }
+          uid = anonData.user.id;
+          console.log('[useUserProfile] Anonymous user created:', uid);
+        } catch (error: any) {
+          console.error('[useUserProfile] Error creating anonymous session:', error);
+          if (isLikelyNetworkIssue(error)) {
+            return createOfflineProfile(name, country, error?.message || 'Supabase unavailable');
+          }
+          throw error instanceof Error ? error : new Error('Failed to create user session');
         }
-        uid = anonData.user.id;
-        console.log('[useUserProfile] Anonymous user created:', uid);
       }
 
       // If a profile already exists for this user, update it instead of inserting
@@ -162,6 +301,7 @@ export const useUserProfile = () => {
             currentLevel: updated.current_level,
             totalCoins: updated.total_coins,
           };
+          clearOfflineProfile();
           setProfile(updatedProfile);
           return updatedProfile;
         }
@@ -180,6 +320,7 @@ export const useUserProfile = () => {
           currentLevel: existing.current_level,
           totalCoins: existing.total_coins,
         };
+        clearOfflineProfile();
         setProfile(existingProfile);
         return existingProfile;
       }
@@ -228,6 +369,7 @@ export const useUserProfile = () => {
               currentLevel: fetched.current_level,
               totalCoins: fetched.total_coins,
             };
+            clearOfflineProfile();
             setProfile(fetchedProfile);
             return fetchedProfile;
           }
@@ -250,6 +392,7 @@ export const useUserProfile = () => {
       };
 
       localStorage.setItem('profileId', data.id);
+      clearOfflineProfile();
       setProfile(newProfile);
       return newProfile;
     } catch (error: any) {
@@ -267,6 +410,10 @@ export const useUserProfile = () => {
       if (msg.includes('profiles_username_unique_idx')) {
         throw new Error('USERNAME_TAKEN');
       }
+
+      if (isLikelyNetworkIssue(error)) {
+        return createOfflineProfile(name, country, msg || 'Supabase unavailable');
+      }
       
       console.error('[useUserProfile] Error creating profile:', error);
       throw error;
@@ -275,6 +422,13 @@ export const useUserProfile = () => {
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!profile?.id) return;
+
+    if (profile.isOffline || !isSupabaseConfigured) {
+      const updatedProfile = { ...profile, ...updates, isOffline: true };
+      persistOfflineProfile(updatedProfile);
+      setProfile(updatedProfile);
+      return;
+    }
 
     try {
       const dbUpdates: any = {};
@@ -385,30 +539,54 @@ export const useUserProfile = () => {
     }
     console.log('[useUserProfile] Checking name uniqueness:', { name: normalizedName, currentUserId });
     try {
-      let query = supabase
+      // Use case-insensitive match with LOWER() to match the database index
+      // Query all profiles with matching username (case-insensitive)
+      const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id')
+        .select('id, user_id, username')
         .ilike('username', normalizedName);
-
-      const { data, error } = await query.maybeSingle();
 
       if (error) {
         console.error('[useUserProfile] Error checking name:', error);
+        // If it's a permission error, we might not be authenticated yet - that's ok for new users
+        if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+          console.log('[useUserProfile] Permission error, assuming username available (new user)');
+          return true;
+        }
         throw error;
       }
       
-      // If editing own profile and name matches current, it's available
-      if (data && currentUserId && data.user_id === currentUserId) {
-        console.log('[useUserProfile] Name matches current user profile');
+      // Log what we found for debugging
+      console.log('[useUserProfile] Query result:', { 
+        searchedFor: normalizedName, 
+        foundCount: data?.length || 0,
+        matches: data?.map(d => ({ id: d.id, username: d.username, user_id: d.user_id }))
+      });
+      
+      // If no matches found, username is available
+      if (!data || data.length === 0) {
+        console.log('[useUserProfile] ✅ Username available:', normalizedName);
         return true;
       }
       
-      const isAvailable = !data;
-      console.log('[useUserProfile] Name availability:', isAvailable);
-      return isAvailable; // If no data, name is available
+      // If editing own profile and name matches current, it's available
+      if (data.length === 1 && currentUserId && data[0].user_id === currentUserId) {
+        console.log('[useUserProfile] ✅ Name matches current user profile - available');
+        return true;
+      }
+      
+      // Username is taken by another user
+      console.log('[useUserProfile] ❌ Username taken:', normalizedName, 'found in database:', {
+        username: data[0]?.username,
+        profileId: data[0]?.id,
+        userId: data[0]?.user_id,
+        currentUserId: currentUserId
+      });
+      return false;
     } catch (error) {
       console.error('[useUserProfile] Error checking name uniqueness:', error);
-      return false; // Assume not unique on error to be safe
+      // On error, assume available to allow users to proceed (will fail on insert if truly taken)
+      return true;
     }
   };
 

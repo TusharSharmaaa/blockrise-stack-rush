@@ -142,8 +142,22 @@ const Auth = () => {
     }
   };
 
-  const handleSkip = () => {
-    navigate('/');
+  const handleSkip = async () => {
+    // Create anonymous session before allowing guest access
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (error) {
+        toast.error('Failed to create session. Please try again.');
+        console.error('Anonymous auth error:', error);
+        return;
+      }
+      if (data.session) {
+        navigate('/');
+      }
+    } catch (error) {
+      toast.error('Failed to create session. Please try again.');
+      console.error('Error creating anonymous session:', error);
+    }
   };
 
   const handlePasswordReset = async (e: React.FormEvent) => {

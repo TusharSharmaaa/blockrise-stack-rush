@@ -1,0 +1,132 @@
+═══════════════════════════════════════════════════════════════
+    SIMPLE STEP-BY-STEP GUIDE TO FIX SUPABASE
+═══════════════════════════════════════════════════════════════
+
+Follow these steps one by one. Take your time!
+
+═══════════════════════════════════════════════════════════════
+STEP 1: Open Supabase Dashboard
+═══════════════════════════════════════════════════════════════
+
+1. Open your web browser (Chrome, Firefox, Safari, etc.)
+2. Go to: https://supabase.com/dashboard
+3. Log in with your account
+4. Click on your BlockRise project
+
+
+═══════════════════════════════════════════════════════════════
+STEP 2: Open SQL Editor
+═══════════════════════════════════════════════════════════════
+
+1. Look at the LEFT SIDEBAR
+2. Find "SQL Editor" (has a code icon: </>)
+3. Click on "SQL Editor"
+4. Click the GREEN button "+ New Query" at the top
+
+
+═══════════════════════════════════════════════════════════════
+STEP 3: Copy SQL Code
+═══════════════════════════════════════════════════════════════
+
+1. Open this file on your computer:
+   supabase/migrations/20251120000000_fix_all_setup.sql
+
+2. Select ALL the text in that file:
+   - Press Ctrl+A (Windows) or Cmd+A (Mac)
+   
+3. Copy it:
+   - Press Ctrl+C (Windows) or Cmd+C (Mac)
+
+
+═══════════════════════════════════════════════════════════════
+STEP 4: Paste and Run SQL
+═══════════════════════════════════════════════════════════════
+
+1. Go back to Supabase SQL Editor
+2. Click in the empty text box
+3. Paste the code:
+   - Press Ctrl+V (Windows) or Cmd+V (Mac)
+
+4. Click the GREEN "Run" button at bottom right
+   OR press Ctrl+Enter (Windows) or Cmd+Enter (Mac)
+
+5. Wait a few seconds...
+6. You should see "Success" message
+
+
+═══════════════════════════════════════════════════════════════
+STEP 5: Enable Anonymous Authentication ⚠️ IMPORTANT!
+═══════════════════════════════════════════════════════════════
+
+Without this, your app will show "Failed to create user session" error!
+
+1. In left sidebar, click "Authentication"
+2. Click "Providers" (under Authentication menu)
+3. Find "Email" in the list
+4. Click on "Email" to open it
+
+5. Look for one of these options:
+   ☑ "Enable anonymous sign-ins"
+   ☑ "Enable Anonymous Authentication"
+   ☑ Checkbox/Toggle for "Anonymous"
+
+6. TURN IT ON (check the box or toggle the switch)
+
+7. Click "Save" button
+
+
+═══════════════════════════════════════════════════════════════
+STEP 6: Verify It Worked
+═══════════════════════════════════════════════════════════════
+
+1. Go back to SQL Editor
+2. Type this:
+   SELECT COUNT(*) FROM countries;
+
+3. Click "Run"
+4. You should see a number around 250
+   ✅ If you see ~250 = GOOD!
+   ❌ If you see 0-10 = Something went wrong, try again
+
+
+═══════════════════════════════════════════════════════════════
+STEP 7: Test Your App
+═══════════════════════════════════════════════════════════════
+
+1. Build your app (if you haven't already):
+   npm run build
+
+2. Install on emulator:
+   npm run android
+
+3. Clear app data and test fresh install
+
+4. You should now see:
+   ✅ Profile setup dialog with username field
+   ✅ Full country list (250+ countries)
+   ✅ Username validation works
+   ✅ Profile creation works!
+
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+Problem: Countries still showing only 3-4
+Solution: Re-do STEP 3 and STEP 4. Make sure SQL ran successfully.
+
+Problem: "Failed to create user session" error
+Solution: Make sure you did STEP 5 correctly. Anonymous auth must be enabled.
+
+Problem: Permission errors
+Solution: Make sure you're logged in as the project owner/admin in Supabase.
+
+Problem: SQL Editor shows error
+Solution: Some errors are okay if things already exist. As long as it says 
+          "Success" at the end, you're good!
+
+
+═══════════════════════════════════════════════════════════════
+That's it! You're done! 🎉
+═══════════════════════════════════════════════════════════════
+

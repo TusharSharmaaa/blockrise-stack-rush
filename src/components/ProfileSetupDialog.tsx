@@ -132,11 +132,14 @@ const ProfileSetupDialog = () => {
 
   // Filter countries using fuzzy search with fallback for short queries
   const filteredCountries = useMemo(() => {
-    if (!searchQuery) {
+    // If no search query, show ALL countries
+    if (!searchQuery || searchQuery.trim() === '') {
+      console.log('[ProfileSetup] Showing all countries:', countries.length);
       return countries;
     }
     
     const query = searchQuery.trim().toLowerCase();
+    console.log('[ProfileSetup] Filtering countries with query:', query);
     
     // For very short queries (1-2 chars), use simple prefix matching for better UX
     if (query.length <= 2) {
@@ -144,6 +147,7 @@ const ProfileSetupDialog = () => {
         c.name.toLowerCase().startsWith(query) || 
         c.code.toLowerCase().startsWith(query)
       );
+      console.log('[ProfileSetup] Prefix matches found:', prefixMatches.length);
       if (prefixMatches.length > 0) {
         return prefixMatches;
       }
@@ -151,7 +155,9 @@ const ProfileSetupDialog = () => {
     
     // For longer queries, use fuzzy search
     const fuzzyResults = fuse.search(searchQuery);
-    return fuzzyResults.map(result => result.item);
+    const matchedCountries = fuzzyResults.map(result => result.item);
+    console.log('[ProfileSetup] Fuzzy search matches found:', matchedCountries.length);
+    return matchedCountries;
   }, [searchQuery, countries, fuse]);
 
   useEffect(() => {
@@ -160,21 +166,64 @@ const ProfileSetupDialog = () => {
       return;
     }
 
-    // Check if profile is already completed (stored in localStorage)
-    const profileComplete = localStorage.getItem('blockrise_profile_complete');
-    const profileId = localStorage.getItem('profileId');
-    
-    // Show dialog only if:
-    // 1. No profile exists in state
-    // 2. No profile completion flag in localStorage
-    // 3. No profileId in localStorage
-    // This ensures it shows for ALL new users
-    if (!profile && !profileComplete && !profileId) {
-      setOpen(true);
-    } else if (profile || profileComplete || profileId) {
-      // Profile exists or is marked as complete, close dialog
-      setOpen(false);
-    }
+    // Validate profile existence and show dialog if needed
+    const validateAndShowDialog = async () => {
+      const profileComplete = localStorage.getItem('blockrise_profile_complete');
+      const profileId = localStorage.getItem('profileId');
+      
+      // If profile exists in state and has username, don't show dialog
+      if (profile?.id && profile?.username) {
+        setOpen(false);
+        return;
+      }
+      
+      // If no profile in state, check localStorage and validate
+      if (!profile) {
+        // If profileId exists in localStorage, validate it exists in database
+        if (profileId) {
+          try {
+            const { data: profileData, error } = await supabase
+              .from('profiles')
+              .select('id, username, country')
+              .eq('id', profileId)
+              .single();
+            
+            if (error || !profileData || !profileData.username) {
+              // Invalid profile - clear localStorage flags
+              console.log('[ProfileSetup] Invalid profile in localStorage, clearing...');
+              localStorage.removeItem('profileId');
+              localStorage.removeItem('blockrise_profile_complete');
+              setOpen(true);
+            } else {
+              // Valid profile exists - don't show dialog
+              setOpen(false);
+            }
+          } catch (error) {
+            // Error checking profile - clear flags and show dialog
+            console.error('[ProfileSetup] Error validating profile:', error);
+            localStorage.removeItem('profileId');
+            localStorage.removeItem('blockrise_profile_complete');
+            setOpen(true);
+          }
+        } else {
+          // No profileId - check completion flag
+          if (profileComplete) {
+            // Completion flag exists but no profileId - invalid state, clear it
+            localStorage.removeItem('blockrise_profile_complete');
+          }
+          // Show dialog for new users
+          setOpen(true);
+        }
+      } else if (profile && !profile.username) {
+        // Profile exists but has no username - show dialog
+        setOpen(true);
+      } else {
+        // Profile exists with username - don't show dialog
+        setOpen(false);
+      }
+    };
+
+    validateAndShowDialog();
   }, [profile, profileLoading]);
 
   // Debounced username availability check
@@ -242,15 +291,16 @@ const ProfileSetupDialog = () => {
       if (!isMounted) return;
 
       try {
-        const cacheKey = normalizedName.toLowerCase();
+        const cacheKey = normalizedName.toLowerCase().trim();
         
-        // Check cache first
+        // Check cache first (but allow manual refresh by not using cache for new checks)
         const cached = usernameCheckCacheRef.current.get(cacheKey);
         const now = Date.now();
         
-        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS) {
+        // Only use cache if it's recent and valid
+        if (cached && (now - cached.timestamp) < USERNAME_CACHE_DURATION_MS && cached.available !== null && cached.available !== undefined) {
           // Use cached result
-          console.log('[ProfileSetup] Using cached result for:', cacheKey);
+          console.log('[ProfileSetup] Using cached result for:', cacheKey, 'Available:', cached.available);
           if (timeoutId) clearTimeout(timeoutId);
           if (skipButtonTimerRef.current) {
             clearTimeout(skipButtonTimerRef.current);
@@ -267,20 +317,28 @@ const ProfileSetupDialog = () => {
           }
           setIsCheckingUsername(false);
           return;
+        } else if (cached) {
+          // Cache expired or invalid, remove it
+          console.log('[ProfileSetup] Cache expired or invalid, clearing for:', cacheKey);
+          usernameCheckCacheRef.current.delete(cacheKey);
         }
         
         // Make API call if not cached or expired
-        console.log('[ProfileSetup] Checking username availability for:', normalizedName);
+        console.log('[ProfileSetup] Checking username availability for:', normalizedName, 'Cache key:', cacheKey);
         const isUnique = await checkNameUniqueRef.current(normalizedName);
-        console.log('[ProfileSetup] Uniqueness result:', isUnique);
+        console.log('[ProfileSetup] Uniqueness result:', isUnique, 'for username:', normalizedName);
         
         if (!isMounted) return;
         
-        // Cache the result
-        usernameCheckCacheRef.current.set(cacheKey, {
-          available: isUnique,
-          timestamp: now
-        });
+        // Cache the result (only if we got a valid response)
+        if (isUnique !== null && isUnique !== undefined) {
+          usernameCheckCacheRef.current.set(cacheKey, {
+            available: isUnique,
+            timestamp: now
+          });
+        } else {
+          console.warn('[ProfileSetup] Invalid uniqueness result, not caching:', isUnique);
+        }
         
         if (timeoutId) clearTimeout(timeoutId);
         if (skipButtonTimerRef.current) {
@@ -433,6 +491,14 @@ const ProfileSetupDialog = () => {
       // Verify profile was saved with valid ID
       if (!newProfile || !newProfile.id) {
         throw new Error('Profile was not saved properly. Please try again.');
+      }
+
+      if (newProfile.isOffline) {
+        console.warn('[ProfileSetup] Operating in offline profile mode. Skipping Supabase verification.');
+        localStorage.setItem('blockrise_profile_complete', 'true');
+        setOpen(false);
+        toast.success('Profile saved locally. We will sync once Supabase is reachable again.');
+        return;
       }
       
       // Double-check the profile exists in backend
@@ -706,6 +772,11 @@ const ProfileSetupDialog = () => {
                   <CommandList>
                     <CommandEmpty>No country found.</CommandEmpty>
                     <CommandGroup>
+                      {filteredCountries.length > 0 && (
+                        <div className="text-xs text-muted-foreground px-2 py-1 border-b">
+                          Showing {filteredCountries.length} {filteredCountries.length === 1 ? 'country' : 'countries'}
+                        </div>
+                      )}
                       {filteredCountries.map((c) => (
                         <CommandItem
                           key={c.code}

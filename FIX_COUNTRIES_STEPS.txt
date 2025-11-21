@@ -1,0 +1,154 @@
+═══════════════════════════════════════════════════════════════
+    FIX COUNTRIES NOT SHOWING - STEP BY STEP
+═══════════════════════════════════════════════════════════════
+
+You're only seeing 5 countries because the RLS policy might not be
+allowing anonymous/unauthenticated users to read countries.
+
+═══════════════════════════════════════════════════════════════
+STEP 1: Open Supabase Dashboard
+═══════════════════════════════════════════════════════════════
+
+1. Go to: https://supabase.com/dashboard
+2. Log in
+3. Select your project
+
+
+═══════════════════════════════════════════════════════════════
+STEP 2: Open SQL Editor
+═══════════════════════════════════════════════════════════════
+
+1. Click "SQL Editor" in left sidebar
+2. Click "+ New Query" button
+
+
+═══════════════════════════════════════════════════════════════
+STEP 3: Copy the Fix SQL
+═══════════════════════════════════════════════════════════════
+
+1. Open this file: SUPABASE_FIX_COUNTRIES.sql
+2. Select ALL the text (Ctrl+A or Cmd+A)
+3. Copy it (Ctrl+C or Cmd+C)
+
+
+═══════════════════════════════════════════════════════════════
+STEP 4: Paste and Run
+═══════════════════════════════════════════════════════════════
+
+1. Paste into SQL Editor (Ctrl+V or Cmd+V)
+2. Click "Run" button (or Ctrl+Enter / Cmd+Enter)
+3. Wait for it to complete
+
+
+═══════════════════════════════════════════════════════════════
+STEP 5: Check Results
+═══════════════════════════════════════════════════════════════
+
+After running, you should see:
+
+1. A table showing the policy was created
+2. A number showing "total_countries" (should be 0 or small number)
+3. Another number showing "final_count" (should be 249)
+4. A list of 10 countries
+
+If you see "final_count: 249" = SUCCESS! ✅
+
+
+═══════════════════════════════════════════════════════════════
+STEP 6: Verify RLS Policy
+═══════════════════════════════════════════════════════════════
+
+1. In Supabase Dashboard, go to "Table Editor"
+2. Find "countries" table
+3. Click on it
+4. Go to "Policies" tab (at the top)
+5. You should see: "Countries are viewable by everyone"
+6. Click on it
+7. Under "Target roles" it should say "public" or "(default)"
+8. Under "USING expression" it should say: "true"
+
+If you see this = Policy is correct! ✅
+
+
+═══════════════════════════════════════════════════════════════
+STEP 7: Test the Query
+═══════════════════════════════════════════════════════════════
+
+Run this in SQL Editor:
+
+SELECT COUNT(*) FROM countries;
+
+It should return: 249
+
+If yes = Data is correct! ✅
+
+
+═══════════════════════════════════════════════════════════════
+STEP 8: Test as Anonymous User
+═══════════════════════════════════════════════════════════════
+
+This is CRITICAL - test if anonymous users can read countries:
+
+1. In SQL Editor, run this:
+   
+   SET LOCAL role anon;
+   SELECT COUNT(*) FROM countries;
+
+2. If it returns 249 = Anonymous users can read! ✅
+3. If it gives an error = RLS policy issue
+
+If it gives an error, run this to fix:
+
+   ALTER TABLE countries DISABLE ROW LEVEL SECURITY;
+   ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
+   
+   DROP POLICY IF EXISTS "Countries are viewable by everyone" ON countries;
+   CREATE POLICY "Countries are viewable by everyone"
+     ON countries FOR SELECT
+     USING (true);
+
+
+═══════════════════════════════════════════════════════════════
+STEP 9: Test in Your App
+═══════════════════════════════════════════════════════════════
+
+1. Build your app:
+   npm run build
+
+2. Clear app data:
+   adb shell pm clear com.blockrise.stackrush
+
+3. Launch app:
+   adb shell am start -n com.blockrise.stackrush/.MainActivity
+
+4. Open profile setup
+5. Click country dropdown
+6. You should see "Showing 249 countries" at top
+7. Scroll down - all countries should be there!
+
+
+═══════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════
+
+If still showing only 5 countries:
+
+1. Check console logs in your app (Chrome DevTools)
+   Look for: [useCountries] Loaded countries: X
+   If X is less than 249, the query is being limited
+
+2. Check RLS Policies:
+   - Go to Table Editor → countries → Policies
+   - Make sure "Countries are viewable by everyone" exists
+   - Make sure it allows "public" role
+
+3. Verify data exists:
+   Run: SELECT COUNT(*) FROM countries;
+   Must show 249
+
+4. Check if anonymous auth is enabled:
+   - Go to Authentication → Providers → Email
+   - Enable anonymous sign-ins
+
+═══════════════════════════════════════════════════════════════
+

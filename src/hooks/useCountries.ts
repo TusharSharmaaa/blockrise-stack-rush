@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
+import { STATIC_COUNTRIES } from '@/data/countries';
 
 export interface Country {
   code: string;
@@ -7,56 +8,89 @@ export interface Country {
 }
 
 export const useCountries = () => {
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [countries, setCountries] = useState<Country[]>(STATIC_COUNTRIES);
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      console.warn('[useCountries] Supabase ENV vars missing. Using bundled static list of countries');
+      setCountries(STATIC_COUNTRIES);
+      setIsLoading(false);
+      return;
+    }
+
     loadCountries();
   }, []);
+
+  const fallbackToStaticList = (reason: string) => {
+    console.warn(`[useCountries] ${reason}. Using static list of ${STATIC_COUNTRIES.length} countries`);
+    setCountries(STATIC_COUNTRIES);
+  };
 
   const loadCountries = async () => {
     console.log('[useCountries] Loading countries...');
     try {
+      // Simplified query - fetch all countries (Supabase default limit is 1000, we have ~249)
       const { data, error } = await supabase
         .from('countries')
         .select('code, name')
-        .order('name');
+        .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useCountries] Query error:', error);
+        console.error('[useCountries] Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: JSON.stringify(error, null, 2)
+        });
+        throw error;
+      }
+      
+      console.log('[useCountries] Query completed:', {
+        dataCount: data?.length || 0,
+        hasData: !!data && data.length > 0,
+        firstFew: data?.slice(0, 3).map(c => c.name) || []
+      });
       
       if (!data || data.length === 0) {
-        console.warn('[useCountries] Countries table empty. Using fallback list');
-        setCountries([
-          { code: 'US', name: 'United States' },
-          { code: 'IN', name: 'India' },
-          { code: 'GB', name: 'United Kingdom' },
-          { code: 'CA', name: 'Canada' },
-          { code: 'AU', name: 'Australia' },
-          { code: 'DE', name: 'Germany' },
-          { code: 'FR', name: 'France' },
-          { code: 'BR', name: 'Brazil' },
-          { code: 'ZA', name: 'South Africa' },
-          { code: 'JP', name: 'Japan' },
-          { code: 'CN', name: 'China' },
-          { code: 'SG', name: 'Singapore' },
-          { code: 'AE', name: 'United Arab Emirates' }
-        ]);
+        fallbackToStaticList('⚠️ Countries table empty or query returned no data');
+        console.warn('[useCountries] This might indicate an RLS policy issue or empty table');
+        return;
+      }
+
+      if (data.length < STATIC_COUNTRIES.length * 0.8) {
+        fallbackToStaticList(`⚠️ Only received ${data.length} countries from Supabase`);
         return;
       }
       
-      console.log('[useCountries] Loaded countries:', data?.length);
-      setCountries(data || []);
-    } catch (error) {
+      console.log('[useCountries] ✅ Successfully loaded countries:', {
+        count: data.length,
+        firstFew: data.slice(0, 5).map(c => c.name),
+        lastFew: data.slice(-5).map(c => c.name)
+      });
+      
+      setCountries(data);
+    } catch (error: any) {
       console.error('[useCountries] Error loading countries:', error);
-      console.log('[useCountries] Using fallback country list');
-      // Fallback to basic list if server fails
-      setCountries([
-        { code: 'US', name: 'United States' },
-        { code: 'IN', name: 'India' },
-        { code: 'GB', name: 'United Kingdom' },
-        { code: 'CA', name: 'Canada' },
-        { code: 'AU', name: 'Australia' },
-      ]);
+      console.error('[useCountries] Full error object:', JSON.stringify(error, null, 2));
+      
+      // Log specific error information
+      if (error?.message) {
+        console.error('[useCountries] Error message:', error.message);
+      }
+      if (error?.code) {
+        console.error('[useCountries] Error code:', error.code);
+      }
+      if (error?.details) {
+        console.error('[useCountries] Error details:', error.details);
+      }
+      if (error?.hint) {
+        console.error('[useCountries] Error hint:', error.hint);
+      }
+      
+      fallbackToStaticList('Supabase request failed');
     } finally {
       setIsLoading(false);
     }

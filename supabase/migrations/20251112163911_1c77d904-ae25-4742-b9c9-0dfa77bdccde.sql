@@ -76,7 +76,9 @@ ON CONFLICT (code) DO NOTHING;
 -- Enable RLS on countries table
 ALTER TABLE public.countries ENABLE ROW LEVEL SECURITY;
 
+-- Allow public read access to countries (needed before authentication)
+DROP POLICY IF EXISTS "Countries are viewable by everyone" ON public.countries;
+
 CREATE POLICY "Countries are viewable by everyone"
   ON public.countries FOR SELECT
-  TO authenticated
   USING (true);
