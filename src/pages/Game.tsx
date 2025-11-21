@@ -660,7 +660,7 @@ const Game = () => {
       <div className="flex-1 flex flex-col relative z-10">
       <GameHUD
         score={gameState.score}
-        level={gameState.level}
+        level={Math.max(activeLevel, gameState.level)}
         nextBlock={gameState.nextBlock}
         onPause={togglePause}
       />
