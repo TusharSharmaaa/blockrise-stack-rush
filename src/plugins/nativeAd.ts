@@ -1,6 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 
 export interface NativeAdData {
+  adId?: string; // Unique ID to reference the ad for click handling
   headline?: string;
   body?: string;
   advertiser?: string;
@@ -24,8 +25,27 @@ export interface LoadNativeAdResult {
   errorMessage?: string;
 }
 
+export interface PerformClickOptions {
+  adId: string;
+}
+
+export interface PerformClickResult {
+  success: boolean;
+  errorMessage?: string;
+}
+
+export interface DestroyAdOptions {
+  adId: string;
+}
+
+export interface DestroyAdResult {
+  success: boolean;
+}
+
 export interface NativeAdPlugin {
   loadAd(options: LoadNativeAdOptions): Promise<LoadNativeAdResult>;
+  performClick(options: PerformClickOptions): Promise<PerformClickResult>;
+  destroyAd(options: DestroyAdOptions): Promise<DestroyAdResult>;
 }
 
 export const NativeAd = registerPlugin<NativeAdPlugin>('NativeAd', {

@@ -1,5 +1,5 @@
 import { RefreshCw, Star } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,11 +12,24 @@ interface NativeAdCardProps {
 }
 
 export const NativeAdCard = ({ className, footer }: NativeAdCardProps) => {
-  const { ad, isLoading, isPlaceholder, isSupported, error, refresh } = useNativeAd();
+  const { ad, isLoading, isPlaceholder, isSupported, error, refresh, handleClick } = useNativeAd();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[NativeAdCard] State:', {
+      hasAd: !!ad,
+      adId: ad?.adId,
+      isLoading,
+      isPlaceholder,
+      isSupported,
+      callToAction: ad?.callToAction,
+      buttonDisabled: !ad || isLoading || (!isSupported && !isPlaceholder)
+    });
+  }, [ad, isLoading, isPlaceholder, isSupported]);
 
   const renderMedia = () => {
     if (isLoading && !ad) {
-      return <Skeleton className="h-28 w-full rounded-xl" />;
+      return <Skeleton className="h-32 w-full rounded-xl" />;
     }
 
     if (!ad?.imageUrls?.length) return null;
@@ -27,7 +40,21 @@ export const NativeAdCard = ({ className, footer }: NativeAdCardProps) => {
           src={ad.imageUrls[0]}
           alt={ad.headline || 'Sponsored content'}
           className="h-32 w-full rounded-[0.7rem] object-cover"
+          width={400}
+          height={128}
+          style={{
+            objectFit: 'cover',
+            imageRendering: '-webkit-optimize-contrast',
+            backfaceVisibility: 'hidden',
+            transform: 'translateZ(0)',
+          }}
           loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            // Fallback if image fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+          }}
         />
         {!isSupported && (
           <div className="absolute bottom-2 right-2 rounded-full bg-background/80 px-3 py-1 text-[11px] font-medium text-muted-foreground">
@@ -42,7 +69,26 @@ export const NativeAdCard = ({ className, footer }: NativeAdCardProps) => {
     if (!ad?.iconUrl) return null;
     return (
       <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-2xl border border-border/40 bg-secondary/40 shadow-inner">
-        <img src={ad.iconUrl} alt={ad.advertiser || 'Ad Icon'} className="h-full w-full object-cover" loading="lazy" />
+        <img 
+          src={ad.iconUrl} 
+          alt={ad.advertiser || 'Ad Icon'} 
+          className="h-full w-full object-cover" 
+          width={48}
+          height={48}
+          style={{
+            objectFit: 'cover',
+            imageRendering: '-webkit-optimize-contrast',
+            backfaceVisibility: 'hidden',
+            transform: 'translateZ(0)',
+          }}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            // Fallback if icon fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+          }}
+        />
       </div>
     );
   };
@@ -94,7 +140,21 @@ export const NativeAdCard = ({ className, footer }: NativeAdCardProps) => {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button className="flex-1 gradient-primary shadow-glow-lg" disabled={!ad || isLoading}>
+          <Button 
+            className="flex-1 gradient-primary shadow-glow-lg" 
+            disabled={!ad || isLoading || (!isSupported && !isPlaceholder)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (ad?.adId && isSupported) {
+                handleClick();
+              } else if (isPlaceholder) {
+                console.log('[NativeAdCard] Placeholder ad clicked - no action on web');
+              } else {
+                console.warn('[NativeAdCard] Cannot click: adId=', ad?.adId, 'isSupported=', isSupported);
+              }
+            }}
+          >
             {ad?.callToAction || 'Discover More'}
           </Button>
           <Button

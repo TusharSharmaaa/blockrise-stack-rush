@@ -10,6 +10,7 @@ interface UseNativeAdResult {
   error: string | null;
   refresh: () => Promise<void>;
   isSupported: boolean;
+  handleClick: () => Promise<void>;
 }
 
 const shouldUseNativeAd = () => Capacitor.isNativePlatform();
@@ -44,6 +45,12 @@ export const useNativeAd = (adUnitId: string = ADMOB_CONFIG.NATIVE_ID): UseNativ
       if (!isMountedRef.current) return;
 
       if (result && result.success && result.ad) {
+        console.log('[useNativeAd] Ad loaded successfully:', { 
+          adId: result.ad.adId, 
+          headline: result.ad.headline,
+          callToAction: result.ad.callToAction,
+          isPlaceholder: result.isPlaceholder 
+        });
         setAd(result.ad);
         setIsPlaceholder(Boolean(result.isPlaceholder));
         setError(null);
@@ -84,14 +91,70 @@ export const useNativeAd = (adUnitId: string = ADMOB_CONFIG.NATIVE_ID): UseNativ
     }
   }, [adUnitId, isSupported]);
 
+  const handleClick = useCallback(async () => {
+    if (!ad?.adId) {
+      console.warn('[useNativeAd] Cannot click ad: missing adId', { ad, isSupported });
+      return;
+    }
+    
+    if (!isSupported) {
+      console.warn('[useNativeAd] Cannot click ad: not supported on this platform', { isSupported });
+      return;
+    }
+
+    console.log('[useNativeAd] Attempting to click ad:', ad.adId);
+    try {
+      const result = await NativeAd.performClick({ adId: ad.adId });
+      if (result.success) {
+        console.log('[useNativeAd] Ad click successful');
+      } else {
+        console.error('[useNativeAd] Click failed:', result.errorMessage);
+      }
+    } catch (err) {
+      console.error('[useNativeAd] Error performing click:', err);
+    }
+  }, [ad?.adId, isSupported, ad]);
+
+  // Store previous ad ID for cleanup
+  const previousAdIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     isMountedRef.current = true;
+    
+    // Clean up previous ad if it exists
+    if (previousAdIdRef.current && isSupported) {
+      NativeAd.destroyAd({ adId: previousAdIdRef.current }).catch(err => {
+        console.error('[useNativeAd] Error destroying previous ad:', err);
+      });
+    }
+    
     fetchAd();
 
     return () => {
       isMountedRef.current = false;
+      // Clean up current ad when component unmounts
+      const currentAdId = ad?.adId;
+      if (currentAdId && isSupported) {
+        previousAdIdRef.current = currentAdId;
+        NativeAd.destroyAd({ adId: currentAdId }).catch(err => {
+          console.error('[useNativeAd] Error destroying ad on unmount:', err);
+        });
+      }
     };
-  }, [fetchAd]);
+  }, [fetchAd, isSupported]);
+
+  // Update previous ad ID when ad changes
+  useEffect(() => {
+    if (ad?.adId && ad.adId !== previousAdIdRef.current) {
+      // Clean up previous ad
+      if (previousAdIdRef.current && isSupported) {
+        NativeAd.destroyAd({ adId: previousAdIdRef.current }).catch(err => {
+          console.error('[useNativeAd] Error destroying previous ad:', err);
+        });
+      }
+      previousAdIdRef.current = ad.adId;
+    }
+  }, [ad?.adId, isSupported]);
 
   return {
     ad,
@@ -100,6 +163,7 @@ export const useNativeAd = (adUnitId: string = ADMOB_CONFIG.NATIVE_ID): UseNativ
     error,
     refresh: fetchAd,
     isSupported,
+    handleClick,
   };
 };
 
