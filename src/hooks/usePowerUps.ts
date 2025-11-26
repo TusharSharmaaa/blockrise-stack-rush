@@ -127,6 +127,13 @@ export const usePowerUps = () => {
   }, [inventory, saveInventory]);
 
   const usePowerUp = useCallback(async (type: keyof PowerUpInventory, duration: number = 30000): Promise<boolean> => {
+    // Only slowTime should use this function (duration-based power-ups)
+    // Instant power-ups (clearLine, shuffle, bomb) should use consumePowerUp instead
+    if (type !== 'slowTime') {
+      console.warn(`usePowerUp should only be used for duration-based power-ups. Use consumePowerUp for ${type}`);
+      return false;
+    }
+
     // Reload inventory first to ensure we have the latest state
     try {
       const { value } = await Preferences.get({ key: 'powerUpInventory' });
@@ -207,12 +214,45 @@ export const usePowerUps = () => {
     return Math.max(0, activePowerUp.duration - elapsed);
   }, [activePowerUps]);
 
+  const consumePowerUp = useCallback(async (type: keyof PowerUpInventory): Promise<boolean> => {
+    // Reload inventory first to ensure we have the latest state
+    try {
+      const { value } = await Preferences.get({ key: 'powerUpInventory' });
+      const currentInventory = value ? JSON.parse(value) : INITIAL_INVENTORY;
+      
+      if (currentInventory[type] <= 0) {
+        return false;
+      }
+
+      const newInventory = {
+        ...currentInventory,
+        [type]: currentInventory[type] - 1
+      };
+      await saveInventory(newInventory);
+      return true;
+    } catch (error) {
+      console.error('Failed to consume power-up:', error);
+      // Fallback to using state if Preferences fails
+      if (inventory[type] <= 0) {
+        return false;
+      }
+
+      const newInventory = {
+        ...inventory,
+        [type]: inventory[type] - 1
+      };
+      await saveInventory(newInventory);
+      return true;
+    }
+  }, [inventory, saveInventory]);
+
   return {
     inventory,
     activePowerUps,
     loadInventory,
     addPowerUp,
     usePowerUp,
+    consumePowerUp,
     clearActivePowerUp,
     hasPowerUp,
     isActive,

@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getRandomBlock, GRID_WIDTH, GRID_HEIGHT } from '@/utils/blockShapes';
 import { hapticVibrate } from '@/utils/haptics';
-import { calculateLevelSpeed } from '@/utils/gameConstants';
+import { calculateLevelSpeed, GAME_CONSTANTS } from '@/utils/gameConstants';
 import { useHaptics } from '@/hooks/useHaptics';
 import {
   Dialog,
@@ -30,10 +30,10 @@ import {
 import GameOverPanel from '@/components/game/GameOverPanel';
 
 const POWER_UP_DURATIONS: Record<'slowTime' | 'clearLine' | 'shuffle' | 'bomb', number> = {
-  slowTime: 30000,
-  clearLine: 1200,
-  shuffle: 800,
-  bomb: 1500,
+  slowTime: 30000, // 30 seconds - duration-based power-up
+  clearLine: 0, // Instant effect - no duration
+  shuffle: 0, // Instant effect - no duration
+  bomb: 0, // Instant effect - no duration
 };
 
 const Game = () => {
@@ -43,7 +43,7 @@ const Game = () => {
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   const { profile } = useUserProfile();
   const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
-  const { usePowerUp: activatePowerUp, loadInventory, addPowerUp, inventory } = usePowerUps();
+  const { usePowerUp: activatePowerUp, loadInventory, addPowerUp, inventory, consumePowerUp } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
   const { vibrationEnabled } = useHaptics();
@@ -387,13 +387,28 @@ const Game = () => {
       return;
     }
 
-    let preCheckPassed = true;
+    if (gameState.paused) {
+      toast.error('Unpause the game to use power-ups.');
+      return;
+    }
+
+    // Pre-check if power-up can be used (before consuming from inventory)
+    let canUse = true;
+    let refundNeeded = false;
 
     switch (type) {
       case 'bomb': {
         if (!gameState.currentBlock) {
           toast.info('Place a block before using the bomb.');
-          preCheckPassed = false;
+          canUse = false;
+        }
+        break;
+      }
+      case 'clearLine': {
+        const highestRowIndex = findHighestFilledRow(gameState.grid);
+        if (highestRowIndex === -1) {
+          toast.info('No blocks to clear.');
+          canUse = false;
         }
         break;
       }
@@ -401,16 +416,29 @@ const Game = () => {
         break;
     }
 
-    if (!preCheckPassed) {
+    if (!canUse) {
       return;
     }
 
-    const success = await activatePowerUp(type, POWER_UP_DURATIONS[type]);
-    if (!success) {
-      toast.error('Power-up not available');
-      return;
+    // For instant power-ups (clearLine, shuffle, bomb), check inventory but don't track as active
+    // For duration-based power-ups (slowTime), activate and track
+    if (type === 'slowTime') {
+      // slowTime is duration-based, use the standard activation
+      const success = await activatePowerUp(type, POWER_UP_DURATIONS[type]);
+      if (!success) {
+        toast.error('Power-up not available');
+        return;
+      }
+    } else {
+      // Instant power-ups: consume from inventory directly without tracking as active
+      const success = await consumePowerUp(type);
+      if (!success) {
+        toast.error('Power-up not available');
+        return;
+      }
     }
 
+    // Execute power-up effects
     switch (type) {
       case 'clearLine': {
         // Find and clear the highest filled row
@@ -418,16 +446,11 @@ const Game = () => {
         setGameState(prevState => {
           highestRowIndex = findHighestFilledRow(prevState.grid);
           if (highestRowIndex === -1) {
-            // No filled rows found, return state unchanged
+            // This shouldn't happen due to pre-check, but handle gracefully
             return prevState;
           }
           return clearLine(prevState, highestRowIndex);
         });
-        if (highestRowIndex === -1) {
-          toast.info('No blocks to clear.');
-          await addPowerUp('clearLine', 1);
-          return;
-        }
         triggerHighlights(createLineHighlight(highestRowIndex), 900);
         toast.success('Highest row cleared!');
         break;
@@ -436,6 +459,7 @@ const Game = () => {
         let areaCenter: { x: number; y: number } | null = null;
         setGameState(prevState => {
           if (!prevState.currentBlock) {
+            // This shouldn't happen due to pre-check, but handle gracefully
             areaCenter = null;
             return prevState;
           }
@@ -444,13 +468,10 @@ const Game = () => {
           areaCenter = { x: centerX, y: centerY };
           return clearArea(prevState, centerX, centerY, 1);
         });
-        if (!areaCenter) {
-          toast.info('No block to detonate.');
-          await addPowerUp('bomb', 1);
-          return;
+        if (areaCenter) {
+          triggerHighlights(createAreaHighlight(areaCenter.x, areaCenter.y, 1, 'rgba(248,113,113,0.95)'), 1100);
+          toast.success('Bomb exploded! Area cleared!');
         }
-        triggerHighlights(createAreaHighlight(areaCenter.x, areaCenter.y, 1, 'rgba(248,113,113,0.95)'), 1100);
-        toast.success('Bomb exploded! Area cleared!');
         break;
       }
       case 'shuffle': {
@@ -472,9 +493,10 @@ const Game = () => {
           clearTimeout(slowTimeTimeoutRef.current);
           slowTimeTimeoutRef.current = null;
         }
+        // Use the constant multiplier (2x slower = multiply speed by 2)
         setGameState(prevState => ({
           ...prevState,
-          speed: prevState.speed * 1.5
+          speed: prevState.speed * GAME_CONSTANTS.SLOW_TIME_MULTIPLIER
         }));
         triggerHighlights(createBoardHighlight(), 900);
         slowTimeTimeoutRef.current = window.setTimeout(() => {
