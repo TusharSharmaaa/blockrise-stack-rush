@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Preferences } from '@capacitor/preferences';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 
 export interface LevelProgress {
   currentLevel: number;
@@ -26,6 +26,7 @@ export interface LevelProgress {
   levelStars: { [level: number]: number }; // 1-3 stars per level
   levelAttempts: { [level: number]: number }; // Number of attempts per level
   totalAdsWatched: number;
+  bestRunScore: number;
 }
 
 type ClaimDailyRewardOptions = {
@@ -61,7 +62,8 @@ const INITIAL_PROGRESS: LevelProgress = {
   levelCompletionMethod: {},
   levelStars: {},
   levelAttempts: {},
-  totalAdsWatched: 0
+  totalAdsWatched: 0,
+  bestRunScore: 0
 };
 
 const LEVEL_POINT_STEP = 300;
@@ -91,6 +93,13 @@ const calculateTotalProgressPoints = (
     const level = Number(levelStr);
     if (Number.isNaN(level)) return total;
     return total + calculateLevelPoints(level, stars, completionMethod[level]);
+  }, 0);
+};
+
+const getBestLevelScore = (levelScores: LevelProgress['levelScores']): number => {
+  return Object.values(levelScores || {}).reduce((best, score) => {
+    const normalized = typeof score === 'number' && Number.isFinite(score) ? score : 0;
+    return Math.max(best, normalized);
   }, 0);
 };
 
@@ -185,9 +194,15 @@ export const useGameProgress = () => {
       }
     });
 
-    const recalculatedScore = calculateTotalProgressPoints(
+    const totalProgressPoints = calculateTotalProgressPoints(
       normalizedLevelStars,
       normalizedCompletionMethod
+    );
+    const derivedBestRunScore = getBestLevelScore(migrated.levelScores);
+    const normalizedBestRunScore = savedProgress.bestRunScore ?? (
+      derivedBestRunScore > 0
+        ? derivedBestRunScore
+        : (savedProgress.highestScore ?? INITIAL_PROGRESS.bestRunScore)
     );
 
     const highestUnlockedLevel = migrated.unlockedLevels.length > 0
@@ -205,7 +220,8 @@ export const useGameProgress = () => {
       selectedLevel: normalizedSelectedLevel,
       levelStars: normalizedLevelStars,
       levelCompletionMethod: normalizedCompletionMethod,
-      highestScore: recalculatedScore
+      highestScore: totalProgressPoints,
+      bestRunScore: normalizedBestRunScore
     };
   };
 
@@ -589,14 +605,16 @@ export const useGameProgress = () => {
       newSelectedLevel = Math.max(...newUnlockedLevels);
     }
 
-    const totalLevelPoints = calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod);
+    const totalProgressPoints = calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod);
+    const updatedBestRunScore = Math.max(currentProgress.bestRunScore || 0, score);
 
     const newProgress = {
       ...currentProgress,
       currentLevel: newCurrentLevel,
       selectedLevel: newSelectedLevel,
       totalGamesPlayed: currentProgress.totalGamesPlayed + 1,
-      highestScore: totalLevelPoints,
+      highestScore: totalProgressPoints,
+      bestRunScore: updatedBestRunScore,
       levelScores: newLevelScores,
       levelCompletionMethod: newLevelCompletionMethod,
       levelStars: newLevelStars,
@@ -610,6 +628,9 @@ export const useGameProgress = () => {
 
   const syncProgressToBackend = async (progressData: LevelProgress) => {
     try {
+      if (!isSupabaseConfigured) {
+        return;
+      }
       const profileId = localStorage.getItem('profileId');
       if (!profileId) return; // No profile, skip backend sync
 
@@ -706,6 +727,8 @@ export const useGameProgress = () => {
     const highestUnlocked = Math.max(...newUnlockedLevels);
     const nextSelection = Math.min(nextLevel, highestUnlocked);
 
+    const totalProgressPoints = calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod);
+
     const newProgress = {
       ...updatedProgress,
       levelScores: newLevelScores,
@@ -724,7 +747,8 @@ export const useGameProgress = () => {
       lastAdUnlockDate: today,
       totalAdsWatched: updatedProgress.totalAdsWatched + 1,
       adsWatchedForNextLevel: 0,
-      highestScore: calculateTotalProgressPoints(newLevelStars, newLevelCompletionMethod)
+      highestScore: totalProgressPoints,
+      bestRunScore: updatedProgress.bestRunScore
     };
 
     await saveProgress(newProgress);

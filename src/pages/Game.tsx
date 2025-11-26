@@ -394,7 +394,6 @@ const Game = () => {
 
     // Pre-check if power-up can be used (before consuming from inventory)
     let canUse = true;
-    let refundNeeded = false;
 
     switch (type) {
       case 'bomb': {
@@ -593,7 +592,7 @@ const Game = () => {
           }
 
           // Beat high score achievement
-          if (gameState.score > progress.highestScore) {
+        if (gameState.score > (progress.bestRunScore || 0)) {
             const highScoreResult = await checkAndUnlock('new_high_score', 1);
             if (highScoreResult.unlocked && highScoreResult.achievement) {
               await addCoins(highScoreResult.achievement.coinReward);
@@ -619,7 +618,7 @@ const Game = () => {
 
       handleGameOver();
     }
-  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, activeLevel, getScoreRequirement, completeLevel]);
+  }, [gameState.gameOver, gameState.score, progress, profile, hasShownGameOverAd, updateGameStats, submitScore, checkAndUnlock, addCoins, showInterstitial, activeLevel, getScoreRequirement, completeLevel, sessionAttemptCount]);
 
   const handleContinueWithAd = async () => {
     const result = await showRewardedAd();
@@ -756,7 +755,7 @@ const Game = () => {
               starMessage={starMessage}
               score={gameState.score}
               scoreRequirement={scoreRequirement}
-              hasNewHighScore={gameState.score > progress.highestScore}
+              hasNewHighScore={gameState.score > (progress.bestRunScore || 0)}
               canStartNextLevel={canStartNextLevel}
               nextPlayableLevel={nextPlayableLevel}
               onPlayNextLevel={handlePlayNextLevel}

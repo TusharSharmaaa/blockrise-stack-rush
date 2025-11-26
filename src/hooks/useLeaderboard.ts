@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 
 export interface LeaderboardEntry {
   id: string;
@@ -26,6 +26,12 @@ export const useLeaderboard = (currentProfileId?: string) => {
 
   const loadLeaderboard = useCallback(async () => {
     try {
+      if (!isSupabaseConfigured) {
+        setEntries([]);
+        setUserPosition(null);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       
       // Get total count of players
@@ -79,6 +85,10 @@ export const useLeaderboard = (currentProfileId?: string) => {
 
   const loadUserPosition = async (profileId: string, totalPlayers: number, entries: LeaderboardEntry[] = []) => {
     try {
+      if (!isSupabaseConfigured) {
+        setUserPosition(null);
+        return;
+      }
       // Get user's profile
       const { data: userProfile, error: userError } = await supabase
         .from('profiles')
@@ -199,6 +209,13 @@ export const useLeaderboard = (currentProfileId?: string) => {
   };
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setEntries([]);
+      setUserPosition(null);
+      setIsLoading(false);
+      return;
+    }
+
     loadLeaderboard();
 
     // Throttle leaderboard reloads to prevent excessive updates with high user volume
@@ -259,6 +276,9 @@ export const useLeaderboard = (currentProfileId?: string) => {
 
   const submitScore = async (profileId: string, score: number, level: number) => {
     try {
+      if (!isSupabaseConfigured) {
+        return;
+      }
       await supabase
         .from('leaderboard')
         .insert({
