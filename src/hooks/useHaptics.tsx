@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { setHapticsEnabled } from '@/utils/haptics';
 
 type HapticsContextValue = {
@@ -31,19 +31,31 @@ const persistPreference = (enabled: boolean) => {
   setHapticsEnabled(enabled);
 };
 
-export const HapticsProvider = ({ children }: { children: ReactNode }) => {
-  const [vibrationEnabled, setVibrationEnabledState] = useState<boolean>(getInitialPreference);
+const initializePreference = () => {
+  const initialPreference = getInitialPreference();
+  setHapticsEnabled(initialPreference);
+  return initialPreference;
+};
 
-  useEffect(() => {
-    persistPreference(vibrationEnabled);
-  }, [vibrationEnabled]);
+export const HapticsProvider = ({ children }: { children: ReactNode }) => {
+  const [vibrationEnabled, setVibrationEnabledState] = useState<boolean>(initializePreference);
 
   const setVibrationEnabled = useCallback((enabled: boolean) => {
-    setVibrationEnabledState(enabled);
+    setVibrationEnabledState(prev => {
+      if (prev === enabled) {
+        return prev;
+      }
+      persistPreference(enabled);
+      return enabled;
+    });
   }, []);
 
   const toggleVibration = useCallback(() => {
-    setVibrationEnabledState(prev => !prev);
+    setVibrationEnabledState(prev => {
+      const nextValue = !prev;
+      persistPreference(nextValue);
+      return nextValue;
+    });
   }, []);
 
   const value = useMemo<HapticsContextValue>(() => ({
