@@ -2,6 +2,9 @@ import { useRef, useEffect, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCw, ArrowLeft, ArrowRight, ArrowDown } from 'lucide-react';
 
+const HOLD_ACTIVATION_DELAY = 90; // ms before treating the press as a hold
+const FAST_DROP_INTERVAL = 65; // ms between auto drops while holding
+
 interface GameControlsProps {
   onRotate: () => void;
   onMoveLeft: () => void;
@@ -52,9 +55,9 @@ const GameControls = memo(({
             // Stop if disabled or no longer holding
             handleDownRelease();
           }
-        }, 150); // Slower interval for smoother control
+        }, FAST_DROP_INTERVAL);
       }
-    }, 200); // Longer delay before continuous movement starts
+    }, HOLD_ACTIVATION_DELAY);
   };
 
   const handleDownRelease = () => {
