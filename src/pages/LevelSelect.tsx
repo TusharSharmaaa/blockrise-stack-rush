@@ -233,7 +233,7 @@ const LevelSelect = () => {
                     </div>
                   )}
                 </Button>
-                {isUnlocked && bestScore > 0 && (
+                {isUnlocked && stars > 0 && bestScore > 0 && (
                   <div className={`absolute -bottom-1 left-1/2 transform -translate-x-1/2 bg-primary text-[9px] px-1 rounded-full whitespace-nowrap ${
                     isCurrent && isLightTheme ? 'text-white' : 'text-primary-foreground'
                   }`}>
