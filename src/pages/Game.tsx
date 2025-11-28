@@ -42,7 +42,7 @@ const Game = () => {
   const { progress, isLoading, updateGameStats, addCoins, hasCompletedLevel, getScoreRequirement, completeLevel, selectLevel, getStarsForLevel } = useGameProgress();
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   const { profile } = useUserProfile();
-  const { showInterstitial, showRewardedAd, isRewardedLoading } = useAdMob();
+  const { showInterstitial, showRewardedAd, isRewardedLoading, preloadInterstitial } = useAdMob();
   const { usePowerUp: activatePowerUp, loadInventory, addPowerUp, inventory, consumePowerUp } = usePowerUps();
   const { checkAndUnlock } = useAchievements();
   const { submitScore } = useLeaderboard();
@@ -60,6 +60,8 @@ const Game = () => {
   const highlightTimeoutRef = useRef<number | null>(null);
   const downHapticCooldownRef = useRef(0);
   const [powerUpHighlights, setPowerUpHighlights] = useState<HighlightCell[]>([]);
+  // Track if an ad is currently showing to prevent multiple ads
+  const isAdShowingRef = useRef(false);
 
   const triggerHighlights = useCallback((cells: HighlightCell[], duration: number = 700) => {
     if (!cells.length) return;
@@ -199,9 +201,12 @@ const Game = () => {
     }
   }, [isLoading, selectedLevel, gameState.gameOver, gameState.score, activeLevel]);
 
-  // Load power-up inventory on mount
+  // Load power-up inventory on mount and preload ads early
   useEffect(() => {
     loadInventory();
+    // Preload interstitial ad early so it's ready when game ends
+    preloadInterstitial();
+    
     return () => {
       // Clean up slowTime timeout on unmount
       if (slowTimeTimeoutRef.current) {
@@ -217,15 +222,20 @@ const Game = () => {
       setSessionAttemptCount({});
       setCurrentSessionLevel(null);
     };
-  }, [loadInventory]);
+  }, [loadInventory, preloadInterstitial]);
 
   // Reset level completion helpers when starting a fresh run or switching levels
   useEffect(() => {
     if (!gameState.gameOver && gameState.score === 0) {
       setHasShownLevelCompleteToast(false);
       setHasForcedLevelCompletion(false);
+      // Reset ad tracking when starting a new game
+      isAdShowingRef.current = false;
+      setHasShownGameOverAd(false);
+      // Preload ad for the next game over
+      preloadInterstitial();
     }
-  }, [gameState.gameOver, gameState.score]);
+  }, [gameState.gameOver, gameState.score, preloadInterstitial]);
 
   useEffect(() => {
     setHasShownLevelCompleteToast(false);
@@ -545,10 +555,11 @@ const Game = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [gameState.gameOver, gameState.paused, handleMoveLeft, handleMoveRight, handleMoveDown, handleRotate, togglePause]);
 
-  // Show ad when game ends
+  // Show ad when game ends - only once per game over event
   useEffect(() => {
-    if (gameState.gameOver && !hasShownGameOverAd) {
+    if (gameState.gameOver && !hasShownGameOverAd && !isAdShowingRef.current) {
       setHasShownGameOverAd(true);
+      isAdShowingRef.current = true;
       
       const handleGameOver = async () => {
         // Check for level completion and unlock next level
@@ -612,8 +623,23 @@ const Game = () => {
 
         await checkGameOverAchievements();
         
-        // Show interstitial ad immediately after game over
-        showInterstitial();
+        // Show interstitial ad immediately - ad should already be preloaded
+        // Double-check that we should still show the ad (prevent race conditions)
+        if (isAdShowingRef.current) {
+          try {
+            // Show ad immediately - no delay
+            await showInterstitial();
+            // Reset the flag after a delay to allow ad to complete
+            // Ad typically takes 5-30 seconds, so we'll reset after 40 seconds to be safe
+            setTimeout(() => {
+              isAdShowingRef.current = false;
+            }, 40000);
+          } catch (error) {
+            console.error('Failed to show interstitial ad:', error);
+            // Reset flag immediately on error so user isn't blocked
+            isAdShowingRef.current = false;
+          }
+        }
       };
 
       handleGameOver();
@@ -627,6 +653,8 @@ const Game = () => {
       await addCoins(50);
       await resetGame(activeLevel);
       setHasShownGameOverAd(false);
+      // Reset ad tracking when continuing
+      isAdShowingRef.current = false;
     } else {
       toast.error('Ad was not completed');
     }
@@ -640,6 +668,8 @@ const Game = () => {
     }));
     await resetGame(activeLevel);
     setHasShownGameOverAd(false);
+    // Reset ad tracking when playing again
+    isAdShowingRef.current = false;
   };
 
   const handlePlayNextLevel = async () => {
@@ -653,6 +683,8 @@ const Game = () => {
     setActiveLevel(nextPlayableLevel);
     await resetGame(nextPlayableLevel);
     setHasShownGameOverAd(false);
+    // Reset ad tracking when starting next level
+    isAdShowingRef.current = false;
   };
 
   const starMessage = hasMetLevelGoal
