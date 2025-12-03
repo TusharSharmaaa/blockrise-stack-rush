@@ -266,7 +266,10 @@ const Game = () => {
         const result = await checkAndUnlock(achievementId, progress);
         if (result.unlocked && result.achievement) {
           await addCoins(result.achievement.coinReward);
-          toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`);
+          toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`, {
+            duration: 2000,
+            position: 'top-center'
+          });
         }
       } catch (error) {
         console.error('Error checking achievement:', error);
@@ -294,7 +297,10 @@ const Game = () => {
           if (nextLevel <= 50) {
             const unlocked = await completeLevel(currentActiveLevel, currentScore);
             if (unlocked && !currentUnlockedLevels.includes(nextLevel)) {
-              toast.success(`Level ${currentActiveLevel} Completed! Level ${nextLevel} unlocked! 🎉`);
+              toast.success(`Level ${currentActiveLevel} Completed! Level ${nextLevel} unlocked! 🎉`, {
+                duration: 2000,
+                position: 'top-center'
+              });
             }
           }
         }
@@ -314,7 +320,7 @@ const Game = () => {
         ? `Level ${currentActiveLevel} target reached!`
         : `Level ${currentActiveLevel} completed! Level ${nextLevel} unlocked! 🎉`;
       toast.success(message, {
-        duration: 1500,
+        duration: 2000,
         position: 'top-center'
       });
       setHasShownLevelCompleteToast(true);
@@ -343,7 +349,10 @@ const Game = () => {
       const result = await checkAndUnlock(achievementId, progress);
       if (result.unlocked && result.achievement) {
         await addCoins(result.achievement.coinReward);
-        toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`);
+        toast.success(`Achievement Unlocked: ${result.achievement.title}! +${result.achievement.coinReward} coins! 🎉`, {
+          duration: 2000,
+          position: 'top-center'
+        });
       }
     };
 
@@ -591,7 +600,10 @@ const Game = () => {
             const firstGameResult = await checkAndUnlock('first_game', 1);
             if (firstGameResult.unlocked && firstGameResult.achievement) {
               await addCoins(firstGameResult.achievement.coinReward);
-              toast.success(`Achievement Unlocked: ${firstGameResult.achievement.title}! +${firstGameResult.achievement.coinReward} coins! 🎉`);
+              toast.success(`Achievement Unlocked: ${firstGameResult.achievement.title}! +${firstGameResult.achievement.coinReward} coins! 🎉`, {
+                duration: 2000,
+                position: 'top-center'
+              });
             }
           }
 
@@ -599,7 +611,10 @@ const Game = () => {
           const play10GamesResult = await checkAndUnlock('play_10_games', progress.totalGamesPlayed + 1);
           if (play10GamesResult.unlocked && play10GamesResult.achievement) {
             await addCoins(play10GamesResult.achievement.coinReward);
-            toast.success(`Achievement Unlocked: ${play10GamesResult.achievement.title}! +${play10GamesResult.achievement.coinReward} coins! 🎉`);
+            toast.success(`Achievement Unlocked: ${play10GamesResult.achievement.title}! +${play10GamesResult.achievement.coinReward} coins! 🎉`, {
+              duration: 2000,
+              position: 'top-center'
+            });
           }
 
           // Beat high score achievement
@@ -607,7 +622,10 @@ const Game = () => {
             const highScoreResult = await checkAndUnlock('new_high_score', 1);
             if (highScoreResult.unlocked && highScoreResult.achievement) {
               await addCoins(highScoreResult.achievement.coinReward);
-              toast.success(`Achievement Unlocked: ${highScoreResult.achievement.title}! +${highScoreResult.achievement.coinReward} coins! 🎉`);
+              toast.success(`Achievement Unlocked: ${highScoreResult.achievement.title}! +${highScoreResult.achievement.coinReward} coins! 🎉`, {
+                duration: 2000,
+                position: 'top-center'
+              });
             }
           }
 
@@ -616,7 +634,10 @@ const Game = () => {
             const streakResult = await checkAndUnlock('streak_7', progress.dailyStreak);
             if (streakResult.unlocked && streakResult.achievement) {
               await addCoins(streakResult.achievement.coinReward);
-              toast.success(`Achievement Unlocked: ${streakResult.achievement.title}! +${streakResult.achievement.coinReward} coins! 🎉`);
+              toast.success(`Achievement Unlocked: ${streakResult.achievement.title}! +${streakResult.achievement.coinReward} coins! 🎉`, {
+                duration: 2000,
+                position: 'top-center'
+              });
             }
           }
         };
