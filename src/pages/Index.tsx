@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useGameProgress } from "@/hooks/useGameProgress";
 import { Badge } from "@/components/ui/badge";
 import ProfileSetupDialog from "@/components/ProfileSetupDialog";
+import DailyRewardPopup from "@/components/DailyRewardPopup";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Index = () => {
@@ -23,6 +24,7 @@ const Index = () => {
   return (
     <>
       <ProfileSetupDialog />
+      <DailyRewardPopup />
       <ScrollArea className="h-full">
         <div className="min-h-full bg-background relative overflow-hidden">
           {/* Animated background gradient */}
