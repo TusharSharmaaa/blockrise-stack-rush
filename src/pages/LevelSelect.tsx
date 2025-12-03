@@ -138,7 +138,7 @@ const LevelSelect = () => {
         )}
 
         {/* Next Level Unlock Card */}
-        {canUseAdUnlock && nextLevelToUnlock <= 50 && (
+        {canUseAdUnlock && nextLevelToUnlock <= 100 && (
           <div className="bg-card rounded-lg p-6 card-elevated space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Unlock Level {nextLevelToUnlock}</h2>
@@ -186,7 +186,7 @@ const LevelSelect = () => {
 
         {/* Level Grid */}
         <div className="grid grid-cols-4 md:grid-cols-5 gap-3">
-          {Array.from({ length: 50 }, (_, i) => i + 1).map((level) => {
+          {Array.from({ length: 100 }, (_, i) => i + 1).map((level) => {
             const isUnlocked = progress.unlockedLevels.includes(level);
             const isCurrent = selectedLevel === level;
             const stars = getStarsForLevel(level);

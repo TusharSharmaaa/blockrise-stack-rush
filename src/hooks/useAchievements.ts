@@ -21,6 +21,7 @@ const ACHIEVEMENTS: Achievement[] = [
   { id: 'reach_level_10', title: 'Climbing High', description: 'Reach level 10', icon: '🧗', coinReward: 150, unlocked: false, progress: 0, maxProgress: 10 },
   { id: 'reach_level_25', title: 'Halfway There', description: 'Reach level 25', icon: '🎯', coinReward: 300, unlocked: false, progress: 0, maxProgress: 25 },
   { id: 'level_50', title: 'Ultimate Champion', description: 'Reach level 50', icon: '👑', coinReward: 500, unlocked: false, progress: 0, maxProgress: 50 },
+  { id: 'level_100', title: 'Master of All', description: 'Reach level 100', icon: '🌟', coinReward: 1000, unlocked: false, progress: 0, maxProgress: 100 },
   { id: 'play_10_games', title: 'Getting Started', description: 'Play 10 games', icon: '🎲', coinReward: 100, unlocked: false, progress: 0, maxProgress: 10 },
   { id: 'new_high_score', title: 'Personal Best', description: 'Beat your high score', icon: '🏅', coinReward: 75, unlocked: false, progress: 0, maxProgress: 1 },
   { id: 'streak_7', title: 'Week Warrior', description: 'Maintain a 7-day streak', icon: '🔥', coinReward: 200, unlocked: false, progress: 0, maxProgress: 7 },

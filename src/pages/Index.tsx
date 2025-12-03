@@ -73,11 +73,11 @@ const Index = () => {
           >
             <div className="flex items-center justify-between">
               <Layers className="h-6 w-6 sm:h-8 sm:w-8 text-accent drop-shadow-[0_0_8px_hsl(var(--accent))]" />
-              <Badge variant="glass" className="text-xs">{progress.unlockedLevels.length}/50</Badge>
+              <Badge variant="glass" className="text-xs">{progress.unlockedLevels.length}/100</Badge>
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-bold mb-1">Levels</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">50 challenges</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">100 challenges</p>
             </div>
           </Card>
 
@@ -141,7 +141,7 @@ const Index = () => {
               <div className="text-xs sm:text-sm text-muted-foreground flex flex-wrap gap-1">
                 <span>Level {progress.currentLevel}</span>
                 <span>•</span>
-                <span>{progress.unlockedLevels.length}/50 unlocked</span>
+                <span>{progress.unlockedLevels.length}/100 unlocked</span>
               </div>
             </div>
           </Card>

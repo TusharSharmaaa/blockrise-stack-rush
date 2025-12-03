@@ -106,7 +106,7 @@ const getBestLevelScore = (levelScores: LevelProgress['levelScores']): number =>
 // Calculate the highest level reached based on score
 export const getLevelReached = (score: number): number => {
   // Check each level requirement from highest to lowest
-  for (let level = 50; level >= 1; level--) {
+  for (let level = 100; level >= 1; level--) {
     const requirement = getScoreRequirement(level);
     if (score >= requirement) {
       return level + 1; // Return the next level (the level they've reached)
@@ -412,7 +412,7 @@ export const useGameProgress = () => {
         message: 'Complete Level 1 to unlock Level 2. Ads are only for Level 3 and above.'
       };
     }
-    if (nextLevel > 50) {
+    if (nextLevel > 100) {
       return { success: false, message: 'All levels are already unlocked!' };
     }
 
@@ -487,7 +487,7 @@ export const useGameProgress = () => {
   const unlockLevel = async (level: number) => {
     // Use ref to get latest state (avoids stale closure issues)
     const currentProgress = progressRef.current;
-    if (level < 1 || level > 50) return;
+    if (level < 1 || level > 100) return;
     if (currentProgress.unlockedLevels.includes(level)) return; // Already unlocked
     
     const newProgress = {
@@ -506,7 +506,7 @@ export const useGameProgress = () => {
     const requirement = getScoreRequirement(level);
     if (score >= requirement) {
       const nextLevel = level + 1;
-      if (nextLevel <= 50 && !currentProgress.unlockedLevels.includes(nextLevel)) {
+      if (nextLevel <= 100 && !currentProgress.unlockedLevels.includes(nextLevel)) {
         await unlockLevel(nextLevel);
       }
       return true;
@@ -582,7 +582,7 @@ export const useGameProgress = () => {
 
       // Unlock next level when current level is completed
       const nextLevel = level + 1;
-      if (nextLevel <= 50 && !newUnlockedLevels.includes(nextLevel)) {
+      if (nextLevel <= 100 && !newUnlockedLevels.includes(nextLevel)) {
         newUnlockedLevels.push(nextLevel);
       }
 
@@ -596,7 +596,7 @@ export const useGameProgress = () => {
     let newCurrentLevel = currentProgress.currentLevel;
     if (isLevelCompleted) {
       const nextLevel = level + 1;
-      if (nextLevel <= 50) {
+      if (nextLevel <= 100) {
         newCurrentLevel = Math.max(newCurrentLevel, nextLevel);
       }
     }

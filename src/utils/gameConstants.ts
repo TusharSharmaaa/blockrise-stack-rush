@@ -10,7 +10,7 @@ export const GAME_CONSTANTS = {
   SCORE_PER_LEVEL: 1000,
   
   // Level
-  MAX_LEVEL: 50,
+  MAX_LEVEL: 100,
   MIN_LEVEL: 1,
   
   // Grid

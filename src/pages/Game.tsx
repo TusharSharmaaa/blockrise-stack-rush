@@ -161,7 +161,7 @@ const Game = () => {
     clearArea
   } = useGameLoop();
   const hasMetLevelGoal = hasCompletedLevel(activeLevel, gameState.score);
-  const hasNextLevel = activeLevel < 50;
+  const hasNextLevel = activeLevel < 100;
   const nextPlayableLevel = hasNextLevel ? activeLevel + 1 : activeLevel;
   const displayLevelReached = hasMetLevelGoal && hasNextLevel ? nextPlayableLevel : Math.max(activeLevel, gameState.level);
   const starsEarned = getStarsForLevel(activeLevel);
@@ -294,7 +294,7 @@ const Game = () => {
         const hasMetGoal = currentScore >= requirement;
         if (hasMetGoal) {
           const nextLevel = currentActiveLevel + 1;
-          if (nextLevel <= 50) {
+          if (nextLevel <= 100) {
             const unlocked = await completeLevel(currentActiveLevel, currentScore);
             if (unlocked && !currentUnlockedLevels.includes(nextLevel)) {
               toast.success(`Level ${currentActiveLevel} Completed! Level ${nextLevel} unlocked! 🎉`, {
@@ -314,7 +314,7 @@ const Game = () => {
     // Show level completion toast (only once)
     const requirement = getScoreRequirement(currentActiveLevel);
     if (currentScore >= requirement && !hasShownLevelCompleteToast) {
-      const nextLevel = Math.min(currentActiveLevel + 1, 50);
+      const nextLevel = Math.min(currentActiveLevel + 1, 100);
       const alreadyUnlocked = currentUnlockedLevels.includes(nextLevel);
       const message = alreadyUnlocked
         ? `Level ${currentActiveLevel} target reached!`
@@ -364,6 +364,9 @@ const Game = () => {
     }
     if (gameState.level >= 50 && progress.currentLevel >= 50) {
       checkLevelAchievement('level_50', progress.currentLevel);
+    }
+    if (gameState.level >= 100 && progress.currentLevel >= 100) {
+      checkLevelAchievement('level_100', progress.currentLevel);
     }
   }, [gameState.level, progress.currentLevel, checkAndUnlock, addCoins]);
 
@@ -576,7 +579,7 @@ const Game = () => {
         const hasMetGoal = gameState.score >= requirement;
         if (hasMetGoal) {
           const nextLevel = activeLevel + 1;
-          if (nextLevel <= 50) {
+          if (nextLevel <= 100) {
             await completeLevel(activeLevel, gameState.score);
           }
         }
