@@ -108,115 +108,136 @@ const GameBoard = memo(({ grid, currentBlock, highlights }: GameBoardProps) => {
     const ctx = canvas.getContext('2d', { alpha: false }); // Disable alpha for better performance
     if (!ctx) return;
 
-    // Immediate rendering for responsiveness
-    // Clear canvas - use CSS variable for theme-aware color
-    const gameGridColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--game-grid')
-      .trim();
-    ctx.fillStyle = `hsl(${gameGridColor})`;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let animationFrameId: number | null = null;
+    let isRendering = true;
 
-    // Draw grid lines - use CSS variable for theme-aware color
-    const gameBorderColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--game-border')
-      .trim();
-    ctx.strokeStyle = `hsl(${gameBorderColor})`;
-    ctx.lineWidth = 1;
-    for (let row = 0; row <= GRID_HEIGHT; row++) {
-      ctx.beginPath();
-      ctx.moveTo(0, row * cellSize);
-      ctx.lineTo(GRID_WIDTH * cellSize, row * cellSize);
-      ctx.stroke();
-    }
-    for (let col = 0; col <= GRID_WIDTH; col++) {
-      ctx.beginPath();
-      ctx.moveTo(col * cellSize, 0);
-      ctx.lineTo(col * cellSize, GRID_HEIGHT * cellSize);
-      ctx.stroke();
-    }
+    const render = () => {
+      if (!isRendering || !canvasRef.current) return;
 
-    // Draw placed blocks
-    for (let row = 0; row < GRID_HEIGHT; row++) {
-      for (let col = 0; col < GRID_WIDTH; col++) {
-        if (grid[row][col]) {
-          const x = col * cellSize + 1;
-          const y = row * cellSize + 1;
-          const size = cellSize - 2;
-          
-          // Draw block with brighter fill
-          ctx.fillStyle = grid[row][col] as string;
-          ctx.fillRect(x, y, size, size);
-          
-          // Add very subtle gradient for depth (reduced opacity)
-          const gradient = ctx.createLinearGradient(
-            col * cellSize,
-            row * cellSize,
-            col * cellSize,
-            (row + 1) * cellSize
-          );
-          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
-          gradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
-          ctx.fillStyle = gradient;
-          ctx.fillRect(x, y, size, size);
-          
-          // Add subtle outline for sharper edges
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-        }
+      // Clear canvas - use CSS variable for theme-aware color
+      const gameGridColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--game-grid')
+        .trim();
+      ctx.fillStyle = `hsl(${gameGridColor})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw grid lines - use CSS variable for theme-aware color
+      const gameBorderColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--game-border')
+        .trim();
+      ctx.strokeStyle = `hsl(${gameBorderColor})`;
+      ctx.lineWidth = 1;
+      for (let row = 0; row <= GRID_HEIGHT; row++) {
+        ctx.beginPath();
+        ctx.moveTo(0, row * cellSize);
+        ctx.lineTo(GRID_WIDTH * cellSize, row * cellSize);
+        ctx.stroke();
       }
-    }
+      for (let col = 0; col <= GRID_WIDTH; col++) {
+        ctx.beginPath();
+        ctx.moveTo(col * cellSize, 0);
+        ctx.lineTo(col * cellSize, GRID_HEIGHT * cellSize);
+        ctx.stroke();
+      }
 
-    // Draw current block
-    if (currentBlock) {
-      currentBlock.shape.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-          if (cell) {
-            const x = (currentBlock.x + colIndex) * cellSize + 1;
-            const y = (currentBlock.y + rowIndex) * cellSize + 1;
+      // Draw placed blocks
+      for (let row = 0; row < GRID_HEIGHT; row++) {
+        for (let col = 0; col < GRID_WIDTH; col++) {
+          if (grid[row][col]) {
+            const x = col * cellSize + 1;
+            const y = row * cellSize + 1;
             const size = cellSize - 2;
             
             // Draw block with brighter fill
-            ctx.fillStyle = currentBlock.color;
+            ctx.fillStyle = grid[row][col] as string;
             ctx.fillRect(x, y, size, size);
             
             // Add very subtle gradient for depth (reduced opacity)
             const gradient = ctx.createLinearGradient(
-              (currentBlock.x + colIndex) * cellSize,
-              (currentBlock.y + rowIndex) * cellSize,
-              (currentBlock.x + colIndex) * cellSize,
-              (currentBlock.y + rowIndex + 1) * cellSize
+              col * cellSize,
+              row * cellSize,
+              col * cellSize,
+              (row + 1) * cellSize
             );
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
             ctx.fillStyle = gradient;
             ctx.fillRect(x, y, size, size);
             
             // Add subtle outline for sharper edges
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
             ctx.lineWidth = 0.5;
             ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
           }
-        });
-      });
-    }
-    
-    // Draw highlights from power-ups
-    if (highlights?.length) {
-      highlights.forEach(({ x, y, color, alpha }) => {
-        if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
-          return;
         }
-        const px = x * cellSize + 1;
-        const py = y * cellSize + 1;
-        const size = cellSize - 2;
-        ctx.save();
-        ctx.fillStyle = color || 'rgba(255, 255, 255, 0.85)';
-        ctx.globalAlpha = alpha !== undefined ? Math.max(0, Math.min(alpha, 1)) : 0.75;
-        ctx.fillRect(px, py, size, size);
-        ctx.restore();
-      });
-    }
+      }
+
+      // Draw current block
+      if (currentBlock) {
+        currentBlock.shape.forEach((row, rowIndex) => {
+          row.forEach((cell, colIndex) => {
+            if (cell) {
+              const x = (currentBlock.x + colIndex) * cellSize + 1;
+              const y = (currentBlock.y + rowIndex) * cellSize + 1;
+              const size = cellSize - 2;
+              
+              // Draw block with brighter fill
+              ctx.fillStyle = currentBlock.color;
+              ctx.fillRect(x, y, size, size);
+              
+              // Add very subtle gradient for depth (reduced opacity)
+              const gradient = ctx.createLinearGradient(
+                (currentBlock.x + colIndex) * cellSize,
+                (currentBlock.y + rowIndex) * cellSize,
+                (currentBlock.x + colIndex) * cellSize,
+                (currentBlock.y + rowIndex + 1) * cellSize
+              );
+              gradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+              gradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+              ctx.fillStyle = gradient;
+              ctx.fillRect(x, y, size, size);
+              
+              // Add subtle outline for sharper edges
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+              ctx.lineWidth = 0.5;
+              ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+            }
+          });
+        });
+      }
+      
+      // Draw highlights from power-ups
+      if (highlights?.length) {
+        highlights.forEach(({ x, y, color, alpha }) => {
+          if (x < 0 || x >= GRID_WIDTH || y < 0 || y >= GRID_HEIGHT) {
+            return;
+          }
+          const px = x * cellSize + 1;
+          const py = y * cellSize + 1;
+          const size = cellSize - 2;
+          ctx.save();
+          ctx.fillStyle = color || 'rgba(255, 255, 255, 0.85)';
+          ctx.globalAlpha = alpha !== undefined ? Math.max(0, Math.min(alpha, 1)) : 0.75;
+          ctx.fillRect(px, py, size, size);
+          ctx.restore();
+        });
+      }
+
+      // Continue animation loop
+      if (isRendering) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
+    // Start rendering loop
+    animationFrameId = requestAnimationFrame(render);
+
+    return () => {
+      isRendering = false;
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
   }, [grid, currentBlock, cellSize, theme, highlights]);
 
   return (

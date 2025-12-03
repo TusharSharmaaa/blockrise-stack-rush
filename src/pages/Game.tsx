@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import GameBoard, { HighlightCell } from '@/components/game/GameBoard';
 import GameControls from '@/components/game/GameControls';
 import GameHUD from '@/components/game/GameHUD';
@@ -58,6 +58,7 @@ const Game = () => {
   const [currentSessionLevel, setCurrentSessionLevel] = useState<number | null>(null);
   const slowTimeTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
+  const adTimeoutRef = useRef<number | null>(null);
   const downHapticCooldownRef = useRef(0);
   const [powerUpHighlights, setPowerUpHighlights] = useState<HighlightCell[]>([]);
   // Track if an ad is currently showing to prevent multiple ads
@@ -147,7 +148,7 @@ const Game = () => {
     }
     return cells;
   }, []);
-  const scoreRequirement = getScoreRequirement(activeLevel);
+  
   const {
     gameState,
     setGameState,
@@ -160,12 +161,15 @@ const Game = () => {
     clearLine,
     clearArea
   } = useGameLoop();
-  const hasMetLevelGoal = hasCompletedLevel(activeLevel, gameState.score);
-  const hasNextLevel = activeLevel < 100;
-  const nextPlayableLevel = hasNextLevel ? activeLevel + 1 : activeLevel;
-  const displayLevelReached = hasMetLevelGoal && hasNextLevel ? nextPlayableLevel : Math.max(activeLevel, gameState.level);
-  const starsEarned = getStarsForLevel(activeLevel);
-  const canStartNextLevel = hasMetLevelGoal && hasNextLevel && progress.unlockedLevels.includes(nextPlayableLevel);
+  
+  // Memoize expensive calculations
+  const scoreRequirement = useMemo(() => getScoreRequirement(activeLevel), [activeLevel, getScoreRequirement]);
+  const hasMetLevelGoal = useMemo(() => hasCompletedLevel(activeLevel, gameState.score), [activeLevel, gameState.score, hasCompletedLevel]);
+  const hasNextLevel = useMemo(() => activeLevel < 100, [activeLevel]);
+  const nextPlayableLevel = useMemo(() => hasNextLevel ? activeLevel + 1 : activeLevel, [hasNextLevel, activeLevel]);
+  const displayLevelReached = useMemo(() => hasMetLevelGoal && hasNextLevel ? nextPlayableLevel : Math.max(activeLevel, gameState.level), [hasMetLevelGoal, hasNextLevel, nextPlayableLevel, activeLevel, gameState.level]);
+  const starsEarned = useMemo(() => getStarsForLevel(activeLevel), [activeLevel, getStarsForLevel]);
+  const canStartNextLevel = useMemo(() => hasMetLevelGoal && hasNextLevel && progress.unlockedLevels.includes(nextPlayableLevel), [hasMetLevelGoal, hasNextLevel, progress.unlockedLevels, nextPlayableLevel]);
 
   // Reset session attempt counter when level changes or when navigating to game
   useEffect(() => {
@@ -208,14 +212,18 @@ const Game = () => {
     preloadInterstitial();
     
     return () => {
-      // Clean up slowTime timeout on unmount
-      if (slowTimeTimeoutRef.current) {
+      // Clean up all timeouts on unmount
+      if (slowTimeTimeoutRef.current !== null) {
         clearTimeout(slowTimeTimeoutRef.current);
         slowTimeTimeoutRef.current = null;
       }
-      if (highlightTimeoutRef.current) {
+      if (highlightTimeoutRef.current !== null) {
         clearTimeout(highlightTimeoutRef.current);
         highlightTimeoutRef.current = null;
+      }
+      if (adTimeoutRef.current !== null) {
+        clearTimeout(adTimeoutRef.current);
+        adTimeoutRef.current = null;
       }
       setPowerUpHighlights([]);
       // Reset session counter when leaving the game (navigating away)
@@ -655,11 +663,18 @@ const Game = () => {
             await showInterstitial();
             // Reset the flag after a delay to allow ad to complete
             // Ad typically takes 5-30 seconds, so we'll reset after 40 seconds to be safe
-            setTimeout(() => {
+            if (adTimeoutRef.current !== null) {
+              clearTimeout(adTimeoutRef.current);
+            }
+            adTimeoutRef.current = window.setTimeout(() => {
               isAdShowingRef.current = false;
+              adTimeoutRef.current = null;
             }, 40000);
           } catch (error) {
-            console.error('Failed to show interstitial ad:', error);
+            // Only log in development
+            if (import.meta.env.DEV) {
+              console.error('Failed to show interstitial ad:', error);
+            }
             // Reset flag immediately on error so user isn't blocked
             isAdShowingRef.current = false;
           }

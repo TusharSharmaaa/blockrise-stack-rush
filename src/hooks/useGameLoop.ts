@@ -118,13 +118,16 @@ export const useGameLoop = () => {
     // Move down blocks above cleared areas
     for (let col = 0; col < GRID_WIDTH; col++) {
       const column = [];
+      // Collect all blocks from bottom to top
       for (let row = GRID_HEIGHT - 1; row >= 0; row--) {
         if (newGrid[row][col]) {
           column.push(newGrid[row][col]);
         }
       }
+      // Place blocks from bottom to top
       for (let row = GRID_HEIGHT - 1; row >= 0; row--) {
-        newGrid[row][col] = column[GRID_HEIGHT - 1 - row] || null;
+        const index = GRID_HEIGHT - 1 - row;
+        newGrid[row][col] = column[index] || null;
       }
     }
     
@@ -366,6 +369,7 @@ export const useGameLoop = () => {
     // Use requestAnimationFrame for smoother game loop
     // Optimized to prevent excessive CPU usage and heating
     let lastTime = performance.now();
+    let accumulatedTime = 0;
     let isRunning = true;
     
     const gameLoop = (currentTime: number) => {
@@ -375,12 +379,16 @@ export const useGameLoop = () => {
       }
       
       const delta = currentTime - lastTime;
+      lastTime = currentTime;
+      
+      // Accumulate time to handle variable frame rates smoothly
+      accumulatedTime += delta;
+      
       // Only move down if enough time has passed (prevents excessive updates)
-      // Using smoothed delta for better frame timing
-      if (delta >= gameState.speed) {
+      if (accumulatedTime >= gameState.speed) {
         moveDown();
-        // Smooth timing adjustment to prevent jitter
-        lastTime = currentTime - (delta % gameState.speed);
+        // Keep remainder for smoother timing
+        accumulatedTime = accumulatedTime % gameState.speed;
       }
       
       // Continue loop only if still running
