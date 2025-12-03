@@ -225,7 +225,7 @@ export const useLeaderboard = (currentProfileId?: string) => {
       reloadTimeout = setTimeout(() => {
         loadLeaderboard();
         reloadTimeout = null;
-      }, 2000); // Throttle to max once per 2 seconds
+      }, 500); // Reduced throttle to 500ms for faster updates
     };
 
     // Subscribe to realtime updates for profiles table

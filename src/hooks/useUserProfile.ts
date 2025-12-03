@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { sanitizeUsername } from '@/utils/validation';
 
@@ -127,11 +127,7 @@ export const useUserProfile = () => {
     return offlineProfile;
   };
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       if (!isSupabaseConfigured) {
         hydrateOfflineProfile('Supabase environment missing');
@@ -214,7 +210,66 @@ export const useUserProfile = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // Listen for progress sync events and refresh profile
+  useEffect(() => {
+    const handleProgressSynced = () => {
+      // Refresh profile from Supabase when progress is synced
+      if (profile?.id && !profile.isOffline && isSupabaseConfigured) {
+        loadProfile();
+      }
+    };
+
+    window.addEventListener('progressSynced', handleProgressSynced);
+    return () => window.removeEventListener('progressSynced', handleProgressSynced);
+  }, [profile?.id, profile?.isOffline, loadProfile]);
+
+  // Subscribe to real-time profile updates from Supabase
+  useEffect(() => {
+    if (!isSupabaseConfigured || !profile?.id || profile.isOffline) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`profile-updates-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${profile.id}`
+        },
+        (payload) => {
+          // Refresh profile when it's updated in Supabase
+          if (payload.new) {
+            const updatedProfile: UserProfile = {
+              id: payload.new.id,
+              user_id: payload.new.user_id,
+              username: payload.new.username,
+              city: payload.new.city || '',
+              country: payload.new.country || '',
+              avatarColor: payload.new.avatar_color,
+              joinedDate: payload.new.created_at,
+              highestScore: payload.new.highest_score,
+              currentLevel: payload.new.current_level,
+              totalCoins: payload.new.total_coins,
+            };
+            setProfile(updatedProfile);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, profile?.isOffline]);
 
   const createProfile = async (name: string, country: string) => {
     console.log('[useUserProfile] Creating profile:', { name, country });

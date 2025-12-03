@@ -164,11 +164,15 @@ const Profile = () => {
           ) : (
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-primary">{progress.highestScore.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {(profile?.highestScore ?? progress.highestScore).toLocaleString()}
+                </div>
                 <div className="text-xs text-muted-foreground">Best Score</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-primary">{progress.currentLevel}</div>
+                <div className="text-2xl font-bold text-primary">
+                  {profile?.currentLevel ?? progress.currentLevel}
+                </div>
                 <div className="text-xs text-muted-foreground">Current Level</div>
               </div>
               <div>

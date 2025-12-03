@@ -639,14 +639,27 @@ export const useGameProgress = () => {
         .update({
           highest_score: progressData.highestScore,
           current_level: progressData.currentLevel,
-          total_coins: progressData.totalCoins
+          total_coins: progressData.totalCoins,
+          updated_at: new Date().toISOString() // Ensure updated_at is set for leaderboard sorting
         })
         .eq('id', profileId);
 
       if (error) {
         console.error('Failed to sync progress to backend:', error);
       } else {
-        console.log('✅ Progress synced to backend');
+        console.log('✅ Progress synced to backend:', {
+          highest_score: progressData.highestScore,
+          current_level: progressData.currentLevel,
+          total_coins: progressData.totalCoins
+        });
+        // Dispatch custom event to notify other components of sync
+        window.dispatchEvent(new CustomEvent('progressSynced', {
+          detail: {
+            highestScore: progressData.highestScore,
+            currentLevel: progressData.currentLevel,
+            totalCoins: progressData.totalCoins
+          }
+        }));
       }
     } catch (error) {
       console.error('Error syncing to backend:', error);

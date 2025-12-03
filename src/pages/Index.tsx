@@ -45,7 +45,7 @@ const Index = () => {
             💰 {progress.totalCoins} Coins
           </Badge>
           <Badge variant="glass" className="text-base px-4 py-2 hover:shadow-glow transition-all">
-            🏆 Best: {progress.highestScore}
+            🏆 Best: {progress.highestScore.toLocaleString()}
           </Badge>
         </div>
 
