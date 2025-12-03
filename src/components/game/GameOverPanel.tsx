@@ -121,7 +121,13 @@ const GameOverPanel = ({
         {isRewardedLoading ? 'Loading...' : 'Watch Ad & Continue (+50 Coins)'}
       </Button>
       <div className="flex gap-2 w-full">
-        <Button onClick={onGoHome} variant="outline" className="flex-1 glass-card border-primary/20 hover:shadow-glow">
+        <Button onClick={() => {
+          // Mark that user is coming from game completion
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('blockrise_from_game_completion', 'true');
+          }
+          onGoHome();
+        }} variant="outline" className="flex-1 glass-card border-primary/20 hover:shadow-glow">
           <Home className="mr-2 h-4 w-4" />
           Home
         </Button>

@@ -6,12 +6,30 @@ import { useGameProgress } from "@/hooks/useGameProgress";
 import { Badge } from "@/components/ui/badge";
 import ProfileSetupDialog from "@/components/ProfileSetupDialog";
 import DailyRewardPopup from "@/components/DailyRewardPopup";
+import FeaturePromoPopup from "@/components/FeaturePromoPopup";
+import { useFeaturePromoPopup } from "@/hooks/useFeaturePromoPopup";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useEffect, useState } from "react";
 
 const Index = () => {
   const navigate = useNavigate();
   const { progress, isLoading } = useGameProgress();
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
+  const [fromGameCompletion, setFromGameCompletion] = useState(false);
+  
+  // Check if user came from game completion
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      const flag = localStorage.getItem('blockrise_from_game_completion');
+      if (flag === 'true') {
+        setFromGameCompletion(true);
+        // Clear the flag after reading
+        localStorage.removeItem('blockrise_from_game_completion');
+      }
+    }
+  }, []);
+  
+  const { isOpen, variant, onClose } = useFeaturePromoPopup('home', fromGameCompletion);
 
   if (isLoading) {
     return (
@@ -25,6 +43,7 @@ const Index = () => {
     <>
       <ProfileSetupDialog />
       <DailyRewardPopup />
+      <FeaturePromoPopup variant={variant} isOpen={isOpen} onClose={onClose} />
       <ScrollArea className="h-full">
         <div className="min-h-full bg-background relative overflow-hidden">
           {/* Animated background gradient */}

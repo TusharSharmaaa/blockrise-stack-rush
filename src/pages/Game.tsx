@@ -787,7 +787,13 @@ const Game = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2">
-            <Button onClick={() => navigate('/')} variant="outline" className="glass-card border-primary/20 hover:shadow-glow">
+            <Button onClick={() => {
+              // Mark that user is coming from game completion
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('blockrise_from_game_completion', 'true');
+              }
+              navigate('/');
+            }} variant="outline" className="glass-card border-primary/20 hover:shadow-glow">
               <Home className="mr-2 h-4 w-4" />
               Home
             </Button>
@@ -816,7 +822,13 @@ const Game = () => {
               nextPlayableLevel={nextPlayableLevel}
               onPlayNextLevel={handlePlayNextLevel}
               onContinueWithAd={handleContinueWithAd}
-              onGoHome={() => navigate('/')}
+              onGoHome={() => {
+                // Mark that user is coming from game completion
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('blockrise_from_game_completion', 'true');
+                }
+                navigate('/');
+              }}
               onPlayAgain={handlePlayAgain}
               isRewardedLoading={isRewardedLoading}
             />

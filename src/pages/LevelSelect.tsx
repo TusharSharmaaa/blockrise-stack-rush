@@ -10,10 +10,12 @@ import { toast } from 'sonner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import FeaturePromoPopup from '@/components/FeaturePromoPopup';
+import { useFeaturePromoPopup } from '@/hooks/useFeaturePromoPopup';
 
 const LevelSelect = () => {
   const navigate = useNavigate();
-  const { progress, watchAdForLevel, selectLevel, isLoading, canWatchAdToday, getScoreRequirement, getLevelBestScore, getStarsForLevel } = useGameProgress();
+  const { progress, watchAdForLevel, watchAdToCompleteLevel, selectLevel, isLoading, canWatchAdToday, getScoreRequirement, getLevelBestScore, getStarsForLevel } = useGameProgress();
   const selectedLevel = progress.selectedLevel ?? progress.currentLevel;
   
   // Debug logging
@@ -30,6 +32,32 @@ const LevelSelect = () => {
   useBackButton(); // Handle Android back button
 
   const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const { isOpen, variant, onClose } = useFeaturePromoPopup('level', false);
+  
+  const handleWatchAdToClearLevel = async () => {
+    if (isWatchingAd) return;
+    setIsWatchingAd(true);
+    try {
+      const adResult = await showRewardedAd();
+      if (!adResult.success) {
+        toast.error('Ad was not completed. Please try again.');
+        return;
+      }
+      // Use the selected level or current level
+      const levelToClear = selectedLevel;
+      const result = await watchAdToCompleteLevel(levelToClear, 0);
+      if (result.success) {
+        toast.success(`🎉 Level ${levelToClear} cleared! You can now proceed.`);
+      } else {
+        toast.error(result.message || 'Failed to clear level.');
+      }
+    } catch (error) {
+      console.error('Failed to watch ad for level clear:', error);
+      toast.error('Something went wrong.');
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
   
   // Check if we're in light theme (handles 'system' theme too)
   const isLightTheme = resolvedTheme === 'light' || (theme === 'light');
@@ -105,8 +133,15 @@ const LevelSelect = () => {
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="min-h-full bg-background relative overflow-hidden">
+    <>
+      <FeaturePromoPopup 
+        variant={variant} 
+        isOpen={isOpen} 
+        onClose={onClose}
+        onAction={variant === 'watch-ad-clear-level' ? handleWatchAdToClearLevel : undefined}
+      />
+      <ScrollArea className="h-full">
+        <div className="min-h-full bg-background relative overflow-hidden">
         {/* Animated background gradient */}
         <div className="absolute inset-0 bg-gradient-hero opacity-50 animate-gradient pointer-events-none" />
         
@@ -287,6 +322,7 @@ const LevelSelect = () => {
         </div>
       </div>
     </ScrollArea>
+    </>
   );
 };
 
