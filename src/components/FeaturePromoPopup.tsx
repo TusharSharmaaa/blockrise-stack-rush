@@ -65,10 +65,11 @@ interface FeaturePromoPopupProps {
   variant: PopupVariant;
   isOpen: boolean;
   onClose: () => void;
-  onAction?: () => void;
+  onActionCompleted?: () => void; // Called when action is successfully completed (watched ad)
+  onAction?: () => void; // Legacy callback for custom actions
 }
 
-const FeaturePromoPopup = ({ variant, isOpen, onClose, onAction }: FeaturePromoPopupProps) => {
+const FeaturePromoPopup = ({ variant, isOpen, onClose, onActionCompleted, onAction }: FeaturePromoPopupProps) => {
   const navigate = useNavigate();
   const { showRewardedAd, isRewardedLoading } = useAdMob();
   const { addCoins } = useGameProgress();
@@ -91,22 +92,42 @@ const FeaturePromoPopup = ({ variant, isOpen, onClose, onAction }: FeaturePromoP
         if (variant === 'watch-ads-coins') {
           await addCoins(50);
           toast.success('🎉 You earned 50 coins!');
+          // Mark as completed (watched ad) - don't show again today
+          if (onActionCompleted) {
+            onActionCompleted();
+          } else {
+            onClose();
+          }
+          return;
         } else if (variant === 'watch-ad-clear-level') {
           // This will be handled by the parent component
           if (onAction) {
             await onAction();
           }
-          onClose();
-          return; // Don't close again or navigate
+          // Mark as completed (watched ad) - don't show again today
+          if (onActionCompleted) {
+            onActionCompleted();
+          } else {
+            onClose();
+          }
+          return;
         }
       } else if (config.actionPath) {
         navigate(config.actionPath);
+        // For navigation actions, mark as completed too
+        if (onActionCompleted) {
+          onActionCompleted();
+        } else {
+          onClose();
+        }
+        return;
       }
 
       if (onAction && variant !== 'watch-ad-clear-level') {
         onAction();
       }
       
+      // If no specific completion handler, just close (treats as dismissed)
       onClose();
     } catch (error) {
       console.error('Failed to handle popup action:', error);

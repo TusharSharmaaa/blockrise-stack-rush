@@ -13,15 +13,58 @@ import { useGameProgress } from '@/hooks/useGameProgress';
 import { useAdMob } from '@/hooks/useAdMob';
 import { toast } from 'sonner';
 
+const STORAGE_KEY = 'blockrise_daily_reward_dismissed';
+const COOLDOWN_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
+
 const DailyRewardPopup = () => {
   const { progress, isLoading, claimDailyReward } = useGameProgress();
   const { showRewardedAd, isRewardedLoading } = useAdMob();
   const [isOpen, setIsOpen] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
 
+  // Check if popup was dismissed recently (within cooldown period)
+  const wasDismissedRecently = (): boolean => {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return false;
+      
+      const dismissalTime = parseInt(stored, 10);
+      if (isNaN(dismissalTime)) return false;
+      
+      const timeSinceDismissal = Date.now() - dismissalTime;
+      // If dismissed within cooldown period, don't show
+      return timeSinceDismissal < COOLDOWN_TIME;
+    } catch {
+      return false;
+    }
+  };
+
+  // Mark popup as dismissed with timestamp (for "Maybe Later")
+  const markDismissed = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+    } catch (error) {
+      console.error('Failed to save dismissal state:', error);
+    }
+  };
+
+  // Clear dismissal (when reward is claimed, we don't need this)
+  const clearDismissal = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Failed to clear dismissal state:', error);
+    }
+  };
+
   // Show popup when game opens and daily reward is not claimed
   useEffect(() => {
-    if (!isLoading && !progress.hasClaimedDailyReward) {
+    // If already claimed today, never show (handled by hasClaimedDailyReward)
+    // If dismissed recently (Maybe Later), don't show until cooldown expires
+    if (!isLoading && !progress.hasClaimedDailyReward && !wasDismissedRecently()) {
       // Small delay to ensure smooth UI transition
       const timer = setTimeout(() => {
         setIsOpen(true);
@@ -48,9 +91,14 @@ const DailyRewardPopup = () => {
       if (rewardResult.success && rewardResult.reward > 0) {
         toast.success(`🎉 Claimed ${rewardResult.reward} coins! Keep your streak going!`);
         setIsOpen(false);
+        // Clear any dismissal state since reward was claimed
+        // hasClaimedDailyReward will prevent showing again today
+        clearDismissal();
       } else {
         toast.info(rewardResult.message || 'Already claimed today. Come back tomorrow!');
         setIsOpen(false);
+        // Clear dismissal since already claimed (hasClaimedDailyReward handles it)
+        clearDismissal();
       }
     } catch (error) {
       console.error('Failed to claim daily reward:', error);
@@ -62,6 +110,8 @@ const DailyRewardPopup = () => {
 
   const handleClose = () => {
     setIsOpen(false);
+    // Mark as dismissed with timestamp for "Maybe Later" - can show again after cooldown
+    markDismissed();
   };
 
   // Calculate reward amount
@@ -69,8 +119,16 @@ const DailyRewardPopup = () => {
   const streakBonus = (progress.dailyStreak || 1) * 10;
   const totalReward = baseReward + streakBonus;
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      // User closed the dialog (via X button or outside click) - treat as "Maybe Later"
+      markDismissed();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center justify-center mb-2">

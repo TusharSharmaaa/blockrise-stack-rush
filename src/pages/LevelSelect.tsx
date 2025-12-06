@@ -32,7 +32,7 @@ const LevelSelect = () => {
   useBackButton(); // Handle Android back button
 
   const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const { isOpen, variant, onClose } = useFeaturePromoPopup('level', false);
+  const { isOpen, variant, onClose, onActionCompleted } = useFeaturePromoPopup('level', false);
   
   const handleWatchAdToClearLevel = async () => {
     if (isWatchingAd) return;
@@ -138,6 +138,7 @@ const LevelSelect = () => {
         variant={variant} 
         isOpen={isOpen} 
         onClose={onClose}
+        onActionCompleted={onActionCompleted}
         onAction={variant === 'watch-ad-clear-level' ? handleWatchAdToClearLevel : undefined}
       />
       <ScrollArea className="h-full">

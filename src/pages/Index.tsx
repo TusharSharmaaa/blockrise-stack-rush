@@ -29,7 +29,7 @@ const Index = () => {
     }
   }, []);
   
-  const { isOpen, variant, onClose } = useFeaturePromoPopup('home', fromGameCompletion);
+  const { isOpen, variant, onClose, onActionCompleted } = useFeaturePromoPopup('home', fromGameCompletion);
 
   if (isLoading) {
     return (
@@ -43,7 +43,7 @@ const Index = () => {
     <>
       <ProfileSetupDialog />
       <DailyRewardPopup />
-      <FeaturePromoPopup variant={variant} isOpen={isOpen} onClose={onClose} />
+      <FeaturePromoPopup variant={variant} isOpen={isOpen} onClose={onClose} onActionCompleted={onActionCompleted} />
       <ScrollArea className="h-full">
         <div className="min-h-full bg-background relative overflow-hidden">
           {/* Animated background gradient */}
